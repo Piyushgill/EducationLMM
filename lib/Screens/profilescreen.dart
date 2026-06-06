@@ -1,5 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:thenew/Screens/maindashboardsccreen.dart';
+import 'package:thenew/Screens/ourprogram.dart';
+import 'package:thenew/Screens/ourprogramsmain.dart';
 
 class Profilescreen extends StatelessWidget{
   const Profilescreen({super.key});
@@ -7,45 +10,108 @@ class Profilescreen extends StatelessWidget{
   @override
   Widget build(BuildContext context){
     return Scaffold(
-    backgroundColor: const Color(0xffF5F5F5),
-    bottomNavigationBar: BottomNavigationBar(
-    currentIndex: 4,
-    type: BottomNavigationBarType.fixed,
-    selectedItemColor: const Color(0xff2563EB),
-    unselectedItemColor: Colors.grey,
-
-    items: const [
-    BottomNavigationBarItem(
-    icon: Icon(Icons.home_outlined),
-    activeIcon: Icon(Icons.home),
-    label: "Home",
-    ),
-
-    BottomNavigationBarItem(
-    icon: Icon(Icons.groups_outlined),
-    activeIcon: Icon(Icons.groups),
-    label: "Company",
-    ),
-
-    BottomNavigationBarItem(
-    icon: Icon(Icons.menu_book_outlined),
-    activeIcon: Icon(Icons.menu_book),
-    label: "Programs",
-    ),
-
-    BottomNavigationBarItem(
-    icon: Icon(Icons.star_border_rounded),
-    activeIcon: Icon(Icons.star),
-    label: "Reviews",
-    ),
-
-    BottomNavigationBarItem(
-    icon: Icon(Icons.person_outline),
-    activeIcon: Icon(Icons.person),
-    label: "Profile",
-    ),
-    ],
-    ),
+        drawer: Drawer(
+            child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                    const DrawerHeader(
+                        decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                                colors: [Color(0xff2563EB), Color(0xffA020F0)],
+                            ),
+                        ),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                                CircleAvatar(
+                                    backgroundColor: Colors.white,
+                                    radius: 30,
+                                    child: Icon(Icons.person, size: 35, color: Color(0xff2563EB)),
+                                ),
+                                SizedBox(height: 10),
+                                Text(
+                                    "Distributor Name",
+                                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                            ],
+                        ),
+                    ),
+                    ListTile(
+                        leading: const Icon(Icons.dashboard_outlined),
+                        title: const Text('Dashboard'),
+                        onTap: () => Navigator.pop(context),
+                    ),
+                    ListTile(
+                        leading: const Icon(Icons.settings_outlined),
+                        title: const Text('Settings'),
+                        onTap: () {
+                            // Handle settings navigation
+                        },
+                    ),
+                ],
+            ),
+        ),
+    backgroundColor: Colors.white,
+//     bottomNavigationBar: BottomNavigationBar(
+//     currentIndex: 2,
+//     onTap: (index){
+//       if(index == 0){
+//         Navigator.push(context,
+//           MaterialPageRoute(builder: (context)=> MainDashboardScreen(),
+//           ),
+//         );
+//       }
+//       if(index == 1){
+//         Navigator.push(context,
+//         MaterialPageRoute(builder: (context)=> ourprogramsmainScreen(),
+//         ),
+//         );
+//       }
+//       if(index == 2){
+//         Navigator.push(context,
+//           MaterialPageRoute(builder: (context)=> Profilescreen(),
+//           ),
+//         );
+//       }
+//     },
+// backgroundColor: Colors.white,
+//     type: BottomNavigationBarType.fixed,
+//     selectedItemColor: const Color(0xff2563EB),
+//     unselectedItemColor: Colors.grey,
+//
+//     items: const [
+//     BottomNavigationBarItem(
+//     icon: Icon(Icons.home_outlined),
+//     activeIcon: Icon(Icons.home),
+//     label: "Home",
+//     ),
+//
+//     // BottomNavigationBarItem(
+//     // icon: Icon(Icons.groups_outlined),
+//     // activeIcon: Icon(Icons.groups),
+//     // label: "Company",
+//     // ),
+//
+//     BottomNavigationBarItem(
+//     icon: Icon(Icons.menu_book_outlined),
+//     activeIcon: Icon(Icons.menu_book),
+//     label: "Programs",
+//     ),
+//
+//     // BottomNavigationBarItem(
+//     // icon: Icon(Icons.star_border_rounded),
+//     // activeIcon: Icon(Icons.star),
+//     // label: "Reviews",
+//     // ),
+//
+//     BottomNavigationBarItem(
+//     icon: Icon(Icons.person_outline),
+//     activeIcon: Icon(Icons.person),
+//     label: "Profile",
+//     ),
+//     ],
+//     ),
 
     body: SafeArea(
     child: SingleChildScrollView(
@@ -259,7 +325,7 @@ class Profilescreen extends StatelessWidget{
     const Text(
     "Account Details",
     style: TextStyle(
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: FontWeight.bold,
     ),
     ),
@@ -278,7 +344,7 @@ class Profilescreen extends StatelessWidget{
     "Email",
     style: TextStyle(
     color: Colors.grey.shade600,
-    fontSize: 16,
+    fontSize: 15,
     ),
     ),
 
@@ -287,7 +353,7 @@ class Profilescreen extends StatelessWidget{
     const Text(
     "john@example.com",
     style: TextStyle(
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: FontWeight.w500,
     ),
     ),
@@ -310,7 +376,7 @@ class Profilescreen extends StatelessWidget{
     "Phone",
     style: TextStyle(
     color: Colors.grey.shade600,
-    fontSize: 16,
+    fontSize: 15,
     ),
     ),
 
@@ -319,7 +385,7 @@ class Profilescreen extends StatelessWidget{
     const Text(
     "+91 9876543210",
     style: TextStyle(
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: FontWeight.w500,
     ),
     ),
@@ -397,7 +463,7 @@ class Profilescreen extends StatelessWidget{
     "Logout",
     style: TextStyle(
     color: Color(0xffDC2626),
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: FontWeight.w600,
     ),
     ),
@@ -447,7 +513,7 @@ class Profilescreen extends StatelessWidget{
     Icon(
     icon,
     color: Colors.grey.shade700,
-    size: 28,
+    size: 20,
     ),
 
     const SizedBox(width: 16),
@@ -456,7 +522,7 @@ class Profilescreen extends StatelessWidget{
     child: Text(
     title,
     style: const TextStyle(
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: FontWeight.w500,
     ),
     ),
@@ -465,7 +531,7 @@ class Profilescreen extends StatelessWidget{
     Icon(
     Icons.chevron_right_rounded,
     color: Colors.grey.shade500,
-    size: 30,
+    size: 20,
     ),
     ],
     ),

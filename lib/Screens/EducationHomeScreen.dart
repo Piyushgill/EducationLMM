@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:thenew/Screens/Schooljoinus.dart';
-import 'package:thenew/Screens/distributorjoinus.dart';
-import 'package:thenew/Screens/franchisejoinus.dart';
-import 'package:thenew/Screens/joinus.dart';
+import 'package:thenew/services/Schooljoinus.dart';
+import 'package:thenew/services/distributorjoinus.dart';
+import 'package:thenew/services/franchisejoinus.dart';
+import 'package:thenew/services/joinus.dart';
 import 'package:thenew/Screens/ourprogram.dart';
 import 'package:thenew/Screens/watchdemovideo.dart';
 
-class EducationHomeScreen extends StatelessWidget {
-   EducationHomeScreen({super.key});
+class EducationLLMHomeScreen extends StatelessWidget {
+   EducationLLMHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

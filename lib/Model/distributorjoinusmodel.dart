@@ -6,7 +6,7 @@ class DistributorFormModel {
   final String phone;
   final String city;
   final String businessExperience;
-  final bool isAccepted;
+  final bool status;
 
   DistributorFormModel({
     required this.fullName,
@@ -14,7 +14,7 @@ class DistributorFormModel {
     required this.phone,
     required this.city,
     required this.businessExperience,
-    required this.isAccepted,
+    required this.status,
   });
 
   // FROM JSON
@@ -28,7 +28,7 @@ class DistributorFormModel {
       city: json['city'] ?? '',
       businessExperience:
       json['businessExperience'] ?? '',
-      isAccepted: json['isAccepted'] ?? false,
+      status: json['status'] ?? false,
     );
   }
 
@@ -41,7 +41,7 @@ class DistributorFormModel {
       'city': city,
       'businessExperience':
       businessExperience,
-      'isAccepted': isAccepted,
+      'status': status,
     };
   }
 
@@ -52,7 +52,7 @@ class DistributorFormModel {
     String? phone,
     String? city,
     String? businessExperience,
-    bool? isAccepted,
+    bool? status,
   }) {
     return DistributorFormModel(
       fullName: fullName ?? this.fullName,
@@ -62,8 +62,8 @@ class DistributorFormModel {
       businessExperience:
       businessExperience ??
           this.businessExperience,
-      isAccepted:
-      isAccepted ?? this.isAccepted,
+      status:
+      status ?? this.status,
     );
   }
 }
