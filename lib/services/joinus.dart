@@ -80,17 +80,17 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
       case "Distributor":
         screen = const DistributorDashboard();
         break;
-      case "Franchise Partner":
-        screen = const FranchiseDashboard();
+      // case "Franchise Partner":
+      //   screen = const FranchiseDashboard();
+      //   break;
+      // case "School":
+      //   screen = const SchoolDashboard();
         break;
-      case "School":
-        screen = const SchoolDashboard();
-        break;
-      case "Student":
+       case "Student":
         screen = const StudentDashboard();
         break;
       case "Admin":
-      // screen = const AdminDashboard(); // add when ready
+      //screen = const AdminDashboard(); // add when ready
         screen = const DistributorDashboard();
         break;
       default:
