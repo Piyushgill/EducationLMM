@@ -7,6 +7,7 @@ import 'package:thenew/Screens/profilescreen.dart';
 import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
+import 'package:thenew/services/Agreement_signin.dart';
 import 'package:thenew/services/joinus.dart';
 
 

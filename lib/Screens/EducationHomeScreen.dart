@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:thenew/services/Schooljoinus.dart';
+import 'package:thenew/services/Student_joinus.dart';
 import 'package:thenew/services/distributorjoinus.dart';
 import 'package:thenew/services/franchisejoinus.dart';
 import 'package:thenew/services/joinus.dart';
@@ -184,13 +185,13 @@ class EducationLLMHomeScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>SchoolJoinScreen(),
+                  builder: (context) =>StudentSignUpScreen(),
                 ),
               );
             },
             child: _buildJoinCard(
-                title: "School",
-                subtitle: "Integrate programs",
+                title: "Student",
+                subtitle: "Tech Your Self",
                 gradient:  [Color(0xff22C55E), Color(0xff00B63E),
                 ],
                 icon: Icons.apartment_rounded,

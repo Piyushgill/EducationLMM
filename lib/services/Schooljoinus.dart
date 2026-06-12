@@ -117,35 +117,35 @@ class _SchoolJoinScreenState
                 ),
               ),
  SizedBox(height: 35),
-              buildTitle("School Name"),
+              buildTitle("School Name", Astrick: true),
              SizedBox(height: 12),
               buildField(
                 hint: "Enter school name",
                 icon: Icons.school_outlined,
               ),
  SizedBox(height: 24),
-              buildTitle("Principal Name"),
+              buildTitle("Principal Name", Astrick: true),
 SizedBox(height: 12),
               buildField(
                 hint: "Enter principal name",
                 icon: Icons.person_outline_rounded,
               ),
  SizedBox(height: 24),
-              buildTitle("Email Address"),
+              buildTitle("Email Address", Astrick: true),
  SizedBox(height: 12),
               buildField(
                 hint: "Enter School Email Address",
                 icon: Icons.mail_outline_rounded,
               ),
 SizedBox(height: 24),
-              buildTitle("Phone Number"),
+              buildTitle("Phone Number", Astrick: true),
 SizedBox(height: 12),
               buildField(
                 hint: "Enter Phone Number",
                 icon: Icons.call_outlined,
               ),
  SizedBox(height: 24),
-              buildTitle("School Address"),
+              buildTitle("School Address", Astrick: true),
  SizedBox(height: 12),
               Container(
                 padding: EdgeInsets.all(18),
@@ -245,12 +245,26 @@ SizedBox(height: 12),
     );
   }
 
-  Widget buildTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
+  Widget buildTitle(String title, {bool Astrick = false}) {
+    return RichText(
+      text: TextSpan(
+        text: title,
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: Colors.black,
+        ),
+        children: [
+          if (Astrick)
+            TextSpan(
+              text: ' *',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
       ),
     );
   }
