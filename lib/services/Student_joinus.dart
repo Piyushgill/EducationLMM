@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/dashboards/studentdashboard.dart';
+
 
 class StudentSignUpScreen extends StatefulWidget {
   const StudentSignUpScreen({super.key});
@@ -264,10 +266,15 @@ class _StudentSignUpScreenState extends State<StudentSignUpScreen> {
 
               const SizedBox(height: 32),
 
-              /// Sign Up Button
+              /// Sign Up Button — navigates to StudentDashboardScreen
               InkWell(
                 onTap: () {
-                  // Sign Up Logic
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const StudentDashboard(),
+                    ),
+                  );
                 },
                 borderRadius: BorderRadius.circular(22),
                 child: Container(

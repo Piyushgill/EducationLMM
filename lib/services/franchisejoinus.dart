@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/dashboards/franchisedashboard.dart';
 
 class FranchiseJoinScreen extends StatefulWidget {
    FranchiseJoinScreen({super.key});
@@ -202,36 +203,62 @@ SizedBox(height: 24),
                 ),
               ),
 SizedBox(height: 32),
-              Container(
-                height: 62,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xff9333EA),
-                      Color(0xffEC4899),
+              SizedBox(height: 32),
+
+              InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: () {
+                  if (!isChecked) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Please accept Terms & Conditions and Privacy Policy",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FranchiseDashboard(),
+                    ),
+                  );
+                },
+                child: Container(
+                  height: 62,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xff9333EA),
+                        Color(0xffEC4899),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 12,
+                        offset: Offset(0, 5),
+                      ),
                     ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.15),
-                      blurRadius: 12,
-                      offset:  Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child:  Center(
-                  child: Text(
-                    "Apply For Franchise",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                  child: const Center(
+                    child: Text(
+                      "Apply For Franchise",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
+
+              const SizedBox(height: 30),
  SizedBox(height: 30),
             ],
           ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/dashboards/distributor_dashboard.dart';
 
 class DistributorJoinScreen extends StatefulWidget {
-   DistributorJoinScreen({super.key});
+  const DistributorJoinScreen({super.key});
 
   @override
   State<DistributorJoinScreen> createState() =>
@@ -10,35 +11,41 @@ class DistributorJoinScreen extends StatefulWidget {
 
 class _DistributorJoinScreenState
     extends State<DistributorJoinScreen> {
-
   bool isChecked = true;
+
+  final TextEditingController nameController =
+  TextEditingController();
+  final TextEditingController emailController =
+  TextEditingController();
+  final TextEditingController phoneController =
+  TextEditingController();
+  final TextEditingController cityController =
+  TextEditingController();
+  final TextEditingController experienceController =
+  TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:  Color(0xfff5f5f5),
-
+      backgroundColor: const Color(0xfff5f5f5),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding:  EdgeInsets.all(22),
+          padding: const EdgeInsets.all(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               // BACK BUTTON
               InkWell(
                 onTap: () {
                   Navigator.pop(context);
                 },
-                child:  Row(
+                child: const Row(
                   children: [
                     Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,
                     ),
-
                     SizedBox(width: 6),
-
                     Text(
                       "Back",
                       style: TextStyle(
@@ -50,15 +57,15 @@ class _DistributorJoinScreenState
                 ),
               ),
 
-               SizedBox(height: 35),
+              const SizedBox(height: 35),
 
               // HEADER
               Container(
                 width: double.infinity,
-                padding:  EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(30),
-                  gradient:  LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [
                       Color(0xff2563EB),
                       Color(0xff9333EA),
@@ -68,24 +75,24 @@ class _DistributorJoinScreenState
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
                   children: [
-
                     Container(
-                      padding:  EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(.18),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius:
+                        BorderRadius.circular(20),
                       ),
-                      child:  Icon(
+                      child: const Icon(
                         Icons.groups_rounded,
                         color: Colors.white,
                         size: 34,
                       ),
                     ),
-
-                     SizedBox(height: 24),
-                    Text(
+                    const SizedBox(height: 24),
+                    const Text(
                       "Distributor\nJoin Us",
                       style: TextStyle(
                         color: Colors.white,
@@ -94,11 +101,12 @@ class _DistributorJoinScreenState
                         height: 1.2,
                       ),
                     ),
-                     SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
                       "Become our official distributor and grow with India's leading education platform.",
                       style: TextStyle(
-                        color: Colors.white.withOpacity(.92),
+                        color:
+                        Colors.white.withOpacity(.92),
                         fontSize: 16,
                         height: 1.5,
                       ),
@@ -106,57 +114,78 @@ class _DistributorJoinScreenState
                   ],
                 ),
               ),
-              SizedBox(height: 35),
+
+              const SizedBox(height: 35),
+
               buildTitle("Full Name"),
- SizedBox(height: 12),
+              const SizedBox(height: 12),
               buildField(
+                controller: nameController,
                 hint: "Enter your full name",
                 icon: Icons.person_outline_rounded,
               ),
-           SizedBox(height: 24),
+
+              const SizedBox(height: 24),
+
               buildTitle("Email Address"),
- SizedBox(height: 12),
+              const SizedBox(height: 12),
               buildField(
+                controller: emailController,
                 hint: "Enter your email Address",
                 icon: Icons.mail_outline_rounded,
               ),
- SizedBox(height: 24),
+
+              const SizedBox(height: 24),
+
               buildTitle("Phone Number"),
- SizedBox(height: 12),
+              const SizedBox(height: 12),
               buildField(
+                controller: phoneController,
                 hint: "Enter your phone number",
                 icon: Icons.call_outlined,
               ),
-SizedBox(height: 24),
+
+              const SizedBox(height: 24),
+
               buildTitle("City"),
- SizedBox(height: 12),
+              const SizedBox(height: 12),
               buildField(
+                controller: cityController,
                 hint: "Enter your city",
                 icon: Icons.location_on_outlined,
               ),
- SizedBox(height: 24),
+
+              const SizedBox(height: 24),
+
               buildTitle("Business Experience"),
-SizedBox(height: 12),
+              const SizedBox(height: 12),
+
               Container(
-                padding:  EdgeInsets.all(18),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                  BorderRadius.circular(20),
                 ),
-                child:  TextField(
+                child: TextField(
+                  controller: experienceController,
                   maxLines: 4,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     border: InputBorder.none,
                     hintText:
                     "Write about your business experience...",
                   ),
                 ),
-              ), SizedBox(height: 24),
+              ),
+
+              const SizedBox(height: 24),
+
               Container(
-                padding:  EdgeInsets.all(14),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius:
+                  BorderRadius.circular(18),
                 ),
                 child: Row(
                   crossAxisAlignment:
@@ -171,9 +200,10 @@ SizedBox(height: 12),
                         });
                       },
                     ),
-Expanded(
+                    const Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(top: 12),
+                        padding:
+                        EdgeInsets.only(top: 12),
                         child: Text(
                           "I agree to the Terms & Conditions and Privacy Policy.",
                           style: TextStyle(
@@ -185,38 +215,70 @@ Expanded(
                     ),
                   ],
                 ),
-              ), SizedBox(height: 30),
-              Container(
-                height: 62,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient:  LinearGradient(
-                    colors: [
-                      Color(0xff2563EB),
-                      Color(0xff9333EA),
+              ),
+
+              const SizedBox(height: 30),
+
+              // SUBMIT BUTTON
+              InkWell(
+                borderRadius:
+                BorderRadius.circular(20),
+                onTap: () {
+                  if (!isChecked) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Please accept Terms & Conditions first",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                      const DistributorDashboard(),
+                    ),
+                  );
+                },
+                child: Container(
+                  height: 62,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius:
+                    BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xff2563EB),
+                        Color(0xff9333EA),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                        Colors.black.withOpacity(.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
                     ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.15),
-                      blurRadius: 10,
-                      offset:  Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child:  Center(
-                  child: Text(
-                    "Submit Application",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                  child: const Center(
+                    child: Text(
+                      "Submit Application",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: 25),
+
+              const SizedBox(height: 25),
             ],
           ),
         ),
@@ -227,7 +289,7 @@ Expanded(
   Widget buildTitle(String title) {
     return Text(
       title,
-      style:  TextStyle(
+      style: const TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
       ),
@@ -235,6 +297,7 @@ Expanded(
   }
 
   Widget buildField({
+    required TextEditingController controller,
     required String hint,
     required IconData icon,
   }) {
@@ -244,6 +307,7 @@ Expanded(
         borderRadius: BorderRadius.circular(20),
       ),
       child: TextField(
+        controller: controller,
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: hint,
@@ -251,7 +315,8 @@ Expanded(
             icon,
             color: Colors.grey,
           ),
-          contentPadding:  EdgeInsets.symmetric(
+          contentPadding:
+          const EdgeInsets.symmetric(
             vertical: 20,
           ),
         ),
