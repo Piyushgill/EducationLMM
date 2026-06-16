@@ -1,22 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:thenew/dashboards/distributor_dashboard.dart';
-import 'package:thenew/dashboards/franchisedashboard.dart';
-import 'package:thenew/dashboards/schoolDashboard.dart';
-import 'package:thenew/dashboards/studentdashboard.dart';
+import 'package:thenew/services/kycverificationscreen.dart';
 
-// ============================================================
-//  Titleh1 Widget — fix: Color(2) → Colors.black
-// ============================================================
 
 class Titleh1 extends StatelessWidget {
   final String title;
   final bool astrick;
 
-  const Titleh1({
-    super.key,
-    required this.title,
-    this.astrick = false,
-  });
+  const Titleh1({super.key, required this.title, this.astrick = false});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +18,7 @@ class Titleh1 extends StatelessWidget {
           style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: Colors.black, // ✅ Fixed: was Color(2) which is wrong
+            color: Colors.black,
           ),
         ),
         if (astrick)
@@ -37,7 +27,7 @@ class Titleh1 extends StatelessWidget {
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
-              color: Colors.red, // ✅ Fixed: backgroundColor → color
+              color: Colors.red,
             ),
           ),
       ],
@@ -45,12 +35,8 @@ class Titleh1 extends StatelessWidget {
   }
 }
 
-// ============================================================
-//  JoinUsScreen
-// ============================================================
-
 class JoinUsScreen extends StatefulWidget {
-  JoinUsScreen({super.key});
+  const JoinUsScreen({super.key});
 
   @override
   State<JoinUsScreen> createState() => _JoinUsScreenState();
@@ -61,7 +47,11 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
   bool isPasswordHidden = true;
   String selectedRole = "Distributor";
 
-  // ── ROLE-BASED NAVIGATION ──
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   void _onContinue() {
     if (!isChecked) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,38 +59,28 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
           content: const Text("Please accept Terms & Conditions"),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
     }
 
-    Widget screen;
-    switch (selectedRole) {
-      case "Distributor":
-        screen = const DistributorDashboard();
-        break;
-      // case "Franchise Partner":
-      //   screen = const FranchiseDashboard();
-      //   break;
-      // case "School":
-      //   screen = const SchoolDashboard();
-        break;
-       case "Student":
-        screen = const StudentDashboard();
-        break;
-      case "Admin":
-      //screen = const AdminDashboard(); // add when ready
-        screen = const DistributorDashboard();
-        break;
-      default:
-        screen = const DistributorDashboard();
-    }
-
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => screen),
+      MaterialPageRoute(
+        builder: (_) => KycVerificationScreen(role: selectedRole),
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -113,25 +93,25 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               // ── BACK ──
-              Row(
-                children: [
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    borderRadius: BorderRadius.circular(10),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                      child: Row(
-                        children: [
-                          Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.black54),
-                          SizedBox(width: 6),
-                          Text("Back", style: TextStyle(fontSize: 18, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(10),
+                child: const Padding(
+                  padding:
+                  EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back_ios_new_rounded,
+                          size: 20, color: Colors.black54),
+                      SizedBox(width: 6),
+                      Text("Back",
+                          style: TextStyle(
+                              fontSize: 18, color: Colors.black54)),
+                    ],
                   ),
-                ],
+                ),
               ),
 
               const SizedBox(height: 20),
@@ -156,7 +136,8 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                   ],
                 ),
                 child: const Center(
-                  child: Text("✨", style: TextStyle(fontSize: 30)),
+                  child: Text("✨",
+                      style: TextStyle(fontSize: 30)),
                 ),
               ),
 
@@ -164,14 +145,16 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
 
               const Text(
                 "Join Us",
-                style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold, color: Colors.black),
+                style: TextStyle(
+                    fontSize: 35,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black),
               ),
-
               const SizedBox(height: 8),
-
               const Text(
                 "Start your journey with us",
-                style: TextStyle(fontSize: 18, color: Colors.black54),
+                style:
+                TextStyle(fontSize: 18, color: Colors.black54),
               ),
 
               const SizedBox(height: 40),
@@ -179,7 +162,6 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
               // ── ROLE ──
               const Titleh1(title: "I want to join as", astrick: true),
               const SizedBox(height: 12),
-
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
@@ -191,20 +173,22 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                     value: selectedRole,
                     isExpanded: true,
                     menuMaxHeight: 250,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded),
                     items: [
                       "Distributor",
                       "School",
                       "Franchise Partner",
                       "Student",
-                      "Admin",
                     ].map((e) {
                       return DropdownMenuItem(
                         value: e,
-                        child: Text(e, style: const TextStyle(fontSize: 18)),
+                        child: Text(e,
+                            style: const TextStyle(fontSize: 18)),
                       );
                     }).toList(),
-                    onChanged: (value) => setState(() => selectedRole = value!),
+                    onChanged: (value) =>
+                        setState(() => selectedRole = value!),
                   ),
                 ),
               ),
@@ -214,41 +198,56 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
               // ── FULL NAME ──
               const Titleh1(title: "Full Name", astrick: true),
               const SizedBox(height: 12),
-              buildTextField(hint: "Enter Your Name", icon: Icons.person_outline_rounded),
+              _buildTextField(
+                  controller: _nameController,
+                  hint: "Enter Your Name",
+                  icon: Icons.person_outline_rounded),
 
               const SizedBox(height: 12),
 
               // ── EMAIL ──
               const Titleh1(title: "Email", astrick: true),
               const SizedBox(height: 12),
-              buildTextField(hint: "Enter Your Email Address", icon: Icons.mail_outline_rounded),
+              _buildTextField(
+                  controller: _emailController,
+                  hint: "Enter Your Email Address",
+                  icon: Icons.mail_outline_rounded,
+                  keyboardType: TextInputType.emailAddress),
 
               const SizedBox(height: 12),
 
               // ── PHONE ──
               const Titleh1(title: "Phone", astrick: true),
               const SizedBox(height: 12),
-              buildTextField(hint: "Enter Your Phone Number", icon: Icons.call_outlined),
+              _buildTextField(
+                  controller: _phoneController,
+                  hint: "Enter Your Phone Number",
+                  icon: Icons.call_outlined,
+                  keyboardType: TextInputType.phone),
 
               const SizedBox(height: 12),
 
               // ── PASSWORD ──
               const Titleh1(title: "Password", astrick: true),
               const SizedBox(height: 12),
-
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xfff1f2f6),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: TextField(
+                  controller: _passwordController,
                   obscureText: isPasswordHidden,
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 20),
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
+                    contentPadding:
+                    const EdgeInsets.symmetric(vertical: 20),
+                    prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                        color: Colors.grey),
                     suffixIcon: IconButton(
-                      onPressed: () => setState(() => isPasswordHidden = !isPasswordHidden),
+                      onPressed: () => setState(
+                              () => isPasswordHidden = !isPasswordHidden),
                       icon: Icon(
                         isPasswordHidden
                             ? Icons.visibility_off_outlined
@@ -257,7 +256,8 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                       ),
                     ),
                     hintText: "Enter Your Password",
-                    hintStyle: const TextStyle(fontSize: 18, color: Colors.black87),
+                    hintStyle: const TextStyle(
+                        fontSize: 18, color: Colors.black87),
                   ),
                 ),
               ),
@@ -277,7 +277,8 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                     Checkbox(
                       value: isChecked,
                       activeColor: Colors.blue,
-                      onChanged: (value) => setState(() => isChecked = value!),
+                      onChanged: (value) =>
+                          setState(() => isChecked = value!),
                     ),
                     const SizedBox(width: 4),
                     const Expanded(
@@ -285,7 +286,10 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                         padding: EdgeInsets.only(top: 12),
                         child: Text(
                           "I agree to the Terms & Conditions and Privacy Policy",
-                          style: TextStyle(fontSize: 16, height: 1.4, color: Colors.black87),
+                          style: TextStyle(
+                              fontSize: 16,
+                              height: 1.4,
+                              color: Colors.black87),
                         ),
                       ),
                     ),
@@ -295,7 +299,7 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
 
               const SizedBox(height: 28),
 
-              // ── CONTINUE BUTTON ──
+              // ── CONTINUE ──
               GestureDetector(
                 onTap: _onContinue,
                 child: Container(
@@ -304,7 +308,10 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     gradient: const LinearGradient(
-                      colors: [Color(0xff2563EB), Color(0xffA020F0)],
+                      colors: [
+                        Color(0xff2563EB),
+                        Color(0xffA020F0)
+                      ],
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -317,7 +324,10 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                   child: const Center(
                     child: Text(
                       "Continue to KYC",
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -331,11 +341,15 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                 children: const [
                   Text(
                     "Already have an account? ",
-                    style: TextStyle(fontSize: 17, color: Colors.black54),
+                    style: TextStyle(
+                        fontSize: 17, color: Colors.black54),
                   ),
                   Text(
                     "Login",
-                    style: TextStyle(fontSize: 17, color: Color(0xff2563EB), fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        fontSize: 17,
+                        color: Color(0xff2563EB),
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -348,19 +362,28 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
     );
   }
 
-  Widget buildTextField({required String hint, required IconData icon}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xfff1f2f6),
         borderRadius: BorderRadius.circular(18),
       ),
       child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 20),
+          contentPadding:
+          const EdgeInsets.symmetric(vertical: 20),
           prefixIcon: Icon(icon, color: Colors.grey),
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 18, color: Colors.black87),
+          hintStyle: const TextStyle(
+              fontSize: 18, color: Colors.black87),
         ),
       ),
     );

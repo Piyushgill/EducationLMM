@@ -9,6 +9,76 @@ import 'package:thenew/dashboardCardDetails/revenue_screen.dart';
 import 'package:thenew/dashboardCardDetails/total_students_screen.dart';
 import 'package:thenew/dashboardCardDetails/visitors_screen.dart';
 
+class TrainingVideo {
+  final String title;
+  final String duration;
+  final Color color;
+  const TrainingVideo({
+    required this.title,
+    required this.duration,
+    required this.color,
+  });
+}
+
+class Testimonial {
+  final String name;
+  final String text;
+  final int stars;
+  const Testimonial({
+    required this.name,
+    required this.text,
+    required this.stars,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FAKE API SERVICE  ← replace with your real HTTP calls
+// ─────────────────────────────────────────────────────────────
+
+class DashboardApiService {
+  /// Replace the bodies of these two methods with your real API calls.
+  /// e.g. final res = await http.get(Uri.parse('https://yourapi.com/videos'));
+
+  static Future<List<TrainingVideo>> fetchVideos() async {
+    await Future.delayed(const Duration(milliseconds: 900)); // simulate network
+    // TODO: parse real JSON here
+    return const [
+      TrainingVideo(title: "Sales Techniques",
+          duration: "12 min",
+          color: Color(0xff2563EB)
+      ),
+      TrainingVideo(title: "How to Approach Schools",
+          duration: "18 min", color: Color(0xffA020F0)
+      ),
+      TrainingVideo(title: "Objection Handling",
+          duration: "25 min",
+          color: Color(0xffFF6B00)
+      ),
+      TrainingVideo(title: "Closing Deals",
+          duration: "15 min",
+          color: Color(0xff16C74A)
+      ),
+    ];
+  }
+
+  static Future<List<Testimonial>> fetchTestimonials() async {
+    await Future.delayed(const Duration(milliseconds: 1100)); // simulate network
+    // TODO: parse real JSON here
+    return const [
+      Testimonial(name: "Rajesh Kumar",
+          text: "This program has helped me grow my network tremendously.",
+          stars: 5),
+      Testimonial(name: "Priya Sharma",
+          text: "Excellent training support and commission structure.",
+          stars: 4),
+    ];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ROOT SCAFFOLD
+// ─────────────────────────────────────────────────────────────
+
 class DistributorDashboard extends StatefulWidget {
   const DistributorDashboard({super.key});
 
@@ -21,7 +91,6 @@ class _DistributorDashboardState extends State<DistributorDashboard> {
 
   final List<Widget> _pages = [
     const _HomeTab(),
-    ourprogramsmainScreen(),
     const Profilescreen(),
   ];
 
@@ -33,38 +102,48 @@ class _DistributorDashboardState extends State<DistributorDashboard> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xff2563EB),
+        selectedItemColor:  Color(0xff2563EB),
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.white,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
-            label: "Programs",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: "Profile",
-          ),
+        selectedLabelStyle:  TextStyle(fontWeight: FontWeight.w600),
+        items:  [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: "Home"),
+          // BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined),
+          //     activeIcon: Icon(Icons.menu_book),
+          //     label: "Programs"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: "Profile"),
         ],
       ),
     );
   }
 }
 
-// ============================================================
-//  HOME TAB — merged MainDashboard + DistributorDashboard
-// ============================================================
+// ─────────────────────────────────────────────────────────────
+//  HOME TAB  (StatefulWidget so it can hold Future state)
+// ─────────────────────────────────────────────────────────────
 
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  // Futures are created ONCE in initState so they don't re-fire on rebuild
+  late final Future<List<TrainingVideo>> _videosFuture;
+  late final Future<List<Testimonial>>   _testimonialsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _videosFuture       = DashboardApiService.fetchVideos();
+    _testimonialsFuture = DashboardApiService.fetchTestimonials();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,18 +153,18 @@ class _HomeTab extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // HEADER
+            // ── HEADER ────────────────────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 28),
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
+                  bottomLeft:  Radius.circular(28),
                   bottomRight: Radius.circular(28),
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  end:   Alignment.bottomRight,
                   colors: [Color(0xff2563EB), Color(0xffA020F0)],
                 ),
               ),
@@ -95,8 +174,8 @@ class _HomeTab extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Builder(
-                        builder: (context) => GestureDetector(
-                          onTap: () => Scaffold.of(context).openDrawer(),
+                        builder: (ctx) => GestureDetector(
+                          onTap: () => Scaffold.of(ctx).openDrawer(),
                           child: Container(
                             height: 48, width: 48,
                             decoration: BoxDecoration(
@@ -131,24 +210,20 @@ class _HomeTab extends StatelessWidget {
                   const SizedBox(height: 20),
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Distributor",
-                      style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
-                    ),
+                    child: Text("Distributor",
+                        style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 4),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Welcome back!",
-                      style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16),
-                    ),
+                    child: Text("Welcome back!",
+                        style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16)),
                   ),
                 ],
               ),
             ),
 
-            // SCROLLABLE BODY
+            // ── SCROLLABLE BODY ───────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(18),
@@ -156,7 +231,7 @@ class _HomeTab extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
 
-                    // ---- DASHBOARD CARDS GRID ----
+                    // Dashboard Cards Grid
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -165,139 +240,144 @@ class _HomeTab extends StatelessWidget {
                       crossAxisSpacing: 16,
                       childAspectRatio: .95,
                       children: [
-                        DashboardCard(
-                          title: "Network Size",
-                          value: "250",
-                          icon: Icons.groups_2_outlined,
-                          iconColor: const Color(0xff2563EB),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NetworkSizeScreen())),
+                        DashboardCard(title: "Network Size",
+                            value: "250",
+                            icon: Icons.groups_2_outlined,
+                            iconColor: const Color(0xff2563EB),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const NetworkSizeScreen())
+                            )
                         ),
-                        DashboardCard(
-                          title: "Active Schools",
-                          value: "45",
-                          icon: Icons.school_outlined,
-                          iconColor: const Color(0xff16C74A),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ActiveSchoolsScreen())),
+                        DashboardCard(title: "Active Schools",
+                            value: "45",
+                            icon: Icons.school_outlined,
+                            iconColor: const Color(0xff16C74A),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const ActiveSchoolsScreen())
+                            )
                         ),
-                        DashboardCard(
-                          title: "Total Students",
-                          value: "1,250",
-                          icon: Icons.groups_outlined,
-                          iconColor: const Color(0xffA020F0),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TotalStudentsScreen())),
+                        DashboardCard(title: "Total Students",
+                            value: "1,250",
+                            icon: Icons.groups_outlined,
+                            iconColor: const Color(0xffA020F0),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const TotalStudentsScreen())
+                            )
                         ),
-                        DashboardCard(
-                          title: "Revenue",
-                          value: "₹12.5L",
-                          icon: Icons.currency_rupee_rounded,
-                          iconColor: const Color(0xffFF6B00),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RevenueScreen())),
+                        DashboardCard(title: "Revenue",
+                            value: "₹12.5L",
+                            icon: Icons.currency_rupee_rounded,
+                            iconColor: const Color(0xffFF6B00),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const RevenueScreen())
+                            )
                         ),
-                        DashboardCard(
-                          title: "Commission",
-                          value: "₹1.87L",
-                          icon: Icons.trending_up_rounded,
-                          iconColor: const Color(0xffFF1493),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CommissionScreen())),
+                        DashboardCard(title: "Commission",
+                            value: "₹1.87L",
+                            icon: Icons.trending_up_rounded,
+                            iconColor: const Color(0xffFF1493),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const CommissionScreen())
+                            )
                         ),
-                        DashboardCard(
-                          title: "Expected Commission",
-                          value: "₹2.5L",
-                          icon: Icons.account_balance_wallet_outlined,
-                          iconColor: const Color(0xff16C74A),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                const ExpectedCommissionScreen(),
-                              ),
-                            );
-                          },
+                        DashboardCard(title: "Expected Commission",
+                            value: "₹2.5L",
+                            icon: Icons.account_balance_wallet_outlined,
+                            iconColor: const Color(0xff16C74A),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const ExpectedCommissionScreen())
+                            )
                         ),
-                        DashboardCard(
-                          title: "Visitors",
-                          value: "3,450",
-                          icon: Icons.remove_red_eye_outlined,
-                          iconColor: const Color(0xff5B5BF6),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VisitorsScreen())),
+                        DashboardCard(title: "Visitors",
+                            value: "3,450",
+                            icon: Icons.remove_red_eye_outlined,
+                            iconColor: const Color(0xff5B5BF6),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const VisitorsScreen())
+                            )
                         ),
                       ],
                     ),
 
                     const SizedBox(height: 24),
 
-                    // ---- EXPECTED COMMISSION ----
-                    // _sectionTitle("Expected Commission"),
-                    // const SizedBox(height: 12),
-                    // Container(
-                    //   padding: const EdgeInsets.all(18),
-                    //   decoration: BoxDecoration(
-                    //     color: Colors.white,
-                    //     borderRadius: BorderRadius.circular(20),
-                    //     boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
-                    //   ),
-                    //   child: Column(
-                    //     children: [
-                    //       Row(
-                    //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    //         children: [
-                    //           const Text("This Month Target", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                    //           const Text("₹2.5L", style: TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold, fontSize: 16)),
-                    //         ],
-                    //       ),
-                    //       const SizedBox(height: 12),
-                    //       ClipRRect(
-                    //         borderRadius: BorderRadius.circular(10),
-                    //         child: LinearProgressIndicator(
-                    //           value: 0.748,
-                    //           backgroundColor: const Color(0xff2563EB).withOpacity(.1),
-                    //           valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff2563EB)),
-                    //           minHeight: 10,
-                    //         ),
-                    //       ),
-                    //       const SizedBox(height: 8),
-                    //       Row(
-                    //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    //         children: [
-                    //           Text("Earned: ₹1.87L", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                    //           const Text("74.8% Achieved", style: TextStyle(color: Color(0xff16C74A), fontWeight: FontWeight.w600, fontSize: 13)),
-                    //         ],
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-                    //
-                    // const SizedBox(height: 24),
-
-                    // ---- TRAINING VIDEOS ----
+                    // ── TRAINING VIDEOS  ──────────────────────
                     _sectionTitle("Training Videos"),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 130,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _videoCard("Sales Techniques",        "12 min", const Color(0xff2563EB)),
-                          _videoCard("How to Approach Schools", "18 min", const Color(0xffA020F0)),
-                          _videoCard("Objection Handling",      "25 min", const Color(0xffFF6B00)),
-                          _videoCard("Closing Deals",           "15 min", const Color(0xff16C74A)),
-                        ],
-                      ),
+                    FutureBuilder<List<TrainingVideo>>(
+                      future: _videosFuture,
+                      builder: (context, snap) {
+                        // Loading
+                        if (snap.connectionState == ConnectionState.waiting) {
+                          return _VideoShimmerRow();
+                        }
+                        // Error
+                        if (snap.hasError) {
+                          return _SectionError(
+                            message: "Couldn't load videos",
+                            onRetry: () => setState(() {}),
+                          );
+                        }
+                        // Empty
+                        final videos = snap.data ?? [];
+                        if (videos.isEmpty) {
+                          return _SectionEmpty(label: "No training videos yet");
+                        }
+                        // Data
+                        return SizedBox(
+                          height: 130,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: videos.length,
+                            itemBuilder: (_, i) => _videoCard(
+                              videos[i].title,
+                              videos[i].duration,
+                              videos[i].color,
+                            ),
+                          ),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),
 
-                    // ---- TESTIMONIALS ----
+                    // ── TESTIMONIALS ──────────────────────────
                     _sectionTitle("Testimonials"),
                     const SizedBox(height: 12),
-                    _testimonialCard("Rajesh Kumar", "This program has helped me grow my network tremendously.", 5),
-                    const SizedBox(height: 10),
-                    _testimonialCard("Priya Sharma", "Excellent training support and commission structure.", 4),
+                    FutureBuilder<List<Testimonial>>(
+                      future: _testimonialsFuture,
+                      builder: (context, snap) {
+                        // Loading
+                        if (snap.connectionState == ConnectionState.waiting) {
+                          return _TestimonialShimmer();
+                        }
+                        // Error
+                        if (snap.hasError) {
+                          return _SectionError(
+                            message: "Couldn't load testimonials",
+                            onRetry: () => setState(() {}),
+                          );
+                        }
+                        // Empty
+                        final list = snap.data ?? [];
+                        if (list.isEmpty) {
+                          return _SectionEmpty(label: "No testimonials yet");
+                        }
+                        // Data
+                        return Column(
+                          children: list
+                              .map((t) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _testimonialCard(t.name, t.text, t.stars),
+                          ))
+                              .toList(),
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 24),
 
-                    // ---- FAQ ----
+                    // ── FAQ ───────────────────────────────────
                     _sectionTitle("FAQ"),
                     const SizedBox(height: 12),
                     _faqItem("How is commission calculated?",
@@ -318,131 +398,305 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  // ---- HELPER WIDGETS ----
+  // ── HELPER WIDGETS ─────────────────────────────────────────
 
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)),
-    );
-  }
+  Widget _sectionTitle(String title) => Text(
+    title,
+    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)),
+  );
 
-  Widget _videoCard(String title, String duration, Color color) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.play_circle_filled, color: color, size: 34),
-          const Spacer(),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          Text(duration, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-        ],
-      ),
-    );
-  }
+  Widget _videoCard(String title, String duration, Color color) => Container(
+    width: 160,
+    margin: const EdgeInsets.only(right: 12),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.play_circle_filled, color: color, size: 34),
+        const Spacer(),
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 4),
+        Text(duration, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+      ],
+    ),
+  );
 
-  Widget _testimonialCard(String name, String text, int stars) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  Widget _testimonialCard(String name, String text, int stars) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: const Color(0xff2563EB).withOpacity(.1),
+              radius: 18,
+              child: Text(name[0],
+                  style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 10),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            Row(children: List.generate(stars, (_) => const Icon(Icons.star, color: Color(0xffFFB800), size: 14))),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+      ],
+    ),
+  );
+
+  Widget _faqItem(String q, String a) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+    ),
+    child: ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      iconColor: const Color(0xff2563EB),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildDrawer(BuildContext context) => Drawer(
+    child: ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        const DrawerHeader(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [Color(0xff2563EB), Color(0xffA020F0)]),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircleAvatar(
-                backgroundColor: const Color(0xff2563EB).withOpacity(.1),
-                radius: 18,
-                child: Text(name[0], style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold)),
+                backgroundColor: Colors.white,
+                radius: 30,
+                child: Icon(Icons.person, size: 35, color: Color(0xff2563EB)),
               ),
-              const SizedBox(width: 10),
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              const Spacer(),
-              Row(children: List.generate(stars, (_) => const Icon(Icons.star, color: Color(0xffFFB800), size: 14))),
+              SizedBox(height: 10),
+              Text("Distributor Name",
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("Distributor Account", style: TextStyle(color: Colors.white70, fontSize: 13)),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
-        ],
-      ),
-    );
+        ),
+        ListTile(leading: const Icon(Icons.dashboard_outlined), title: const Text('Dashboard'), onTap: () => Navigator.pop(context)),
+        ListTile(leading: const Icon(Icons.settings_outlined),  title: const Text('Settings'),  onTap: () {}),
+        ListTile(leading: const Icon(Icons.logout),             title: const Text('Logout'),    onTap: () {}),
+      ],
+    ),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SHIMMER SKELETON WIDGETS
+// ─────────────────────────────────────────────────────────────
+
+/// Animated shimmer base
+class _Shimmer extends StatefulWidget {
+  final Widget child;
+  const _Shimmer({required this.child});
+
+  @override
+  State<_Shimmer> createState() => _ShimmerState();
+}
+
+class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
   }
 
-  Widget _faqItem(String q, String a) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
-      ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        iconColor: const Color(0xff2563EB),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
   }
 
-  // ---- DRAWER ----
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, child) => ShaderMask(
+        blendMode: BlendMode.srcATop,
+        shaderCallback: (bounds) => LinearGradient(
+          begin: Alignment(-1.0 + 2 * _anim.value, 0),
+          end:   Alignment( 1.0 + 2 * _anim.value, 0),
+          colors: const [
+            Color(0xFFE0E0E0),
+            Color(0xFFF5F5F5),
+            Color(0xFFE0E0E0),
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(bounds),
+        child: child,
+      ),
+      child: widget.child,
+    );
+  }
+}
 
-  Widget _buildDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const DrawerHeader(
+Widget _shimmerBox({double w = double.infinity, double h = 14, double r = 8}) => Container(
+  width: w, height: h,
+  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(r)),
+);
+
+/// Shimmer row for Training Videos
+class _VideoShimmerRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 130,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 3,
+        itemBuilder: (_, __) => _Shimmer(
+          child: Container(
+            width: 160,
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xff2563EB), Color(0xffA020F0)]),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 30,
-                  child: Icon(Icons.person, size: 35, color: Color(0xff2563EB)),
-                ),
-                SizedBox(height: 10),
-                Text("Distributor Name", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                Text("Distributor Account", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                _shimmerBox(w: 34, h: 34, r: 17),
+                const Spacer(),
+                _shimmerBox(h: 12),
+                const SizedBox(height: 6),
+                _shimmerBox(w: 60, h: 10),
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.dashboard_outlined),
-            title: const Text('Dashboard'),
-            onTap: () => Navigator.pop(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer cards for Testimonials
+class _TestimonialShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(
+        2,
+            (_) => _Shimmer(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _shimmerBox(w: 36, h: 36, r: 18),
+                    const SizedBox(width: 10),
+                    _shimmerBox(w: 110, h: 12),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _shimmerBox(h: 11),
+                const SizedBox(height: 6),
+                _shimmerBox(w: 200, h: 11),
+              ],
+            ),
           ),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Settings'),
-            onTap: () {},
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EMPTY & ERROR STATES
+// ─────────────────────────────────────────────────────────────
+
+class _SectionEmpty extends StatelessWidget {
+  final String label;
+  const _SectionEmpty({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_outlined, color: Colors.grey.shade400, size: 36),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _SectionError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade400, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message,
+                style: TextStyle(color: Colors.red.shade600, fontSize: 13)),
           ),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
-            onTap: () {},
+          TextButton(
+            onPressed: onRetry,
+            child: const Text("Retry", style: TextStyle(color: Color(0xff2563EB))),
           ),
         ],
       ),
@@ -450,9 +704,9 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-//  DASHBOARD CARD WIDGET
-// ============================================================
+// ─────────────────────────────────────────────────────────────
+//  DASHBOARD CARD (unchanged public API)
+// ─────────────────────────────────────────────────────────────
 
 class DashboardCard extends StatelessWidget {
   final String title;
@@ -494,13 +748,13 @@ class DashboardCard extends StatelessWidget {
               ),
               child: Icon(icon, color: Colors.white, size: 26),
             ),
-            const Spacer(),
+             Spacer(),
             Text(title, style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 10),
+             SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+                Text(value, style:  TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
                 Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
               ],
             ),

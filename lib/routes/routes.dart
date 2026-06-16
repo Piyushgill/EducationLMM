@@ -23,12 +23,10 @@ import 'package:thenew/services/joinus.dart';
 class Routes{
   static Route<dynamic> generateRoute(RouteSettings settings){
     switch(settings.name){
-      case '/home_screen':
-        return MaterialPageRoute(builder: (context) => EducationLLMHomeScreen());
-
       case '/splash_screen':
         return MaterialPageRoute(builder: (context) => SplashScreen());
-
+      case '/home_screen':
+        return MaterialPageRoute(builder: (context) => EducationLLMHomeScreen());
       case '/join_us':
         return MaterialPageRoute(builder: (context) => JoinUsScreen());
 

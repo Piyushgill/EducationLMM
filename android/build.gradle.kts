@@ -23,7 +23,7 @@ subprojects {
     val configureAndroid = {
         val android = project.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
         android?.apply {
-            compileSdkVersion(34)
+            compileSdkVersion(36)
             defaultConfig {
                 targetSdkVersion(34)
             }
