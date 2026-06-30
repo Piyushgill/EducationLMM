@@ -11,7 +11,8 @@ class DistributorJoinScreen extends StatefulWidget {
 
 class _DistributorJoinScreenState
     extends State<DistributorJoinScreen> {
-  bool isChecked = true;
+  bool isChecked = false;
+  int isCheckedValue = 0;
 
   final TextEditingController nameController =
   TextEditingController();
@@ -197,6 +198,7 @@ class _DistributorJoinScreenState
                       onChanged: (value) {
                         setState(() {
                           isChecked = value!;
+                          isCheckedValue = 1;
                         });
                       },
                     ),
@@ -235,6 +237,13 @@ class _DistributorJoinScreenState
                     );
                     return;
                   }
+
+                  print("Name: ${nameController.text}");
+                  print("Email: ${emailController.text}");
+                  print("Phone: ${phoneController.text}");
+                  print("City: ${cityController.text}");
+                  print("Experience: ${experienceController.text}");
+                  print("Terms Accepted or not : $isCheckedValue");
 
                   Navigator.push(
                     context,

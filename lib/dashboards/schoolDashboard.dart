@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/Screens/EducationHomeScreen.dart';
 
 // ============================================================
 //  SCHOOL DASHBOARD — Main Entry
@@ -12,18 +13,31 @@ class SchoolDashboard extends StatefulWidget {
 }
 
 class _SchoolDashboardState extends State<SchoolDashboard> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
 
+  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
+
+  void _goToTab(int index) {
+    Navigator.pop(context); // close drawer
+    setState(() => _currentIndex = index);
+  }
+
+  void _openScreen(Widget screen) {
+    Navigator.pop(context); // close drawer
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
   late final List<Widget> _pages = [
-    const _SchoolHomeTab(),
-    const _SchoolStudentsTab(),
-    const _SchoolOrdersTab(),
-    const _SchoolProfileTab(),
+    _SchoolHomeTab(onMenuTap: _openDrawer),
+    const _SchoolProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: _buildDrawer(context),
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -34,22 +48,137 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
         backgroundColor: Colors.white,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined),        activeIcon: Icon(Icons.home),        label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.groups_outlined),      activeIcon: Icon(Icons.groups),      label: "Students"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_outlined), activeIcon: Icon(Icons.shopping_bag), label: "Orders"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline),       activeIcon: Icon(Icons.person),      label: "Profile"),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined),  activeIcon: Icon(Icons.home),    label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );
   }
-}
 
+  // ----------------------------------------------------------
+  //  DRAWER
+  // ----------------------------------------------------------
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // DRAWER HEADER
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff0EA5E9), Color(0xff0284C7)]),
+              ),
+              child: Row(children: [
+                // Container(
+                //   height: 56, width: 56,
+                //   decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(18)),
+                //   child: const Icon(Icons.school_rounded, color: Colors.white, size: 30),
+                // ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text(
+                      "Sunrise Public School",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text("school@sunrise.edu", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 12)),
+                  ]),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 8),
+
+            _drawerItem(icon: Icons.home_outlined,         label: "Home",     selected: _currentIndex == 0, onTap: () => _goToTab(0)),
+            _drawerItem(icon: Icons.groups_outlined,       label: "Students", onTap: () => _openScreen(const SchoolStudentDataScreen())),
+            _drawerItem(icon: Icons.shopping_bag_outlined, label: "Orders",   onTap: () => _openScreen(const SchoolKitOrderScreen())),
+            _drawerItem(icon: Icons.person_outline,        label: "Profile",  selected: _currentIndex == 1, onTap: () => _goToTab(1)),
+
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8), child: Divider()),
+
+            _drawerItem(icon: Icons.notifications_none_rounded, label: "Notifications",   onTap: () => Navigator.pop(context)),
+            _drawerItem(icon: Icons.help_outline_rounded,        label: "Help & Support",  onTap: () => Navigator.pop(context)),
+            _drawerItem(icon: Icons.settings_outlined,           label: "Settings",        onTap: () => Navigator.pop(context)),
+
+            const Spacer(),
+
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: Divider()),
+            _drawerItem(
+              icon: Icons.logout_rounded,
+              label: "Logout",
+              color: Colors.red,
+              onTap: () {
+                Navigator.pop(context); // drawer close
+                _confirmAndLogout(context);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool selected = false,
+    Color? color,
+  }) {
+    final c = color ?? (selected ? const Color(0xff0EA5E9) : Colors.grey.shade700);
+    return Material(
+      color: selected ? const Color(0xff0EA5E9).withOpacity(.08) : Colors.transparent,
+      child: ListTile(
+        leading: Icon(icon, color: c, size: 22),
+        title: Text(label, style: TextStyle(color: c, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, fontSize: 14)),
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      ),
+    );
+  }
+}
+void _confirmAndLogout(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text("Logout"),
+      content: const Text("Are you sure you want to logout?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx); // close dialog
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
+                  (route) => false, // pura stack clear
+            );
+          },
+          child: const Text("Logout", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+}
 // ============================================================
 //  HOME TAB
 // ============================================================
 
 class _SchoolHomeTab extends StatelessWidget {
-  const _SchoolHomeTab();
+  final VoidCallback onMenuTap;
+  const _SchoolHomeTab({required this.onMenuTap});
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +196,10 @@ class _SchoolHomeTab extends StatelessWidget {
             ),
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Container(height: 48, width: 48, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28)),
+                GestureDetector(
+                  onTap: onMenuTap,
+                  child: Container(height: 48, width: 48, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28)),
+                ),
                 Stack(children: [
                   Container(height: 48, width: 48, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28)),
                   Positioned(right: 10, top: 10, child: Container(height: 10, width: 10, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
@@ -219,30 +351,143 @@ class _SchoolHomeTab extends StatelessWidget {
   );
 }
 
-// STUB TABS
-class _SchoolStudentsTab extends StatelessWidget {
-  const _SchoolStudentsTab();
-  @override Widget build(BuildContext context) => _STab(title: "Students");
-}
-class _SchoolOrdersTab extends StatelessWidget {
-  const _SchoolOrdersTab();
-  @override Widget build(BuildContext context) => _STab(title: "Orders");
-}
-class _SchoolProfileTab extends StatelessWidget {
-  const _SchoolProfileTab();
-  @override Widget build(BuildContext context) => _STab(title: "Profile");
-}
-class _STab extends StatelessWidget {
-  final String title;
-  const _STab({required this.title});
-  @override Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xffF5F5F5),
-    body: SafeArea(child: Column(children: [
-      Container(width: double.infinity, padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 28),
-          decoration: const BoxDecoration(borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)), gradient: LinearGradient(colors: [Color(0xff0EA5E9), Color(0xff0284C7)])),
-          child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))),
-      const Expanded(child: Center(child: Text("Coming Soon", style: TextStyle(color: Colors.grey, fontSize: 16)))),
-    ])),
+// ============================================================
+//  PROFILE TAB
+// ============================================================
+
+class _SchoolProfileScreen extends StatelessWidget {
+  const _SchoolProfileScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(children: [
+            // HEADER
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff6366F1), Color(0xff4338CA)]),
+              ),
+              child: Column(children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text("Profile", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  Container(height: 40, width: 40, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.edit_outlined, color: Colors.white, size: 20)),
+                ]),
+                const SizedBox(height: 24),
+                Container(
+                  height: 84, width: 84,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(.18), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(.4), width: 2)),
+                  child: const Center(child: Text("S", style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold))),
+                ),
+                const SizedBox(height: 14),
+                const Text("Sunrise Public School", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text("School Admin", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
+              ]),
+            ),
+
+            // FLOATING STAT CARD
+            Transform.translate(
+              offset: const Offset(0, -24),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 12, offset: const Offset(0, 4))]),
+                  child: Row(children: [
+                    _pStat("Programs", "3"),
+                    _pVDivider(),
+                    _pStat("Students", "120"),
+                    _pVDivider(),
+                    _pStat("Since", "2022"),
+                  ]),
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _pSectionTitle("Contact Information"),
+                const SizedBox(height: 12),
+                _pInfoTile(Icons.call_outlined, "Phone", "+91 98765 43210"),
+                const SizedBox(height: 10),
+                _pInfoTile(Icons.email_outlined, "Email", "school@sunrise.edu"),
+                const SizedBox(height: 10),
+                _pInfoTile(Icons.location_on_outlined, "Address", "12 MG Road, Delhi"),
+
+                const SizedBox(height: 24),
+                _pSectionTitle("Account"),
+                const SizedBox(height: 12),
+                _pMenuTile(Icons.lock_outline_rounded, "Change Password", const Color(0xff0EA5E9)),
+                _pMenuTile(Icons.account_balance_outlined, "Bank Details", const Color(0xffA020F0)),
+                _pMenuTile(Icons.description_outlined, "Documents", const Color(0xffFF6B00)),
+
+                const SizedBox(height: 24),
+                _pSectionTitle("Preferences"),
+                const SizedBox(height: 12),
+                _pMenuTile(Icons.notifications_none_rounded, "Notification Settings", const Color(0xff2563EB)),
+                _pMenuTile(Icons.help_outline_rounded, "Help & Support", const Color(0xff16C74A)),
+                _pMenuTile(Icons.info_outline_rounded, "About App", const Color(0xff64748B)),
+
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(color: Colors.red.withOpacity(.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.withOpacity(.2))),
+                    child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.logout_rounded, color: Colors.red, size: 20),
+                      SizedBox(width: 8),
+                      Text("Logout", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600, fontSize: 14)),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _pStat(String label, String value) => Expanded(child: Column(children: [
+    Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff1E1E1E))),
+    const SizedBox(height: 2),
+    Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+  ]));
+  Widget _pVDivider() => Container(height: 32, width: 1, color: Colors.grey.shade200);
+  Widget _pSectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
+
+  Widget _pInfoTile(IconData icon, String label, String value) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+    child: Row(children: [
+      Container(height: 38, width: 38, decoration: BoxDecoration(color: const Color(0xff6366F1).withOpacity(.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: const Color(0xff6366F1), size: 19)),
+      const SizedBox(width: 12),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      ]),
+    ]),
+  );
+
+  Widget _pMenuTile(IconData icon, String label, Color color) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+    child: ListTile(
+      leading: Container(height: 38, width: 38, decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 19)),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
+      onTap: () {},
+    ),
   );
 }
 

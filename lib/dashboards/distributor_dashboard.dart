@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/ourprogramsmain.dart';
 import 'package:thenew/Screens/profilescreen.dart';
 import 'package:thenew/dashboardCardDetails/Expected_Commission_Screen.dart';
@@ -73,8 +74,43 @@ class DashboardApiService {
           stars: 4),
     ];
   }
-}
 
+  static Future<List<TrainingVideo>> fetchvideos() async {
+    await Future.delayed(const Duration(milliseconds: 800)); // simulate network
+    return const [
+      TrainingVideo(title: "Getting Started", duration: "5:20", color: Colors.blue),
+      TrainingVideo(title: "Network Growth", duration: "12:45", color: Colors.purple),
+      TrainingVideo(title: "Commission Guide", duration: "8:15", color: Colors.orange),
+    ];
+  }
+}
+void _confirmAndLogout(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text("Logout"),
+      content: const Text("Are you sure you want to logout?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx); // close dialog
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
+                  (route) => false, // pura stack clear
+            );
+          },
+          child: const Text("Logout", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+}
 // ─────────────────────────────────────────────────────────────
 //  ROOT SCAFFOLD
 // ─────────────────────────────────────────────────────────────
@@ -505,7 +541,11 @@ class _HomeTabState extends State<_HomeTab> {
         ),
         ListTile(leading: const Icon(Icons.dashboard_outlined), title: const Text('Dashboard'), onTap: () => Navigator.pop(context)),
         ListTile(leading: const Icon(Icons.settings_outlined),  title: const Text('Settings'),  onTap: () {}),
-        ListTile(leading: const Icon(Icons.logout),             title: const Text('Logout'),    onTap: () {}),
+        ListTile(
+          leading: const Icon(Icons.logout, color: Colors.red),
+          title: const Text('Logout', style: TextStyle(color: Colors.red)),
+          onTap: () => _confirmAndLogout(context),
+        ),
       ],
     ),
   );

@@ -10,7 +10,7 @@ class StudentSignUpScreen extends StatefulWidget {
 }
 
 class _StudentSignUpScreenState extends State<StudentSignUpScreen> {
-  bool isChecked = true;
+  bool isChecked = false;
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
 
@@ -312,20 +312,20 @@ class _StudentSignUpScreenState extends State<StudentSignUpScreen> {
               const SizedBox(height: 20),
 
               /// Login
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    // Navigate to Login Screen
-                  },
-                  child: const Text(
-                    "Already have an account? Sign In",
-                    style: TextStyle(
-                      color: Color(0xff16A34A),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
+              // Center(
+              //   child: TextButton(
+              //     onPressed: () {
+              //       // Navigate to Login Screen
+              //     },
+              //     child: const Text(
+              //       "Already have an account? Sign In",
+              //       style: TextStyle(
+              //         color: Color(0xff16A34A),
+              //         fontWeight: FontWeight.w600,
+              //       ),
+              //     ),
+              //   ),
+              // ),
 
               const SizedBox(height: 20),
             ],

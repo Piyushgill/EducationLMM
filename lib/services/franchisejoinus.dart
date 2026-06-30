@@ -12,7 +12,7 @@ class FranchiseJoinScreen extends StatefulWidget {
 class _FranchiseJoinScreenState
     extends State<FranchiseJoinScreen> {
 
-  bool isChecked = true;
+  bool isChecked = false;
 
   @override
   Widget build(BuildContext context) {

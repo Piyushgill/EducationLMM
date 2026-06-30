@@ -1,61 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/services/joinus.dart';
 
-class ourprogramsScreen extends StatelessWidget {
-   ourprogramsScreen({super.key});
+class ourprogramsScreen extends StatefulWidget {
+  final String? scrollTo; // "Abacus" | "Vadic Maths" | "Phonics" | "English"
+
+  const ourprogramsScreen({super.key, this.scrollTo});
+
+  @override
+  State<ourprogramsScreen> createState() => _ourprogramsScreenState();
+}
+
+class _ourprogramsScreenState extends State<ourprogramsScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  // Key for each program card, used to auto-scroll to it
+  final Map<String, GlobalKey> _keys = {
+    "Abacus": GlobalKey(),
+    "Vadic Maths": GlobalKey(),
+    "Phonics": GlobalKey(),
+    "English": GlobalKey(),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.scrollTo != null) {
+      // wait for the frame to render, then scroll
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToSubject(widget.scrollTo!);
+      });
+    }
+  }
+
+  void _scrollToSubject(String subject) {
+    final key = _keys[subject];
+    final ctx = key?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.05, // keeps the card near the top
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xfff5f5f5),
-
-      // BOTTOM NAVIGATION
-      // bottomNavigationBar: Container(
-      //   height: 80,
-      //   decoration: const BoxDecoration(
-      //     color: Colors.white,
-      //     boxShadow: [
-      //       BoxShadow(
-      //         color: Colors.black12,
-      //         blurRadius: 10,
-      //       ),
-      //     ],
-      //   ),
-      //   child: Row(
-      //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-      //     children: const [
-      //       BottomItem(
-      //         icon: Icons.home_outlined,
-      //         label: "Home",
-      //       ),
-      //       BottomItem(
-      //         icon: Icons.groups_2_outlined,
-      //         label: "Company",
-      //       ),
-      //       BottomItem(
-      //         icon: Icons.menu_book_rounded,
-      //         label: "Programs",
-      //         isSelected: true,
-      //       ),
-      //       BottomItem(
-      //         icon: Icons.star_border_rounded,
-      //         label: "Reviews",
-      //       ),
-      //       BottomItem(
-      //         icon: Icons.person_outline_rounded,
-      //         label: "Profile",
-      //       ),
-      //     ],
-      //   ),
-      // ),
-
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           child: Column(
             children: [
               Container(
                 width: double.infinity,
-                padding:  EdgeInsets.all(22),
-                decoration:  BoxDecoration(
+                padding: EdgeInsets.all(22),
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       Color(0xff2563EB),
@@ -71,89 +79,37 @@ class ourprogramsScreen extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [   InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child:  Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 4,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            size: 18,
-                          ),
-
-                          SizedBox(width: 6),
-
-                          Text(
-                            "Back",
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w500,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 4,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 6),
+                            Text(
+                              "Back",
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-
-                    // Row(
-                    //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    //   children: [
-                    //
-                    //     Container(
-                    //       padding: const EdgeInsets.all(12),
-                    //       decoration: BoxDecoration(
-                    //         color: Colors.white.withOpacity(.15),
-                    //         borderRadius: BorderRadius.circular(16),
-                    //       ),
-                    //       child: const Icon(
-                    //         Icons.menu_rounded,
-                    //         color: Colors.white,
-                    //         size: 28,
-                    //       ),
-                    //     ),
-                    //
-                    //     Stack(
-                    //       children: [
-                    //         Container(
-                    //           padding: const EdgeInsets.all(12),
-                    //           decoration: BoxDecoration(
-                    //             color: Colors.white.withOpacity(.15),
-                    //             borderRadius: BorderRadius.circular(16),
-                    //           ),
-                    //           child: const Icon(
-                    //             Icons.notifications_none_rounded,
-                    //             color: Colors.white,
-                    //             size: 28,
-                    //           ),
-                    //         ),
-                    //
-                    //         Positioned(
-                    //           right: 4,
-                    //           top: 4,
-                    //           child: Container(
-                    //             height: 10,
-                    //             width: 10,
-                    //             decoration: const BoxDecoration(
-                    //               color: Colors.red,
-                    //               shape: BoxShape.circle,
-                    //             ),
-                    //           ),
-                    //         ),
-                    //       ],
-                    //     ),
-                    //   ],
-                    // ),
-
-                     SizedBox(height: 28),
-
-                     Text(
+                    SizedBox(height: 28),
+                    Text(
                       "Our Programs",
                       style: TextStyle(
                         color: Colors.white,
@@ -161,9 +117,7 @@ class ourprogramsScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
-                     SizedBox(height: 8),
-
+                    SizedBox(height: 8),
                     Text(
                       "Comprehensive curriculum",
                       style: TextStyle(
@@ -175,10 +129,11 @@ class ourprogramsScreen extends StatelessWidget {
                 ),
               ),
 
-               SizedBox(height: 24),
+              SizedBox(height: 24),
 
               // ABACUS CARD
-               ProgramCard(
+              ProgramCard(
+                key: _keys["Abacus"],
                 title: "Abacus",
                 subtitle: "Develop exceptional mental math abilities",
                 levels: "8",
@@ -194,8 +149,9 @@ class ourprogramsScreen extends StatelessWidget {
                 ],
               ),
 
-               SizedBox(height: 22),
-               ProgramCard(
+              SizedBox(height: 22),
+              ProgramCard(
+                key: _keys["Vadic Maths"],
                 title: "Vadic Maths",
                 subtitle: "Develop exceptional mental math abilities",
                 levels: "8",
@@ -210,8 +166,9 @@ class ourprogramsScreen extends StatelessWidget {
                   "Develops both brain hemispheres",
                 ],
               ),
-               SizedBox(height: 22),
-               ProgramCard(
+              SizedBox(height: 22),
+              ProgramCard(
+                key: _keys["Phonics"],
                 title: "Phonics",
                 subtitle: "Build strong reading foundation",
                 levels: "5",
@@ -226,8 +183,9 @@ class ourprogramsScreen extends StatelessWidget {
                   "Boosts confidence",
                 ],
               ),
-               SizedBox(height: 22),
-               ProgramCard(
+              SizedBox(height: 22),
+              ProgramCard(
+                key: _keys["English"],
                 title: "English",
                 subtitle: "Build strong reading foundation",
                 levels: "5",
@@ -243,18 +201,18 @@ class ourprogramsScreen extends StatelessWidget {
                 ],
               ),
 
-               SizedBox(height: 24),
+              SizedBox(height: 24),
 
               // CTA SECTION
               Container(
-                margin:  EdgeInsets.symmetric(horizontal: 20),
-                padding:  EdgeInsets.symmetric(
+                margin: EdgeInsets.symmetric(horizontal: 20),
+                padding: EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 30,
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
-                  gradient:  LinearGradient(
+                  gradient: LinearGradient(
                     colors: [
                       Color(0xff2563EB),
                       Color(0xffA020F0),
@@ -263,8 +221,7 @@ class ourprogramsScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-
-                     Text(
+                    Text(
                       "Ready to Get Started?",
                       style: TextStyle(
                         color: Colors.white,
@@ -273,9 +230,7 @@ class ourprogramsScreen extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
-
-                     SizedBox(height: 16),
-
+                    SizedBox(height: 16),
                     Text(
                       "Join thousands of students benefitting from our programs",
                       style: TextStyle(
@@ -285,31 +240,41 @@ class ourprogramsScreen extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                     SizedBox(height: 28),
-
-                    Container(
-                      padding:  EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 18,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                      child:  Text(
-                        "Enroll Now",
-                        style: TextStyle(
-                          color: Color(0xff2563EB),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
+                    SizedBox(height: 28),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const JoinUsScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: const Text(
+                          "Enroll Now",
+                          style: TextStyle(
+                            color: Color(0xff2563EB),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
 
-               SizedBox(height: 30),
+              SizedBox(height: 30),
             ],
           ),
         ),
@@ -317,6 +282,7 @@ class ourprogramsScreen extends StatelessWidget {
     );
   }
 }
+
 // Program card Method
 class ProgramCard extends StatelessWidget {
   final String title;
@@ -343,14 +309,13 @@ class ProgramCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin:  EdgeInsets.symmetric(horizontal: 20),
+      margin: EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
       ),
       child: Column(
         children: [
-
           Container(
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -367,10 +332,8 @@ class ProgramCard extends StatelessWidget {
             ),
             child: Column(
               children: [
-
                 Row(
                   children: [
-
                     Container(
                       padding: EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -383,24 +346,20 @@ class ProgramCard extends StatelessWidget {
                         size: 30,
                       ),
                     ),
-
-                     SizedBox(width: 16),
-
+                    SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-
                           Text(
                             title,
-                            style:  TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 30,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           SizedBox(height: 6),
-
                           Text(
                             subtitle,
                             style: TextStyle(
@@ -419,7 +378,7 @@ class ProgramCard extends StatelessWidget {
                   children: [
                     Text(
                       "Levels: $levels",
-                      style:  TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -442,13 +401,12 @@ class ProgramCard extends StatelessWidget {
 
           // BENEFITS SECTION
           Padding(
-            padding:  EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               children: [
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children:  [
+                  children: [
                     Text(
                       "Key Benefits",
                       style: TextStyle(
@@ -456,23 +414,20 @@ class ProgramCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-
                     Icon(Icons.keyboard_arrow_up_rounded),
                   ],
                 ),
                 SizedBox(height: 18),
-
                 Column(
                   children: benefits.map((e) {
                     return Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: Row(
                         children: [
-
                           Container(
                             height: 12,
                             width: 12,
-                            decoration:  BoxDecoration(
+                            decoration: BoxDecoration(
                               color: Color(0xff22C55E),
                               shape: BoxShape.circle,
                             ),
@@ -481,7 +436,7 @@ class ProgramCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               e,
-                              style:  TextStyle(
+                              style: TextStyle(
                                 fontSize: 17,
                                 color: Colors.black87,
                               ),
@@ -499,10 +454,10 @@ class ProgramCard extends StatelessWidget {
                   height: 220,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color:  Color(0xff06122F),
+                    color: Color(0xff06122F),
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child:  Center(
+                  child: Center(
                     child: Icon(
                       Icons.play_arrow_rounded,
                       color: Colors.white,
@@ -519,7 +474,7 @@ class ProgramCard extends StatelessWidget {
   }
 }
 
-    // BOTTOM NAV ITEM
+// BOTTOM NAV ITEM
 class BottomItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -539,17 +494,13 @@ class BottomItem extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color: isSelected
-              ? Colors.blue
-              : Colors.grey,
+          color: isSelected ? Colors.blue : Colors.grey,
         ),
         SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            color: isSelected
-                ? Colors.blue
-                : Colors.grey,
+            color: isSelected ? Colors.blue : Colors.grey,
             fontSize: 13,
           ),
         ),

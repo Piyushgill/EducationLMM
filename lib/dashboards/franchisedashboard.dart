@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/dashboardCardDetails/Batch_Management_Screen.dart';
 import 'package:thenew/dashboardCardDetails/Centre_Details_Screen.dart';
 import 'package:thenew/dashboardCardDetails/Fee_Collection_Screen.dart';
@@ -210,7 +211,10 @@ class _FranchiseDrawer extends StatelessWidget {
                     label: "Logout",
                     isActive: false,
                     isLogout: true,
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      Navigator.pop(context); // drawer close
+                      _confirmAndLogout(context);
+                    },
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -545,7 +549,33 @@ class _FranchiseHomeTab extends StatelessWidget {
     ),
   );
 }
-
+void _confirmAndLogout(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text("Logout"),
+      content: const Text("Are you sure you want to logout?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx); // close dialog
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
+                  (route) => false, // pura stack clear
+            );
+          },
+          child: const Text("Logout", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+}
 // ============================================================
 //  SCHOOLS TAB — Fully Static Functional
 // ============================================================
@@ -669,15 +699,27 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
                   ),
                   const SizedBox(height: 18),
                   // Summary chips
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      _summaryChip(Icons.school_rounded, "$activeCount Active", Colors.white),
-                      const SizedBox(width: 10),
-                      _summaryChip(Icons.people_alt_outlined, "$totalStudents Students", Colors.white),
-                      const SizedBox(width: 10),
-                      _summaryChip(Icons.layers_outlined, "$totalBatches Batches", Colors.white),
+                      _summaryChip(
+                        Icons.school_rounded,
+                        "$activeCount Active",
+                        Colors.white,
+                      ),
+                      _summaryChip(
+                        Icons.people_alt_outlined,
+                        "$totalStudents Students",
+                        Colors.white,
+                      ),
+                      _summaryChip(
+                        Icons.layers_outlined,
+                        "$totalBatches Batches",
+                        Colors.white,
+                      ),
                     ],
-                  ),
+                  )
                 ],
               ),
             ),

@@ -63,6 +63,11 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
   final List<List<Offset?>> _strokes = [];
   List<Offset?> _currentStroke = [];
 
+  // Size of the drawing canvas inside the signature pad dialog.
+  // We store this so we can correctly scale the signature into the
+  // small preview box on the main screen instead of letting it overflow.
+  Size _padCanvasSize = const Size(300, 200);
+
   // ── Signature pad handlers ──
   void _onPanStart(DragStartDetails d) {
     _currentStroke = [d.localPosition];
@@ -320,18 +325,32 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
                                 width: isSigned ? 1.5 : 1,
                               ),
                             ),
+                            // Clip everything inside the box so the signature
+                            // (drawn on a bigger canvas inside the pad) can
+                            // never paint/overflow outside this rounded box.
+                            clipBehavior: Clip.antiAlias,
                             child: isSigned
                                 ? Column(
                               mainAxisAlignment:
                               MainAxisAlignment.center,
                               children: [
-                                // Show mini preview of drawn signature
+                                // Show mini preview of drawn signature,
+                                // scaled down (FittedBox) from the actual
+                                // pad canvas size so proportions stay
+                                // correct and nothing overflows.
                                 SizedBox(
                                   height: 60,
                                   width: 200,
-                                  child: CustomPaint(
-                                    painter:
-                                    SignaturePainter(_strokes),
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: SizedBox(
+                                      width: _padCanvasSize.width,
+                                      height: _padCanvasSize.height,
+                                      child: CustomPaint(
+                                        painter:
+                                        SignaturePainter(_strokes),
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -525,6 +544,11 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
               child: Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
+                  // Constrain the popup card so it never grows taller than
+                  // the available screen space and never overflows.
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.85,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(28),
@@ -584,141 +608,162 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
                         ),
                       ),
 
-                      // Drawing canvas
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Text(
-                              "Sign in the box below",
-                              style: TextStyle(
-                                  color: Colors.grey.shade500, fontSize: 13),
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: GestureDetector(
-                                onPanStart: _onPanStart,
-                                onPanUpdate: _onPanUpdate,
-                                onPanEnd: _onPanEnd,
-                                child: Container(
-                                  height: 200,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xffFAFCFF),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                        color: Colors.grey.shade200),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Baseline
-                                      Positioned(
-                                        bottom: 50,
-                                        left: 20,
-                                        right: 20,
-                                        child: Container(
-                                          height: 1,
-                                          color:
-                                          Colors.grey.withOpacity(0.25),
+                      // Drawing canvas — wrapped in Flexible + scroll so the
+                      // whole card shrinks/scrolls instead of overflowing on
+                      // small screens.
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Sign in the box below",
+                                style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 13),
+                              ),
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: GestureDetector(
+                                  onPanStart: _onPanStart,
+                                  onPanUpdate: _onPanUpdate,
+                                  onPanEnd: _onPanEnd,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      // Remember actual canvas size so the
+                                      // preview on the main screen can be
+                                      // scaled correctly instead of
+                                      // overflowing its box.
+                                      _padCanvasSize = Size(
+                                          constraints.maxWidth, 200);
+                                      return Container(
+                                        height: 200,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xffFAFCFF),
+                                          borderRadius:
+                                          BorderRadius.circular(16),
+                                          border: Border.all(
+                                              color: Colors.grey.shade200),
                                         ),
-                                      ),
-                                      // Hint text
-                                      if (!_hasDrawn)
-                                        Center(
-                                          child: Text(
-                                            "sign here",
-                                            style: TextStyle(
-                                              color:
-                                              Colors.grey.shade300,
-                                              fontSize: 14,
+                                        child: Stack(
+                                          children: [
+                                            // Baseline
+                                            Positioned(
+                                              bottom: 50,
+                                              left: 20,
+                                              right: 20,
+                                              child: Container(
+                                                height: 1,
+                                                color: Colors.grey
+                                                    .withOpacity(0.25),
+                                              ),
                                             ),
-                                          ),
+                                            // Hint text
+                                            if (!_hasDrawn)
+                                              Center(
+                                                child: Text(
+                                                  "sign here",
+                                                  style: TextStyle(
+                                                    color:
+                                                    Colors.grey.shade300,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ),
+                                            // Drawn signature
+                                            CustomPaint(
+                                              painter: SignaturePainter(
+                                                  _strokes),
+                                              size: Size.infinite,
+                                            ),
+                                          ],
                                         ),
-                                      // Drawn signature
-                                      CustomPaint(
-                                        painter:
-                                        SignaturePainter(_strokes),
-                                        size: Size.infinite,
-                                      ),
-                                    ],
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: _clearSignature,
-                                    child: Container(
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        color:
-                                        const Color(0xffF1F5F9),
-                                        borderRadius:
-                                        BorderRadius.circular(14),
-                                      ),
-                                      child: const Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.restart_alt_rounded,
-                                              color: Colors.grey,
-                                              size: 16),
-                                          SizedBox(width: 6),
-                                          Text("Clear",
-                                              style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontWeight:
-                                                  FontWeight.w500)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: GestureDetector(
-                                    onTap: _confirmSignature,
-                                    child: Container(
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        borderRadius:
-                                        BorderRadius.circular(14),
-                                        gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xff2563EB),
-                                            Color(0xffA020F0),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: _clearSignature,
+                                      child: Container(
+                                        height: 48,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xffF1F5F9),
+                                          borderRadius:
+                                          BorderRadius.circular(14),
+                                        ),
+                                        child: const Row(
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.restart_alt_rounded,
+                                                color: Colors.grey,
+                                                size: 16),
+                                            SizedBox(width: 6),
+                                            Text("Clear",
+                                                style: TextStyle(
+                                                    color: Colors.grey,
+                                                    fontSize: 13,
+                                                    fontWeight:
+                                                    FontWeight.w500)),
                                           ],
                                         ),
                                       ),
-                                      child: const Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.check_circle_rounded,
-                                              color: Colors.white,
-                                              size: 18),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            "Confirm Signature",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight:
-                                              FontWeight.w600,
-                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 2,
+                                    child: GestureDetector(
+                                      onTap: _confirmSignature,
+                                      child: Container(
+                                        height: 48,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                          BorderRadius.circular(14),
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xff2563EB),
+                                              Color(0xffA020F0),
+                                            ],
                                           ),
-                                        ],
+                                        ),
+                                        child: const Row(
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                                Icons.check_circle_rounded,
+                                                color: Colors.white,
+                                                size: 16),
+                                            SizedBox(width: 6),
+                                            Text(
+                                              "Confirm",
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight:
+                                                FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

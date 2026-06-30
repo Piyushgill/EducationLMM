@@ -1,4 +1,6 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/profilescreen.dart';
 
 // ============================================================
@@ -65,6 +67,43 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
 class _StudentHomeTab extends StatelessWidget {
   const _StudentHomeTab();
+
+  // ---- DRAWER ACTIONS ----
+
+  void _openSettings(BuildContext context) {
+    Navigator.pop(context); // close drawer first
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const _SettingsScreen()),
+    );
+  }
+  void _confirmAndLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx); // close dialog
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
+                    (route) => false, // pura stack clear
+              );
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,19 +173,15 @@ class _StudentHomeTab extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text("Settings"),
-              onTap: () {},
+              onTap: () => _openSettings(context),
             ),
 
+            const Divider(),
+
             ListTile(
-              leading: const Icon(
-                Icons.logout,
-                color: Colors.red,
-              ),
-              title: const Text(
-                "Logout",
-                style: TextStyle(color: Colors.red),
-              ),
-              onTap: () {},
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onTap: () => _confirmAndLogout(context),
             ),
           ],
         ),
@@ -386,7 +421,101 @@ class _StudentHomeTab extends StatelessWidget {
 }
 
 // ============================================================
-//  PRACTICE TAB — 8 Level Selector
+//  SIMPLE SETTINGS SCREEN (wired up from drawer)
+// ============================================================
+
+class _SettingsScreen extends StatefulWidget {
+  const _SettingsScreen();
+
+  @override
+  State<_SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<_SettingsScreen> {
+  bool _notifications = true;
+  bool _soundEffects = true;
+  bool _darkMode = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(left: 16, right: 24, top: 16, bottom: 28),
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+              gradient: LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
+            ),
+            child: Row(children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+              ),
+              const Text("Settings", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            ]),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(18),
+              children: [
+                _settingsTile(
+                  icon: Icons.notifications_outlined,
+                  title: "Notifications",
+                  subtitle: "Get reminders for new tests and videos",
+                  value: _notifications,
+                  onChanged: (v) => setState(() => _notifications = v),
+                ),
+                _settingsTile(
+                  icon: Icons.volume_up_outlined,
+                  title: "Sound Effects",
+                  subtitle: "Play sounds on correct/incorrect answers",
+                  value: _soundEffects,
+                  onChanged: (v) => setState(() => _soundEffects = v),
+                ),
+                _settingsTile(
+                  icon: Icons.dark_mode_outlined,
+                  title: "Dark Mode",
+                  subtitle: "Switch to a darker theme",
+                  value: _darkMode,
+                  onChanged: (v) => setState(() => _darkMode = v),
+                ),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _settingsTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+      child: Row(children: [
+        Container(height: 44, width: 44, decoration: BoxDecoration(color: const Color(0xff10B981).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: const Color(0xff10B981))),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+        ])),
+        Switch(value: value, activeColor: const Color(0xff10B981), onChanged: onChanged),
+      ]),
+    );
+  }
+}
+
+// ============================================================
+//  PRACTICE TAB — 8 Level Selector (all levels unlocked)
 // ============================================================
 
 class _PracticeTab extends StatelessWidget {
@@ -425,20 +554,21 @@ class _PracticeTab extends StatelessWidget {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1,
                   children: List.generate(8, (i) {
-                    final isUnlocked = i < 3;
-                    final isCurrent  = i == 2;
+                    // All 8 levels are now unlocked and playable.
+                    const isUnlocked = true;
+                    final isCurrent = i == 2;
                     return GestureDetector(
                       onTap: isUnlocked ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PracticeTestScreen(level: i + 1))) : null,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isCurrent ? const Color(0xff10B981) : isUnlocked ? const Color(0xff10B981).withOpacity(.1) : Colors.grey.shade100,
+                          color: isCurrent ? const Color(0xff10B981) : const Color(0xff10B981).withOpacity(.1),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: isCurrent ? const Color(0xff10B981) : Colors.transparent, width: 1.5),
                         ),
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(isUnlocked ? Icons.lock_open_rounded : Icons.lock_outlined, color: isCurrent ? Colors.white : isUnlocked ? const Color(0xff10B981) : Colors.grey, size: 22),
+                          Icon(Icons.lock_open_rounded, color: isCurrent ? Colors.white : const Color(0xff10B981), size: 22),
                           const SizedBox(height: 4),
-                          Text("L${i + 1}", style: TextStyle(color: isCurrent ? Colors.white : isUnlocked ? const Color(0xff10B981) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text("L${i + 1}", style: TextStyle(color: isCurrent ? Colors.white : const Color(0xff10B981), fontWeight: FontWeight.bold, fontSize: 14)),
                         ]),
                       ),
                     );
@@ -542,7 +672,7 @@ class _StudentProfileTab extends StatelessWidget {
 }
 
 // ============================================================
-//  PRACTICE TEST SCREEN — 50 Questions, 1 Screen, Submit
+//  PRACTICE TEST SCREEN — 50 Questions, randomized per attempt
 // ============================================================
 
 class PracticeTestScreen extends StatefulWidget {
@@ -558,22 +688,62 @@ class _PracticeTestScreenState extends State<PracticeTestScreen> {
   bool _submitted = false;
   int _score = 0;
 
-  List<Map<String, dynamic>> get questions => List.generate(50, (i) {
-    final a = (i * 3 + widget.level * 2) % 20 + 1;
-    final b = (i * 2 + widget.level)     % 15 + 1;
-    final correct = a + b;
-    final opts = [correct, correct + 3, correct - 2, correct + 5];
-    opts.shuffle();
-    return {'q': '$a + $b = ?', 'options': opts, 'answer': opts.indexOf(correct)};
-  });
+  // Bumped every time the user retries -> changes the random seed below,
+  // so a fresh attempt gets a different set of questions instead of the
+  // exact same a+b values every time.
+  int _attempt = 0;
+
+  // Cached so the SAME question set is used for both the question list
+  // and the result summary within one attempt (not regenerated on every
+  // setState rebuild).
+  late List<Map<String, dynamic>> _questions = _generateQuestions();
+
+  List<Map<String, dynamic>> _generateQuestions() {
+    // Seed combines level + attempt number + a random salt so every retry
+    // (and the very first attempt too) gets a freshly shuffled question set.
+    final seed = widget.level * 10007 +
+        _attempt * 977 +
+        DateTime.now().millisecondsSinceEpoch % 100000;
+    final rnd = Random(seed);
+
+    return List.generate(50, (i) {
+      final a = rnd.nextInt(10 + widget.level * 2) + 1;
+      final b = rnd.nextInt(8 + widget.level * 2) + 1;
+      final correct = a + b;
+
+      final optionSet = <int>{correct};
+      while (optionSet.length < 4) {
+        final delta = rnd.nextInt(9) - 4; // -4..+4
+        final candidate = correct + delta;
+        if (delta != 0 && candidate > 0) {
+          optionSet.add(candidate);
+        }
+      }
+      final opts = optionSet.toList()..shuffle(rnd);
+
+      return {'q': '$a + $b = ?', 'options': opts, 'answer': opts.indexOf(correct)};
+    });
+  }
 
   void _submit() {
     int score = 0;
-    final qs = questions;
-    for (int i = 0; i < qs.length; i++) {
-      if (_answers[i] == qs[i]['answer']) score++;
+    for (int i = 0; i < _questions.length; i++) {
+      if (_answers[i] == _questions[i]['answer']) score++;
     }
-    setState(() { _score = score; _submitted = true; });
+    setState(() {
+      _score = score;
+      _submitted = true;
+    });
+  }
+
+  void _retry() {
+    setState(() {
+      _attempt++; // new attempt -> new seed -> new (swapped) questions
+      _answers.clear();
+      _submitted = false;
+      _score = 0;
+      _questions = _generateQuestions();
+    });
   }
 
   String get _grade {
@@ -585,7 +755,7 @@ class _PracticeTestScreenState extends State<PracticeTestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final qs = questions;
+    final qs = _questions;
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(children: [
@@ -706,7 +876,7 @@ class _PracticeTestScreenState extends State<PracticeTestScreen> {
             padding: const EdgeInsets.all(18),
             child: Row(children: [
               Expanded(child: OutlinedButton(
-                onPressed: () => setState(() { _answers.clear(); _submitted = false; _score = 0; }),
+                onPressed: _retry,
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), side: const BorderSide(color: Color(0xff10B981)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                 child: const Text("Retry", style: TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.bold, fontSize: 15)),
               )),
