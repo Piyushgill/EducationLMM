@@ -1,20 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
-class CommissionScreen extends StatelessWidget {
+class CommissionScreen extends StatefulWidget {
   const CommissionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> commissions = [
-      {'school': 'Modern Academy', 'revenue': 63000, 'rate': '15%', 'commission': 9450, 'month': 'Feb 2025', 'status': 'Received'},
-      {'school': 'Harmony International', 'revenue': 58000, 'rate': '15%', 'commission': 8700, 'month': 'Feb 2025', 'status': 'Pending'},
-      {'school': 'Excellence Academy', 'revenue': 45000, 'rate': '12%', 'commission': 5400, 'month': 'Feb 2025', 'status': 'Received'},
-      {'school': 'Sunrise Public School', 'revenue': 32000, 'rate': '12%', 'commission': 3840, 'month': 'Jan 2025', 'status': 'Received'},
-      {'school': 'Delhi Convent School', 'revenue': 27000, 'rate': '10%', 'commission': 2700, 'month': 'Jan 2025', 'status': 'Received'},
-    ];
+  State<CommissionScreen> createState() => _CommissionScreenState();
+}
 
-    final totalEarned = commissions.fold(0, (sum, c) => sum + (c['commission'] as int));
-    final totalPending = commissions.where((c) => c['status'] == 'Pending').fold(0, (sum, c) => sum + (c['commission'] as int));
+class _CommissionScreenState extends State<CommissionScreen> {
+  bool _isLoading = false;
+  List<dynamic> _commissions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCommissions();
+  }
+
+  Future<void> _fetchCommissions() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_commissions.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            if (mounted) {
+              setState(() {
+                _commissions = data['data'];
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching commissions: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double totalEarned = _commissions
+        .where((c) => c['status'] == 'Paid')
+        .fold(0.0, (sum, c) => sum + (c['amount'] as num).toDouble());
+    
+    final double totalPending = _commissions
+        .where((c) => c['status'] == 'Pending')
+        .fold(0.0, (sum, c) => sum + (c['amount'] as num).toDouble());
+
+    final double totalPayout = totalEarned + totalPending;
+    const double monthlyTarget = 25000.0;
+    final double progressRatio = monthlyTarget > 0 ? (totalEarned / monthlyTarget).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -51,11 +101,11 @@ class CommissionScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    _headerStat("Total Earned", "₹1.87L"),
+                    _headerStat("Total Earned", "₹${totalEarned.toStringAsFixed(0)}"),
                     const SizedBox(width: 12),
-                    _headerStat("Pending", "₹8,700"),
+                    _headerStat("Pending", "₹${totalPending.toStringAsFixed(0)}"),
                     const SizedBox(width: 12),
-                    _headerStat("Expected", "₹2.5L"),
+                    _headerStat("Expected Target", "₹${monthlyTarget.toStringAsFixed(0)}"),
                   ],
                 ),
               ],
@@ -79,21 +129,21 @@ class CommissionScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text("Target Progress", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      const Text("₹1.87L / ₹2.5L", style: TextStyle(color: Color(0xffFF1493), fontWeight: FontWeight.w600)),
+                      Text("₹${totalEarned.toStringAsFixed(0)} / ₹${monthlyTarget.toStringAsFixed(0)}", style: const TextStyle(color: Color(0xffFF1493), fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
-                      value: 0.748,
+                      value: progressRatio,
                       backgroundColor: const Color(0xffFF1493).withOpacity(.1),
                       valueColor: const AlwaysStoppedAnimation<Color>(Color(0xffFF1493)),
                       minHeight: 12,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text("74.8% of monthly target achieved", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  Text("${(progressRatio * 100).toStringAsFixed(1)}% of monthly target achieved", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                 ],
               ),
             ),
@@ -105,7 +155,7 @@ class CommissionScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("Commission Breakup", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text("${commissions.length} entries", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                Text("${_commissions.length} entries", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
               ],
             ),
           ),
@@ -113,61 +163,65 @@ class CommissionScreen extends StatelessWidget {
           const SizedBox(height: 12),
 
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              itemCount: commissions.length,
-              itemBuilder: (context, index) {
-                final c = commissions[index];
-                final isReceived = c['status'] == 'Received';
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        height: 46, width: 46,
-                        decoration: BoxDecoration(
-                          color: const Color(0xffFF1493).withOpacity(.1),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.trending_up_rounded, color: Color(0xffFF1493), size: 24),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(c['school'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                            const SizedBox(height: 3),
-                            Text("Revenue: ₹${c['revenue']} @ ${c['rate']} • ${c['month']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text("₹${c['commission']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff1E1E1E))),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xffFF1493)))
+                : _commissions.isEmpty
+                    ? Center(child: Text("No commission payouts logged yet", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        itemCount: _commissions.length,
+                        itemBuilder: (context, index) {
+                          final c = _commissions[index];
+                          final isPaid = c['status'] == 'Paid';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isReceived ? const Color(0xff16C74A).withOpacity(.1) : const Color(0xffFF6B00).withOpacity(.1),
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
                             ),
-                            child: Text(c['status'], style: TextStyle(color: isReceived ? const Color(0xff16C74A) : const Color(0xffFF6B00), fontSize: 11, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
+                            child: Row(
+                              children: [
+                                Container(
+                                  height: 46, width: 46,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xffFF1493).withOpacity(.1),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(Icons.trending_up_rounded, color: Color(0xffFF1493), size: 24),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(c['trigger_name'] ?? "MLM Affiliate Referral", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                      const SizedBox(height: 3),
+                                      Text("Tier ${c['tier_level']} Referral • ${c['created_at']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text("₹${c['amount']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff1E1E1E))),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isPaid ? const Color(0xff16C74A).withOpacity(.1) : const Color(0xffFF6B00).withOpacity(.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(c['status'] ?? 'Pending', style: TextStyle(color: isPaid ? const Color(0xff16C74A) : const Color(0xffFF6B00), fontSize: 11, fontWeight: FontWeight.w600)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),

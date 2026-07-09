@@ -1,5 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:thenew/services/session_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/login_screen.dart';
+import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/profilescreen.dart';
 
@@ -65,10 +70,75 @@ class _StudentDashboardState extends State<StudentDashboard> {
 //  HOME TAB
 // ============================================================
 
-class _StudentHomeTab extends StatelessWidget {
+class _StudentHomeTab extends StatefulWidget {
   const _StudentHomeTab();
 
-  // ---- DRAWER ACTIONS ----
+  @override
+  State<_StudentHomeTab> createState() => _StudentHomeTabState();
+}
+
+class _StudentHomeTabState extends State<_StudentHomeTab> {
+  String _studentName = "Student";
+  String _studentEmail = "";
+  bool _isLoading = false;
+  int _testsDone = 0;
+  String _bestScore = "0/50";
+  List<dynamic> _attempts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSessionAndData();
+  }
+
+  Future<void> _loadSessionAndData() async {
+    final session = await SessionManager.getSession();
+    if (session != null) {
+      if (mounted) {
+        setState(() {
+          _studentName = session['name'] ?? "Student";
+          _studentEmail = session['email'] ?? "";
+        });
+      }
+      _fetchPracticeHistory(session['id']);
+    }
+  }
+
+  Future<void> _fetchPracticeHistory(dynamic studentId) async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/get_practice_history.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"student_id": studentId}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          final List<dynamic> list = data['data'];
+          int best = 0;
+          for (var item in list) {
+            final sc = item['score'] as int? ?? 0;
+            if (sc > best) best = sc;
+          }
+          if (mounted) {
+            setState(() {
+              _attempts = list;
+              _testsDone = list.length;
+              _bestScore = "$best/50";
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching practice history: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   void _openSettings(BuildContext context) {
     Navigator.pop(context); // close drawer first
@@ -77,6 +147,7 @@ class _StudentHomeTab extends StatelessWidget {
       MaterialPageRoute(builder: (_) => const _SettingsScreen()),
     );
   }
+
   void _confirmAndLogout(BuildContext context) {
     showDialog(
       context: context,
@@ -90,13 +161,30 @@ class _StudentHomeTab extends StatelessWidget {
             child: const Text("Cancel"),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              final nav = Navigator.of(context);
               Navigator.pop(ctx); // close dialog
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
-                    (route) => false, // pura stack clear
-              );
+              final session = await SessionManager.getSession();
+              if (session != null && session['is_impersonating'] == true) {
+                await SessionManager.saveSession(
+                  id: 1,
+                  name: "Super Admin",
+                  email: "admin@educationlmm.com",
+                  phone: "9999999999",
+                  role: "Super Admin",
+                  kycStatus: "Approved",
+                );
+                nav.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
+                  (route) => false,
+                );
+              } else {
+                await SessionManager.clearSession();
+                nav.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
             child: const Text("Logout", style: TextStyle(color: Colors.red)),
           ),
@@ -107,13 +195,15 @@ class _StudentHomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarLetter = _studentName.isNotEmpty ? _studentName.substring(0, 1).toUpperCase() : "S";
+
     return Scaffold(
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
+            DrawerHeader(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
                     Color(0xff10B981),
@@ -125,7 +215,7 @@ class _StudentHomeTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 30,
                     backgroundColor: Colors.white,
                     child: Icon(
@@ -134,10 +224,10 @@ class _StudentHomeTab extends StatelessWidget {
                       color: Color(0xff10B981),
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text(
-                    "Student Name",
-                    style: TextStyle(
+                    _studentName,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -226,9 +316,9 @@ class _StudentHomeTab extends StatelessWidget {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: Colors.white.withOpacity(.2),
-                    child: const Text(
-                      "A",
-                      style: TextStyle(
+                    child: Text(
+                      avatarLetter,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
@@ -251,14 +341,13 @@ class _StudentHomeTab extends StatelessWidget {
 
               const SizedBox(height: 4),
 
-              const Text(
-                "Hello, Anjali! 👋",
-                style: TextStyle(
+              Text(
+                "Hello, $_studentName! 👋",
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                 ),
               ),
-
 
               const SizedBox(height: 16),
               // Progress card in header
@@ -290,9 +379,9 @@ class _StudentHomeTab extends StatelessWidget {
                 _sectionTitle("My Progress"),
                 const SizedBox(height: 12),
                 Row(children: [
-                  _quickStatCard("Tests Done",    "2",    const Color(0xff10B981)),
+                  _quickStatCard("Tests Done",    "$_testsDone",    const Color(0xff10B981)),
                   const SizedBox(width: 12),
-                  _quickStatCard("Best Score",    "48/50", const Color(0xff0EA5E9)),
+                  _quickStatCard("Best Score",    _bestScore, const Color(0xff0EA5E9)),
                   const SizedBox(width: 12),
                   _quickStatCard("Current Level", "3",    const Color(0xffA020F0)),
                 ]),
@@ -302,9 +391,31 @@ class _StudentHomeTab extends StatelessWidget {
                 // PAST TEST RESULTS
                 _sectionTitle("My Test Results"),
                 const SizedBox(height: 12),
-                _resultCard("Level 1", "48/50", "10 Jan 2025", "A+"),
-                const SizedBox(height: 10),
-                _resultCard("Level 2", "42/50", "25 Jan 2025", "A"),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
+                else if (_attempts.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                    child: Center(
+                      child: Text(
+                        "No practice tests completed yet",
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                      ),
+                    ),
+                  )
+                else
+                  ..._attempts.map((attempt) {
+                    final int lvl = attempt['level'] as int? ?? 1;
+                    final int sc = attempt['score'] as int? ?? 0;
+                    final String grade = sc >= 45 ? "A+" : (sc >= 40 ? "A" : "B");
+                    final String dt = attempt['created_at'] != null ? attempt['created_at'].toString().split(' ')[0] : "Recently";
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _resultCard("Level $lvl", "$sc/50", dt, grade),
+                    );
+                  }).toList(),
 
                 const SizedBox(height: 24),
 
@@ -596,22 +707,63 @@ class _PracticeTab extends StatelessWidget {
 //  VIDEOS TAB
 // ============================================================
 
-class _VideosTab extends StatelessWidget {
+class _VideosTab extends StatefulWidget {
   const _VideosTab();
 
-  final List<Map<String, dynamic>> videos = const [
-    {'title': 'Abacus Basics - Level 1',    'duration': '15 min', 'color': Color(0xff10B981)},
-    {'title': 'Abacus Level 2 Techniques',  'duration': '18 min', 'color': Color(0xff059669)},
-    {'title': 'Speed Calculation Tips',     'duration': '22 min', 'color': Color(0xff0EA5E9)},
-    {'title': 'Level 3 Practice Methods',   'duration': '25 min', 'color': Color(0xffA020F0)},
-    {'title': 'Mental Math Tricks',         'duration': '20 min', 'color': Color(0xffFF6B00)},
-    {'title': 'Concentration Exercises',    'duration': '12 min', 'color': Color(0xff2563EB)},
-    {'title': 'Level 4 Advanced',           'duration': '30 min', 'color': Color(0xffFF1493)},
-    {'title': 'Exam Preparation Tips',      'duration': '17 min', 'color': Color(0xff16C74A)},
-  ];
+  @override
+  State<_VideosTab> createState() => _VideosTabState();
+}
+
+class _VideosTabState extends State<_VideosTab> {
+  bool _isLoading = false;
+  List<dynamic> _courses = [];
+
+  Future<void> _fetchVideos() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse("https://apps.kofalt.in/api/admin/get_courses.php"),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _courses = data['data'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching videos: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVideos();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> allLessons = [];
+    for (final course in _courses) {
+      final String courseTitle = course['title'] ?? "";
+      final List<dynamic> chapters = course['chapters'] ?? [];
+      for (final ch in chapters) {
+        allLessons.add({
+          'course_title': courseTitle,
+          'title': ch['title'] ?? "",
+          'chapter_number': ch['chapter_number'] ?? 1,
+          'resource_url': ch['resource_url'] ?? "",
+        });
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(child: Column(children: [
@@ -625,30 +777,49 @@ class _VideosTab extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text("Education Videos", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text("${videos.length} videos available", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text("${allLessons.length} lessons available", style: const TextStyle(color: Colors.white70, fontSize: 13)),
           ]),
         ),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(18),
-          itemCount: videos.length,
-          itemBuilder: (_, i) {
-            final v = videos[i];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-              child: Row(children: [
-                Container(height: 48, width: 48, decoration: BoxDecoration(color: (v['color'] as Color).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: Icon(Icons.play_circle_filled, color: v['color'] as Color, size: 30)),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(v['title']!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text(v['duration']!, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                ])),
-                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
-              ]),
-            );
-          },
-        )),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
+              : allLessons.isEmpty
+                  ? const Center(child: Text("No video lessons published yet.", style: TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(18),
+                      itemCount: allLessons.length,
+                      itemBuilder: (_, i) {
+                        final lesson = allLessons[i];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+                          child: Row(children: [
+                            Container(
+                              height: 48, width: 48, 
+                              decoration: BoxDecoration(color: const Color(0xff10B981).withOpacity(.1), borderRadius: BorderRadius.circular(14)), 
+                              child: const Icon(Icons.play_circle_filled, color: Color(0xff10B981), size: 30)
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text("Ch ${lesson['chapter_number']}: ${lesson['title']}", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text(lesson['course_title'], style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                            ])),
+                            IconButton(
+                              onPressed: () {
+                                if (lesson['resource_url'] != null && lesson['resource_url'].isNotEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Playing lesson: ${lesson['resource_url']}")),
+                                  );
+                                }
+                              },
+                              icon: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
+                            ),
+                          ]),
+                        );
+                      },
+                    ),
+        ),
       ])),
     );
   }
@@ -725,7 +896,7 @@ class _PracticeTestScreenState extends State<PracticeTestScreen> {
     });
   }
 
-  void _submit() {
+  void _submit() async {
     int score = 0;
     for (int i = 0; i < _questions.length; i++) {
       if (_answers[i] == _questions[i]['answer']) score++;
@@ -734,6 +905,24 @@ class _PracticeTestScreenState extends State<PracticeTestScreen> {
       _score = score;
       _submitted = true;
     });
+
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final studentId = session['id'];
+        await http.post(
+          Uri.parse("https://apps.kofalt.in/api/submit_quiz.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "student_id": studentId,
+            "level": widget.level,
+            "score": score
+          }),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error submitting score: $e");
+    }
   }
 
   void _retry() {

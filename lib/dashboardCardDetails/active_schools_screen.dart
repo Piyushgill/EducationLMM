@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
 class ActiveSchoolsScreen extends StatefulWidget {
   const ActiveSchoolsScreen({super.key});
@@ -9,20 +12,53 @@ class ActiveSchoolsScreen extends StatefulWidget {
 
 class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
   String _selectedFilter = 'All';
+  bool _isLoading = false;
+  List<dynamic> _schools = [];
 
-  final List<Map<String, dynamic>> schools = [
-    {'name': 'Sunrise Public School', 'location': 'Delhi', 'students': 120, 'orderDate': '12 Jan 2025', 'status': 'Active', 'programs': 3},
-    {'name': 'Delhi Convent School', 'location': 'Noida', 'students': 85, 'orderDate': '18 Jan 2025', 'status': 'Active', 'programs': 2},
-    {'name': 'Modern Academy', 'location': 'Gurgaon', 'students': 200, 'orderDate': '05 Feb 2025', 'status': 'Active', 'programs': 4},
-    {'name': 'Green Valley School', 'location': 'Faridabad', 'students': 60, 'orderDate': '22 Jan 2025', 'status': 'Inactive', 'programs': 1},
-    {'name': 'Harmony International', 'location': 'Ghaziabad', 'students': 150, 'orderDate': '10 Feb 2025', 'status': 'Active', 'programs': 3},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchSchools();
+  }
+
+  Future<void> _fetchSchools() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success' && data['network_users'] != null) {
+            final List<dynamic> users = data['network_users'];
+            if (mounted) {
+              setState(() {
+                _schools = users.where((u) => u['role'] == 'School').toList();
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching schools: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final filtered = _selectedFilter == 'All'
-        ? schools
-        : schools.where((s) => s['status'] == _selectedFilter).toList();
+        ? _schools
+        : _schools.where((s) => s['status'] == _selectedFilter).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -73,14 +109,14 @@ class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Active Schools", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                        Text("When Order Placed", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text("Real-time network directory", style: TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                      child: const Text("45", style: TextStyle(color: Color(0xff16C74A), fontSize: 15, fontWeight: FontWeight.bold)),
+                      child: Text("${_schools.length}", style: const TextStyle(color: Color(0xff16C74A), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -92,7 +128,7 @@ class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
           Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
-              children: ['All', 'Active', 'Inactive'].map((filter) {
+              children: ['All', 'Active', 'Suspended'].map((filter) {
                 final isSelected = _selectedFilter == filter;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedFilter = filter),
@@ -119,70 +155,72 @@ class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
 
           // School Cards
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final s = filtered[index];
-                final isActive = s['status'] == 'Active';
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3))],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            height: 46, width: 46,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xff16C74A)))
+                : filtered.isEmpty
+                    ? Center(child: Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final s = filtered[index];
+                          final isActive = s['status'] == 'Active';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xff16C74A).withOpacity(.1),
-                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3))],
                             ),
-                            child: const Icon(Icons.school_outlined, color: Color(0xff16C74A), size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(s['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                Text(s['location'], style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                                Row(
+                                  children: [
+                                    Container(
+                                      height: 46, width: 46,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xff16C74A).withOpacity(.1),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: const Icon(Icons.school_outlined, color: Color(0xff16C74A), size: 24),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(s['name'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                          Text(s['email'] ?? "", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: isActive ? const Color(0xff16C74A).withOpacity(.1) : Colors.red.withOpacity(.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(s['status'] ?? 'Active', style: TextStyle(color: isActive ? const Color(0xff16C74A) : Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                const Divider(height: 1),
+                                const SizedBox(height: 14),
+                                Row(
+                                  children: [
+                                    _infoItem(Icons.phone, s['phone'] ?? "No Phone", const Color(0xff2563EB)),
+                                    const SizedBox(width: 14),
+                                    _infoItem(Icons.calendar_today_outlined, "Joined Recently", const Color(0xffFF6B00)),
+                                  ],
+                                ),
                               ],
                             ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isActive ? const Color(0xff16C74A).withOpacity(.1) : Colors.red.withOpacity(.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(s['status'], style: TextStyle(color: isActive ? const Color(0xff16C74A) : Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                      const SizedBox(height: 14),
-                      const Divider(height: 1),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          _infoItem(Icons.groups_outlined, "${s['students']} Students", const Color(0xff2563EB)),
-                          const SizedBox(width: 7),
-                          _infoItem(Icons.menu_book_outlined, "${s['programs']} Programs", const Color(0xffA020F0)),
-                          const SizedBox(width: 2),
-                          _infoItem(Icons.calendar_today_outlined, s['orderDate'], const Color(0xffFF6B00)),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),

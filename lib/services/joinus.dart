@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:thenew/services/kycverificationscreen.dart';
 import 'package:thenew/services/login_screen.dart';
 
@@ -194,7 +195,8 @@ const Map<String, RoleConfig> kRoleConfigs = {
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 class JoinUsScreen extends StatefulWidget {
-  const JoinUsScreen({super.key});
+  final String? initialRole;
+  const JoinUsScreen({super.key, this.initialRole});
 
   @override
   State<JoinUsScreen> createState() => _JoinUsScreenState();
@@ -203,12 +205,14 @@ class JoinUsScreen extends StatefulWidget {
 class _JoinUsScreenState extends State<JoinUsScreen> {
   bool isChecked = false;
   bool isPasswordHidden = true;
+  bool isConfirmPasswordHidden = true;
   String selectedRole = "Distributor";
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   // Dynamic extra-field controllers keyed by FieldConfig.key
   final Map<String, TextEditingController> _extraControllers = {};
@@ -218,6 +222,9 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialRole != null && kRoleConfigs.containsKey(widget.initialRole)) {
+      selectedRole = widget.initialRole!;
+    }
     _rebuildExtraControllers();
   }
 
@@ -242,8 +249,15 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
     if (_nameController.text.trim().isEmpty) return "Please enter your full name";
     if (_emailController.text.trim().isEmpty) return "Please enter your email";
     if (!_emailController.text.contains('@')) return "Please enter a valid email";
-    if (_phoneController.text.trim().length < 10) return "Please enter a valid phone number";
+    
+    final phoneVal = _phoneController.text.trim();
+    if (phoneVal.length != 10) return "Phone number must be exactly 10 digits";
+    if (!RegExp(r'^\d{10}$').hasMatch(phoneVal)) return "Please enter a valid 10-digit phone number";
+    
     if (_passwordController.text.length < 6) return "Password must be at least 6 characters";
+    if (_passwordController.text != _confirmPasswordController.text) {
+      return "Passwords do not match";
+    }
     for (final field in _currentConfig.extraFields) {
       if (_extraControllers[field.key]!.text.trim().isEmpty) {
         return "Please enter ${field.label}";
@@ -272,6 +286,8 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
       "name": _nameController.text.trim(),
       "email": _emailController.text.trim(),
       "phone": _phoneController.text.trim(),
+      "password": _passwordController.text,
+      "role": selectedRole,
     };
     for (final field in _currentConfig.extraFields) {
       formData[field.key] = _extraControllers[field.key]!.text.trim();
@@ -294,6 +310,7 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     for (final c in _extraControllers.values) {
       c.dispose();
     }
@@ -410,6 +427,98 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
               // ── ROLE-SPECIFIC EXTRA FIELDS ──
               ...List.generate(_currentConfig.extraFields.length, (i) {
                 final field = _currentConfig.extraFields[i];
+                Widget inputWidget;
+
+                if (field.key == "dob") {
+                  inputWidget = InkWell(
+                    onTap: () async {
+                      FocusScope.of(context).unfocus();
+                      final DateTime? pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now().subtract(const Duration(days: 365 * 10)),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: Color(0xff2563EB),
+                                onPrimary: Colors.white,
+                                onSurface: Colors.black87,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (pickedDate != null) {
+                        final String formatted = "${pickedDate.year.toString().padLeft(4, '0')}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                        setState(() {
+                          _extraControllers[field.key]!.text = formatted;
+                        });
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(18),
+                    child: AbsorbPointer(
+                      child: _buildTextField(
+                        controller: _extraControllers[field.key]!,
+                        hint: "Select Date of Birth",
+                        icon: field.icon,
+                        keyboardType: TextInputType.none,
+                      ),
+                    ),
+                  );
+                } else if (field.key == "class_grade") {
+                  final String? currentValue = _extraControllers[field.key]!.text.isEmpty ? null : _extraControllers[field.key]!.text;
+                  inputWidget = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xfff1f2f6),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: currentValue,
+                      hint: Row(
+                        children: [
+                          Icon(field.icon, color: Colors.grey, size: 20),
+                          const SizedBox(width: 12),
+                          Text(field.hint, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+                        ],
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      items: [
+                        "Nursery", "LKG", "UKG", 
+                        "1st", "2nd", "3rd", "4th", "5th", 
+                        "6th", "7th", "8th", "9th", "10th", "11th", "12th"
+                      ].map((String grade) {
+                        return DropdownMenuItem<String>(
+                          value: grade,
+                          child: Text(grade, style: const TextStyle(fontSize: 16)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _extraControllers[field.key]!.text = val;
+                          });
+                        }
+                      },
+                    ),
+                  );
+                } else {
+                  inputWidget = _buildTextField(
+                    controller: _extraControllers[field.key]!,
+                    hint: field.hint,
+                    icon: field.icon,
+                    keyboardType: field.keyboardType,
+                    textCapitalization: field.textCapitalization,
+                  );
+                }
+
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: Column(
@@ -418,13 +527,7 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                     children: [
                       Titleh1(title: field.label, astrick: true),
                       const SizedBox(height: 12),
-                      _buildTextField(
-                        controller: _extraControllers[field.key]!,
-                        hint: field.hint,
-                        icon: field.icon,
-                        keyboardType: field.keyboardType,
-                        textCapitalization: field.textCapitalization,
-                      ),
+                      inputWidget,
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -454,6 +557,36 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
                       ),
                     ),
                     hintText: "Enter Your Password",
+                    hintStyle: const TextStyle(fontSize: 18, color: Colors.black87),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── CONFIRM PASSWORD ──
+              const Titleh1(title: "Confirm Password", astrick: true),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xfff1f2f6),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: isConfirmPasswordHidden,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.grey),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => isConfirmPasswordHidden = !isConfirmPasswordHidden),
+                      icon: Icon(
+                        isConfirmPasswordHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    hintText: "Confirm Your Password",
                     hintStyle: const TextStyle(fontSize: 18, color: Colors.black87),
                   ),
                 ),
@@ -699,6 +832,7 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.words,
   }) {
+    final isPhone = keyboardType == TextInputType.phone;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xfff1f2f6),
@@ -708,6 +842,13 @@ class _JoinUsScreenState extends State<JoinUsScreen> {
         controller: controller,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
+        maxLength: isPhone ? 10 : null,
+        buildCounter: isPhone
+            ? (context, {required currentLength, required isFocused, maxLength}) => null
+            : null,
+        inputFormatters: isPhone
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : null,
         decoration: InputDecoration(
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 20),

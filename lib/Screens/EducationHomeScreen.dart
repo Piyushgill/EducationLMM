@@ -166,7 +166,7 @@ class EducationLLMHomeScreen extends StatelessWidget {
               InkWell(
                 borderRadius: BorderRadius.circular(24),
                 onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => DistributorJoinScreen())),
+                    MaterialPageRoute(builder: (_) => const JoinUsScreen(initialRole: "Distributor"))),
                 child: _buildJoinCard(
                   title: "Distributor",
                   subtitle: "Build & manage networks",
@@ -178,7 +178,7 @@ class EducationLLMHomeScreen extends StatelessWidget {
               InkWell(
                 borderRadius: BorderRadius.circular(24),
                 onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => FranchiseJoinScreen())),
+                    MaterialPageRoute(builder: (_) => const JoinUsScreen(initialRole: "Franchise Partner"))),
                 child: _buildJoinCard(
                   title: "Franchise Partner",
                   subtitle: "Run education center",
@@ -190,12 +190,24 @@ class EducationLLMHomeScreen extends StatelessWidget {
               InkWell(
                 borderRadius: BorderRadius.circular(24),
                 onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => StudentSignUpScreen())),
+                    MaterialPageRoute(builder: (_) => const JoinUsScreen(initialRole: "Student"))),
                 child: _buildJoinCard(
                   title: "Student",
                   subtitle: "Teach Yourself",
                   gradient: const [Color(0xff22C55E), Color(0xff00B63E)],
-                  icon: Icons.apartment_rounded,
+                  icon: Icons.person_outline_rounded,
+                ),
+              ),
+
+              InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const JoinUsScreen(initialRole: "School"))),
+                child: _buildJoinCard(
+                  title: "School",
+                  subtitle: "Register your institution",
+                  gradient: const [Color(0xffF59E0B), Color(0xffD97706)],
+                  icon: Icons.domain_outlined,
                 ),
               ),
 

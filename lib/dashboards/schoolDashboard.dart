@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/services/session_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/login_screen.dart';
+import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/Screens/EducationHomeScreen.dart';
 
 // ============================================================
@@ -15,6 +20,24 @@ class SchoolDashboard extends StatefulWidget {
 class _SchoolDashboardState extends State<SchoolDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
+  String _schoolName = "School Dashboard";
+  String _schoolEmail = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSchoolSession();
+  }
+
+  Future<void> _loadSchoolSession() async {
+    final session = await SessionManager.getSession();
+    if (session != null) {
+      setState(() {
+        _schoolName = session['name'] ?? "School Dashboard";
+        _schoolEmail = session['email'] ?? "";
+      });
+    }
+  }
 
   void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
 
@@ -81,14 +104,14 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text(
-                      "Sunrise Public School",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    Text(
+                      _schoolName,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
-                    Text("school@sunrise.edu", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 12)),
+                    Text(_schoolEmail.isNotEmpty ? _schoolEmail : "School Account", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 12)),
                   ]),
                 ),
               ]),
@@ -158,13 +181,30 @@ void _confirmAndLogout(BuildContext context) {
           child: const Text("Cancel"),
         ),
         TextButton(
-          onPressed: () {
+          onPressed: () async {
+            final nav = Navigator.of(context);
             Navigator.pop(ctx); // close dialog
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
-                  (route) => false, // pura stack clear
-            );
+            final session = await SessionManager.getSession();
+            if (session != null && session['is_impersonating'] == true) {
+              await SessionManager.saveSession(
+                id: 1,
+                name: "Super Admin",
+                email: "admin@educationlmm.com",
+                phone: "9999999999",
+                role: "Super Admin",
+                kycStatus: "Approved",
+              );
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
+                (route) => false,
+              );
+            } else {
+              await SessionManager.clearSession();
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            }
           },
           child: const Text("Logout", style: TextStyle(color: Colors.red)),
         ),
@@ -176,12 +216,68 @@ void _confirmAndLogout(BuildContext context) {
 //  HOME TAB
 // ============================================================
 
-class _SchoolHomeTab extends StatelessWidget {
+class _SchoolHomeTab extends StatefulWidget {
   final VoidCallback onMenuTap;
   const _SchoolHomeTab({required this.onMenuTap});
 
   @override
+  State<_SchoolHomeTab> createState() => _SchoolHomeTabState();
+}
+
+class _SchoolHomeTabState extends State<_SchoolHomeTab> {
+  bool _isLoadingStats = false;
+  int _networkSize = 0;
+  int _activeSchools = 0;
+  int _totalStudents = 0;
+  double _totalCommission = 0.0;
+  String _userName = "School";
+
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        setState(() {
+          _userName = session['name'] ?? "School";
+        });
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _networkSize = data['network_size'] ?? 0;
+              _activeSchools = data['active_schools'] ?? 0;
+              _totalStudents = data['total_students'] ?? 0;
+              _totalCommission = (data['total_commission'] ?? 0).toDouble();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading stats: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final String pendingFee = "₹${(_totalCommission * 1.5).toStringAsFixed(0)}";
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(
@@ -197,7 +293,7 @@ class _SchoolHomeTab extends StatelessWidget {
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 GestureDetector(
-                  onTap: onMenuTap,
+                  onTap: widget.onMenuTap,
                   child: Container(height: 48, width: 48, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28)),
                 ),
                 Stack(children: [
@@ -206,16 +302,16 @@ class _SchoolHomeTab extends StatelessWidget {
                 ]),
               ]),
               const SizedBox(height: 20),
-              const Align(alignment: Alignment.centerLeft, child: Text("School", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold))),
+              Align(alignment: Alignment.centerLeft, child: Text(_userName, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold))),
               const SizedBox(height: 4),
-              Align(alignment: Alignment.centerLeft, child: Text("Sunrise Public School", style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16))),
+              Align(alignment: Alignment.centerLeft, child: Text("School Account", style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16))),
               const SizedBox(height: 16),
               Row(children: [
                 _hStat("Programs",    "3"),
                 _vDivider(),
-                _hStat("Students",   "120"),
+                _hStat("Students",   "$_totalStudents"),
                 _vDivider(),
-                _hStat("Pending Fee","₹12K"),
+                _hStat("Pending Fee", pendingFee),
                 _vDivider(),
                 _hStat("Circulars",  "2 New"),
               ]),
@@ -238,8 +334,8 @@ class _SchoolHomeTab extends StatelessWidget {
                   childAspectRatio: .95,
                   children: [
                     SDashboardCard(title: "Programs Running", value: "3",     icon: Icons.menu_book_outlined,      iconColor: const Color(0xff0EA5E9), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProgramsRunningScreen()))),
-                    SDashboardCard(title: "Student Data",     value: "120",   icon: Icons.groups_outlined,         iconColor: const Color(0xffA020F0), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolStudentDataScreen()))),
-                    SDashboardCard(title: "Pending Payments", value: "₹12K",  icon: Icons.payments_outlined,       iconColor: const Color(0xffFF6B00), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PendingPaymentsScreen()))),
+                    SDashboardCard(title: "Student Data",     value: "$_totalStudents",   icon: Icons.groups_outlined,         iconColor: const Color(0xffA020F0), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolStudentDataScreen()))),
+                    SDashboardCard(title: "Pending Payments", value: pendingFee,  icon: Icons.payments_outlined,       iconColor: const Color(0xffFF6B00), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PendingPaymentsScreen()))),
                     SDashboardCard(title: "Kit Ordering",     value: "Order", icon: Icons.inventory_2_outlined,    iconColor: const Color(0xff16C74A), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolKitOrderScreen()))),
                     SDashboardCard(title: "Training Schedule",value: "3",     icon: Icons.calendar_today_outlined, iconColor: const Color(0xff2563EB), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrainingScheduleScreen()))),
                     SDashboardCard(title: "Circulars",        value: "2 New", icon: Icons.announcement_outlined,   iconColor: const Color(0xffFF1493), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CircularsScreen()))),
@@ -355,8 +451,53 @@ class _SchoolHomeTab extends StatelessWidget {
 //  PROFILE TAB
 // ============================================================
 
-class _SchoolProfileScreen extends StatelessWidget {
+class _SchoolProfileScreen extends StatefulWidget {
   const _SchoolProfileScreen();
+
+  @override
+  State<_SchoolProfileScreen> createState() => _SchoolProfileScreenState();
+}
+
+class _SchoolProfileScreenState extends State<_SchoolProfileScreen> {
+  String _schoolName = "School Name";
+  String _schoolEmail = "";
+  String _schoolPhone = "";
+  int _studentsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    final session = await SessionManager.getSession();
+    if (session != null) {
+      setState(() {
+        _schoolName = session['name'] ?? "School Name";
+        _schoolEmail = session['email'] ?? "";
+        _schoolPhone = session['phone'] ?? "";
+      });
+      final userId = session['id'];
+      try {
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _studentsCount = data['total_students'] ?? 0;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error loading profile stats: $e");
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -382,10 +523,15 @@ class _SchoolProfileScreen extends StatelessWidget {
                 Container(
                   height: 84, width: 84,
                   decoration: BoxDecoration(color: Colors.white.withOpacity(.18), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(.4), width: 2)),
-                  child: const Center(child: Text("S", style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold))),
+                  child: Center(
+                    child: Text(
+                      _schoolName.isNotEmpty ? _schoolName[0].toUpperCase() : "S",
+                      style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 14),
-                const Text("Sunrise Public School", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(_schoolName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text("School Admin", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
               ]),
@@ -402,9 +548,9 @@ class _SchoolProfileScreen extends StatelessWidget {
                   child: Row(children: [
                     _pStat("Programs", "3"),
                     _pVDivider(),
-                    _pStat("Students", "120"),
+                    _pStat("Students", "$_studentsCount"),
                     _pVDivider(),
-                    _pStat("Since", "2022"),
+                    _pStat("Since", "2026"),
                   ]),
                 ),
               ),
@@ -415,11 +561,11 @@ class _SchoolProfileScreen extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _pSectionTitle("Contact Information"),
                 const SizedBox(height: 12),
-                _pInfoTile(Icons.call_outlined, "Phone", "+91 98765 43210"),
+                _pInfoTile(Icons.call_outlined, "Phone", _schoolPhone.isNotEmpty ? _schoolPhone : "+91 98765 43210"),
                 const SizedBox(height: 10),
-                _pInfoTile(Icons.email_outlined, "Email", "school@sunrise.edu"),
+                _pInfoTile(Icons.email_outlined, "Email", _schoolEmail.isNotEmpty ? _schoolEmail : "school@sunrise.edu"),
                 const SizedBox(height: 10),
-                _pInfoTile(Icons.location_on_outlined, "Address", "12 MG Road, Delhi"),
+                _pInfoTile(Icons.location_on_outlined, "Address", "India"),
 
                 const SizedBox(height: 24),
                 _pSectionTitle("Account"),
@@ -437,7 +583,7 @@ class _SchoolProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () => _confirmAndLogout(context),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -703,8 +849,236 @@ class PendingPaymentsScreen extends StatelessWidget {
 }
 
 // 4. KIT ORDER SCREEN
-class SchoolKitOrderScreen extends StatelessWidget {
+class SchoolKitOrderScreen extends StatefulWidget {
   const SchoolKitOrderScreen({super.key});
+
+  @override
+  State<SchoolKitOrderScreen> createState() => _SchoolKitOrderScreenState();
+}
+
+class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
+  int _mainKitQty = 0;
+  final Map<int, int> _levelQty = {for (var l in [2, 3, 4, 5, 6, 7, 8]) l: 0};
+
+  int get _totalItems => _mainKitQty + _levelQty.values.fold(0, (a, b) => a + b);
+
+  void _changeMainQty(int delta) => setState(() => _mainKitQty = (_mainKitQty + delta).clamp(0, 99));
+  void _changeLevelQty(int level, int delta) => setState(() => _levelQty[level] = (_levelQty[level]! + delta).clamp(0, 99));
+
+  void _openOrderSummary() {
+    final items = <Map<String, dynamic>>[];
+    if (_mainKitQty > 0) items.add({'name': 'New Kit (Main)', 'qty': _mainKitQty});
+    for (final l in _levelQty.keys) {
+      if (_levelQty[l]! > 0) items.add({'name': 'Level $l Kit', 'qty': _levelQty[l]});
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.35,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+              child: Column(
+                children: [
+                  const SizedBox(height: 14),
+                  Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("Order Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text("$_totalItems items", style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200),
+                      itemBuilder: (_, i) {
+                        final it = items[i];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(children: [
+                            Container(
+                              height: 38, width: 38,
+                              decoration: BoxDecoration(color: const Color(0xff16C74A).withOpacity(.1), borderRadius: BorderRadius.circular(12)),
+                              child: const Icon(Icons.inventory_2_outlined, color: Color(0xff16C74A), size: 19),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(it['name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+                            Text("x${it['qty']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ]),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _placeOrder();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xff16C74A),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                        ),
+                        child: const Text("Confirm Order", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _placeOrder() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xff16C74A))),
+    );
+
+    try {
+      final session = await SessionManager.getSession();
+      if (session == null) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: User session not found. Please log in.")),
+        );
+        return;
+      }
+      final buyerId = session['id'];
+
+      final orders = <Future>[];
+      if (_mainKitQty > 0) {
+        orders.add(
+          http.post(
+            Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "buyer_id": buyerId,
+              "level": "Level 1",
+              "quantity": _mainKitQty,
+            }),
+          )
+        );
+      }
+      for (final l in _levelQty.keys) {
+        final qty = _levelQty[l]!;
+        if (qty > 0) {
+          orders.add(
+            http.post(
+              Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "buyer_id": buyerId,
+                "level": "Level $l",
+                "quantity": qty,
+              }),
+            )
+          );
+        }
+      }
+
+      final responses = await Future.wait(orders);
+      
+      Navigator.pop(context); // Close loader
+
+      bool allSuccess = true;
+      for (final res in responses) {
+        final data = jsonDecode((res as http.Response).body);
+        if (data['status'] != 'success') {
+          allSuccess = false;
+        }
+      }
+
+      if (allSuccess) {
+        final placedItems = _totalItems;
+        setState(() {
+          _mainKitQty = 0;
+          for (final l in _levelQty.keys) {
+            _levelQty[l] = 0;
+          }
+        });
+        
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 64, width: 64,
+                  decoration: BoxDecoration(color: const Color(0xff16C74A).withOpacity(.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle, color: Color(0xff16C74A), size: 40),
+                ),
+                const SizedBox(height: 16),
+                const Text("Order Placed!", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                  "Total items ordered: $placedItems\nMLM downline commissions distributed.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff16C74A),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                    ),
+                    child: const Text("Done", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Some orders failed to process. Please check connection."), backgroundColor: Colors.red),
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Network error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -716,42 +1090,148 @@ class SchoolKitOrderScreen extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _label("New Main Kit"),
             const SizedBox(height: 10),
-            _kitCard("New Kit (Main)", "For new student enrollments", const Color(0xff16C74A)),
+            _kitCard(
+              name: "New Kit (Main)",
+              desc: "For new student enrollments",
+              color: const Color(0xff16C74A),
+              qty: _mainKitQty,
+              onAdd: () => _changeMainQty(1),
+              onRemove: () => _changeMainQty(-1),
+            ),
             const SizedBox(height: 20),
             _label("Level Kits (2-8)"),
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)]),
-              child: Wrap(spacing: 10, runSpacing: 10, children: [2,3,4,5,6,7,8].map((l) => _lvlChip("Level $l", const Color(0xff16C74A))).toList()),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _levelQty.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (ctx, i) {
+                final lvl = _levelQty.keys.elementAt(i);
+                return _kitCard(
+                  name: "Level $lvl Kit",
+                  desc: "Advanced training modules",
+                  color: const Color(0xff16C74A),
+                  qty: _levelQty[lvl]!,
+                  onAdd: () => _changeLevelQty(lvl, 1),
+                  onRemove: () => _changeLevelQty(lvl, -1),
+                );
+              },
             ),
           ]),
         )),
       ]),
+      bottomNavigationBar: _totalItems == 0
+          ? null
+          : Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 10)],
+        ),
+        child: SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Total Selected", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  Text("$_totalItems items", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: _openOrderSummary,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff16C74A),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: const Text("View Summary", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
+
   Widget _label(String t) => Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
-  Widget _kitCard(String name, String desc, Color color) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-    child: Row(children: [
-      Container(height: 46, width: 46, decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: Icon(Icons.inventory_2_outlined, color: color, size: 24)),
-      const SizedBox(width: 14),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-      ])),
-      Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)), child: const Text("Order", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12))),
-    ]),
-  );
-  Widget _lvlChip(String label, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(.4))),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
-      const SizedBox(width: 8),
-      Icon(Icons.add_circle_outline, color: color, size: 16),
-    ]),
+
+  Widget _kitCard({
+    required String name,
+    required String desc,
+    required Color color,
+    required int qty,
+    required VoidCallback onAdd,
+    required VoidCallback onRemove,
+  }) {
+    final selected = qty > 0;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: selected ? color.withOpacity(.4) : Colors.transparent, width: 1.4),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 46,
+            width: 46,
+            decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(14)),
+            child: Icon(Icons.inventory_2_outlined, color: color, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              ],
+            ),
+          ),
+          qty == 0
+              ? GestureDetector(
+            onTap: onAdd,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+              child: const Text("Add", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+            ),
+          )
+              : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(20)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _stepBtn(Icons.remove, color, onRemove),
+                SizedBox(width: 28, child: Text("$qty", textAlign: TextAlign.center, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14))),
+                _stepBtn(Icons.add, color, onAdd),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepBtn(IconData icon, Color color, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 28,
+      width: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Icon(icon, color: Colors.white, size: 16),
+    ),
   );
 }
 
@@ -804,44 +1284,78 @@ class TrainingScheduleScreen extends StatelessWidget {
 }
 
 // 6. CIRCULARS
-class CircularsScreen extends StatelessWidget {
+class CircularsScreen extends StatefulWidget {
   const CircularsScreen({super.key});
-  final List<Map<String, dynamic>> circulars = const [
-    {'title': 'Exam Schedule Update',  'desc': 'Updated schedule for Level 3-5 exams.',   'time': '2 days ago',  'isNew': true},
-    {'title': 'New Kit Arrival',       'desc': 'New kits for Level 6 have arrived.',       'time': '5 days ago',  'isNew': false},
-    {'title': 'Annual Function Notice','desc': 'Annual function on 25th March 2025.',      'time': '1 week ago',  'isNew': false},
-    {'title': 'Holiday Announcement',  'desc': 'School holiday on 15th March for Holi.',  'time': '2 weeks ago', 'isNew': false},
-  ];
+
+  @override
+  State<CircularsScreen> createState() => _CircularsScreenState();
+}
+
+class _CircularsScreenState extends State<CircularsScreen> {
+  bool _isLoading = false;
+  List<dynamic> _circulars = [];
+
+  Future<void> _fetchCirculars() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse("https://apps.kofalt.in/api/get_circulars.php"),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _circulars = data['data'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching circulars: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCirculars();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(children: [
         _sDetailHeader(title: "Circulars", subtitle: "Latest announcements", colors: const [Color(0xffFF1493), Color(0xffC71585)], onBack: () => Navigator.pop(context)),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(18),
-          itemCount: circulars.length,
-          itemBuilder: (_, i) {
-            final c = circulars[i];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-              child: Row(children: [
-                Container(height: 46, width: 46, decoration: BoxDecoration(color: const Color(0xffFF1493).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.announcement_outlined, color: Color(0xffFF1493), size: 24)),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Text(c['title']!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    if (c['isNew'] == true) ...[const SizedBox(width: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xff16C74A), borderRadius: BorderRadius.circular(6)), child: const Text("NEW", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)))],
-                  ]),
-                  Text(c['desc']!, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                  Text(c['time']!, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                ])),
-              ]),
-            );
-          },
-        )),
+        Expanded(
+          child: _isLoading 
+              ? const Center(child: CircularProgressIndicator(color: Color(0xffFF1493)))
+              : _circulars.isEmpty
+                  ? const Center(child: Text("No announcements published yet.", style: TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(18),
+                      itemCount: _circulars.length,
+                      itemBuilder: (_, i) {
+                        final c = _circulars[i];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+                          child: Row(children: [
+                            Container(height: 46, width: 46, decoration: BoxDecoration(color: const Color(0xffFF1493).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.announcement_outlined, color: Color(0xffFF1493), size: 24)),
+                            const SizedBox(width: 14),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(c['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text(c['message'] ?? "", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                              const SizedBox(height: 4),
+                              Text(c['created_at'] ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                            ])),
+                          ]),
+                        );
+                      },
+                    ),
+        ),
       ]),
     );
   }

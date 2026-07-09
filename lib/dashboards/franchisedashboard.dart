@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/services/session_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/login_screen.dart';
+import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/dashboardCardDetails/Batch_Management_Screen.dart';
 import 'package:thenew/dashboardCardDetails/Centre_Details_Screen.dart';
@@ -23,9 +28,9 @@ class _FranchiseDashboardState extends State<FranchiseDashboard> {
 
   late final List<Widget> _pages = [
     _FranchiseHomeTab(scaffoldKey: _scaffoldKey),
-    const _FranchiseSchoolsTab(),
-    const _FranchiseOrdersTab(),
-    const _FranchiseProfileTab(),
+    _FranchiseSchoolsTab(),
+    _FranchiseOrdersTab(),
+    _FranchiseProfileTab(),
   ];
 
   @override
@@ -63,11 +68,54 @@ class _FranchiseDashboardState extends State<FranchiseDashboard> {
 //  DRAWER
 // ============================================================
 
-class _FranchiseDrawer extends StatelessWidget {
+class _FranchiseDrawer extends StatefulWidget {
   final int currentIndex;
   final void Function(int) onNavigate;
 
   const _FranchiseDrawer({required this.currentIndex, required this.onNavigate});
+
+  @override
+  State<_FranchiseDrawer> createState() => _FranchiseDrawerState();
+}
+
+class _FranchiseDrawerState extends State<_FranchiseDrawer> {
+  String _name = "Franchise Owner";
+  String _email = "";
+  int _centresCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDrawerData();
+  }
+
+  Future<void> _loadDrawerData() async {
+    final session = await SessionManager.getSession();
+    if (session != null) {
+      setState(() {
+        _name = session['name'] ?? "Franchise Owner";
+        _email = session['email'] ?? "";
+      });
+      final userId = session['id'];
+      try {
+        final res = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_schools.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"franchise_id": userId}),
+        );
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            setState(() {
+              _centresCount = (data['data'] as List).length;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching drawer school count: $e");
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,9 +159,9 @@ class _FranchiseDrawer extends StatelessWidget {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: Colors.white.withOpacity(.2),
-                  child: const Text(
-                    "F",
-                    style: TextStyle(
+                  child: Text(
+                    _name.isNotEmpty ? _name[0].toUpperCase() : "F",
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 26,
@@ -121,9 +169,9 @@ class _FranchiseDrawer extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  "Franchise Owner",
-                  style: TextStyle(
+                Text(
+                  _name,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 17,
@@ -131,7 +179,7 @@ class _FranchiseDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  "franchise@example.com",
+                  _email.isNotEmpty ? _email : "franchise@example.com",
                   style: TextStyle(
                     color: Colors.white.withOpacity(.8),
                     fontSize: 12,
@@ -144,9 +192,9 @@ class _FranchiseDrawer extends StatelessWidget {
                     color: Colors.white.withOpacity(.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    "3 Centres Active",
-                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                  child: Text(
+                    "$_centresCount Centres Active",
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -174,12 +222,12 @@ class _FranchiseDrawer extends StatelessWidget {
                     ),
                   ),
                   ...items.map((item) {
-                    final isActive = currentIndex == item['index'] as int;
+                    final isActive = widget.currentIndex == item['index'] as int;
                     return _DrawerItem(
                       icon: item['icon'] as IconData,
                       label: item['label'] as String,
                       isActive: isActive,
-                      onTap: () => onNavigate(item['index'] as int),
+                      onTap: () => widget.onNavigate(item['index'] as int),
                     );
                   }),
 
@@ -201,7 +249,36 @@ class _FranchiseDrawer extends StatelessWidget {
                     icon: item['icon'] as IconData,
                     label: item['label'] as String,
                     isActive: false,
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      Navigator.pop(context); // close drawer
+                      Widget target;
+                      switch (item['label']) {
+                        case 'Centre Details':
+                          target = const CentreDetailsScreen();
+                          break;
+                        case 'Student Enrollment':
+                          target = const StudentEnrollmentScreen();
+                          break;
+                        case 'Batch Management':
+                          target = const BatchManagementScreen();
+                          break;
+                        case 'Fee Collection':
+                          target = const FeeCollectionScreen();
+                          break;
+                        case 'Kit Ordering':
+                          target = const FranchiseKitOrderScreen();
+                          break;
+                        default:
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("${item['label']} feature coming soon.")),
+                          );
+                          return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => target),
+                      );
+                    },
                   )),
 
                   const Divider(height: 28, indent: 20, endIndent: 20),
@@ -293,12 +370,69 @@ class _DrawerItem extends StatelessWidget {
 //  HOME TAB
 // ============================================================
 
-class _FranchiseHomeTab extends StatelessWidget {
+class _FranchiseHomeTab extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
   const _FranchiseHomeTab({required this.scaffoldKey});
 
   @override
+  State<_FranchiseHomeTab> createState() => _FranchiseHomeTabState();
+}
+
+class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
+  bool _isLoadingStats = false;
+  int _networkSize = 0;
+  int _activeSchools = 0;
+  int _totalStudents = 0;
+  double _totalCommission = 0.0;
+  String _userName = "Franchise Partner";
+
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        setState(() {
+          _userName = session['name'] ?? "Franchise Partner";
+        });
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _networkSize = data['network_size'] ?? 0;
+              _activeSchools = data['active_schools'] ?? 0;
+              _totalStudents = data['total_students'] ?? 0;
+              _totalCommission = (data['total_commission'] ?? 0).toDouble();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading stats: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final int estimatedBatches = _totalStudents ~/ 15 + 1;
+    final String estimatedFees = "₹${(_totalCommission * 2.5).toStringAsFixed(0)}";
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(
@@ -325,7 +459,7 @@ class _FranchiseHomeTab extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       GestureDetector(
-                        onTap: () => scaffoldKey.currentState?.openDrawer(),
+                        onTap: () => widget.scaffoldKey.currentState?.openDrawer(),
                         child: Container(
                           height: 48, width: 48,
                           decoration: BoxDecoration(
@@ -357,11 +491,11 @@ class _FranchiseHomeTab extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      "Franchise",
-                      style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
+                      _userName,
+                      style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -375,13 +509,13 @@ class _FranchiseHomeTab extends StatelessWidget {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _hStat("Centres", "3"),
+                      _hStat("Centres", "$_networkSize"),
                       _vDivider(),
-                      _hStat("Batches", "12"),
+                      _hStat("Batches", "$estimatedBatches"),
                       _vDivider(),
-                      _hStat("Students", "340"),
+                      _hStat("Students", "$_totalStudents"),
                       _vDivider(),
-                      _hStat("Fee Pending", "₹45K"),
+                      _hStat("Fee Pending", estimatedFees),
                     ],
                   ),
                 ],
@@ -404,28 +538,28 @@ class _FranchiseHomeTab extends StatelessWidget {
                       children: [
                         FDashboardCard(
                           title: "Centre Details",
-                          value: "3",
+                          value: "$_networkSize",
                           icon: Icons.store_mall_directory_outlined,
                           iconColor: const Color(0xff7C3AED),
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CentreDetailsScreen())),
                         ),
                         FDashboardCard(
                           title: "Student Enrollment",
-                          value: "340",
+                          value: "$_totalStudents",
                           icon: Icons.how_to_reg_outlined,
                           iconColor: const Color(0xffDB2777),
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentEnrollmentScreen())),
                         ),
                         FDashboardCard(
                           title: "Batch Management",
-                          value: "12",
+                          value: "$estimatedBatches",
                           icon: Icons.groups_2_outlined,
                           iconColor: const Color(0xff2563EB),
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BatchManagementScreen())),
                         ),
                         FDashboardCard(
                           title: "Fee Collection",
-                          value: "₹1.2L",
+                          value: estimatedFees,
                           icon: Icons.payments_outlined,
                           iconColor: const Color(0xff16C74A),
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeeCollectionScreen())),
@@ -549,6 +683,7 @@ class _FranchiseHomeTab extends StatelessWidget {
     ),
   );
 }
+
 void _confirmAndLogout(BuildContext context) {
   showDialog(
     context: context,
@@ -562,13 +697,30 @@ void _confirmAndLogout(BuildContext context) {
           child: const Text("Cancel"),
         ),
         TextButton(
-          onPressed: () {
+          onPressed: () async {
+            final nav = Navigator.of(context);
             Navigator.pop(ctx); // close dialog
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
-                  (route) => false, // pura stack clear
-            );
+            final session = await SessionManager.getSession();
+            if (session != null && session['is_impersonating'] == true) {
+              await SessionManager.saveSession(
+                id: 1,
+                name: "Super Admin",
+                email: "admin@educationlmm.com",
+                phone: "9999999999",
+                role: "Super Admin",
+                kycStatus: "Approved",
+              );
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
+                (route) => false,
+              );
+            } else {
+              await SessionManager.clearSession();
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            }
           },
           child: const Text("Logout", style: TextStyle(color: Colors.red)),
         ),
@@ -576,10 +728,6 @@ void _confirmAndLogout(BuildContext context) {
     ),
   );
 }
-// ============================================================
-//  SCHOOLS TAB — Fully Static Functional
-// ============================================================
-
 class _FranchiseSchoolsTab extends StatefulWidget {
   const _FranchiseSchoolsTab();
 
@@ -589,88 +737,188 @@ class _FranchiseSchoolsTab extends StatefulWidget {
 
 class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
   String _selectedFilter = "All";
-  final List<String> _filters = ["All", "Active", "Inactive", "New"];
+  final List<String> _filters = ["All", "Active", "Suspended"];
+  bool _isLoading = false;
+  List<dynamic> _schools = [];
 
-  final List<Map<String, dynamic>> _schools = [
-    {
-      'name': 'Sunrise Public School',
-      'location': 'Laxmi Nagar, Delhi',
-      'principal': 'Mr. Anil Sharma',
-      'students': 128,
-      'batches': 5,
-      'status': 'Active',
-      'joined': 'Jan 2023',
-      'revenue': '₹38,400',
-      'color': const Color(0xff7C3AED),
-      'initials': 'SP',
-    },
-    {
-      'name': 'Greenfield Academy',
-      'location': 'Rohini, Delhi',
-      'principal': 'Mrs. Priya Singh',
-      'students': 96,
-      'batches': 4,
-      'status': 'Active',
-      'joined': 'Mar 2023',
-      'revenue': '₹28,800',
-      'color': const Color(0xff16C74A),
-      'initials': 'GA',
-    },
-    {
-      'name': 'Bright Future School',
-      'location': 'Dwarka, Delhi',
-      'principal': 'Mr. Ramesh Gupta',
-      'students': 116,
-      'batches': 3,
-      'status': 'Active',
-      'joined': 'Jun 2023',
-      'revenue': '₹34,800',
-      'color': const Color(0xff2563EB),
-      'initials': 'BF',
-    },
-    {
-      'name': 'Excel High School',
-      'location': 'Janakpuri, Delhi',
-      'principal': 'Ms. Kavita Mehta',
-      'students': 0,
-      'batches': 0,
-      'status': 'Inactive',
-      'joined': 'Sep 2022',
-      'revenue': '₹0',
-      'color': Colors.grey,
-      'initials': 'EH',
-    },
-    {
-      'name': 'New Horizon School',
-      'location': 'Pitampura, Delhi',
-      'principal': 'Mr. Vivek Nair',
-      'students': 44,
-      'batches': 2,
-      'status': 'New',
-      'joined': 'Nov 2024',
-      'revenue': '₹13,200',
-      'color': const Color(0xffDB2777),
-      'initials': 'NH',
-    },
-  ];
+  Future<void> _fetchSchools() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final franchiseId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_schools.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"franchise_id": franchiseId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _schools = data['data'] ?? [];
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching schools: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
-  List<Map<String, dynamic>> get _filtered {
+  Future<void> _addSchool({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+    required String principal,
+    required String board,
+    required String regNum,
+    required String city,
+  }) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xff7C3AED))),
+    );
+
+    try {
+      final session = await SessionManager.getSession();
+      if (session == null) return;
+      final franchiseId = session['id'];
+
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/franchise/add_school.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "franchise_id": franchiseId,
+          "name": name,
+          "email": email,
+          "phone": phone,
+          "password": password,
+          "principal_name": principal,
+          "board_type": board,
+          "reg_number": regNum,
+          "school_city": city,
+        }),
+      );
+
+      Navigator.pop(context); // Close loader
+
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("School registered successfully under you!")),
+        );
+        _fetchSchools();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? "Failed to add school"), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Close loader
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Network error: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showAddSchoolSheet(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final principalCtrl = TextEditingController();
+    final boardCtrl = TextEditingController();
+    final regCtrl = TextEditingController();
+    final cityCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Register New School", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "School Name")),
+              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email Address")),
+              TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Phone Number")),
+              TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Login Password")),
+              TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: "Principal Name")),
+              TextField(controller: boardCtrl, decoration: const InputDecoration(labelText: "Board Type (e.g. CBSE)")),
+              TextField(controller: regCtrl, decoration: const InputDecoration(labelText: "Registration Number")),
+              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: "School City")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameCtrl.text.trim();
+              final email = emailCtrl.text.trim();
+              final phone = phoneCtrl.text.trim();
+              final password = passCtrl.text.trim();
+              if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Please fill out all required fields"), backgroundColor: Colors.red),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              _addSchool(
+                name: name,
+                email: email,
+                phone: phone,
+                password: password,
+                principal: principalCtrl.text.trim(),
+                board: boardCtrl.text.trim(),
+                regNum: regCtrl.text.trim(),
+                city: cityCtrl.text.trim(),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff7C3AED)),
+            child: const Text("Add School", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<dynamic> get _filtered {
     if (_selectedFilter == "All") return _schools;
     return _schools.where((s) => s['status'] == _selectedFilter).toList();
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchSchools();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final totalStudents = _schools.fold<int>(0, (sum, s) => sum + (s['students'] as int));
-    final totalBatches  = _schools.fold<int>(0, (sum, s) => sum + (s['batches']  as int));
-    final activeCount   = _schools.where((s) => s['status'] == 'Active').length;
+    int totalStudents = 0;
+    int totalBatches = 0;
+    for (final s in _schools) {
+      totalStudents += (s['students'] as int? ?? 0);
+      totalBatches += (s['batches'] as int? ?? 0);
+    }
+    int activeCount = _schools.where((s) => s['status'] == 'Active').length;
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
-            // HEADER
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 24),
@@ -688,43 +936,23 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Schools",
-                    style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
-                  ),
+                  const Text("Schools", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(
-                    "Manage your franchise centres",
-                    style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 14),
-                  ),
+                  Text("Manage your franchise centres", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 14)),
                   const SizedBox(height: 18),
-                  // Summary chips
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _summaryChip(
-                        Icons.school_rounded,
-                        "$activeCount Active",
-                        Colors.white,
-                      ),
-                      _summaryChip(
-                        Icons.people_alt_outlined,
-                        "$totalStudents Students",
-                        Colors.white,
-                      ),
-                      _summaryChip(
-                        Icons.layers_outlined,
-                        "$totalBatches Batches",
-                        Colors.white,
-                      ),
+                      _summaryChip(Icons.school_rounded, "$activeCount Active", Colors.white),
+                      _summaryChip(Icons.people_alt_outlined, "$totalStudents Students", Colors.white),
+                      _summaryChip(Icons.layers_outlined, "$totalBatches Batches", Colors.white),
                     ],
                   )
                 ],
               ),
             ),
 
-            // SEARCH BAR
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
               child: Container(
@@ -746,7 +974,6 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
               ),
             ),
 
-            // FILTER CHIPS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               child: SingleChildScrollView(
@@ -779,27 +1006,28 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
               ),
             ),
 
-            // SCHOOL LIST
             Expanded(
-              child: _filtered.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade300),
-                    const SizedBox(height: 12),
-                    Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-                itemCount: _filtered.length,
-                itemBuilder: (context, index) {
-                  final s = _filtered[index];
-                  return _SchoolCard(school: s);
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xff7C3AED)))
+                  : _filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade300),
+                              const SizedBox(height: 12),
+                              Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                          itemCount: _filtered.length,
+                          itemBuilder: (context, index) {
+                            final s = _filtered[index];
+                            return _SchoolCard(school: s, onRefresh: _fetchSchools);
+                          },
+                        ),
             ),
           ],
         ),
@@ -814,46 +1042,35 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
   }
 
   Widget _summaryChip(IconData icon, String label, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(.18),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 14),
-        const SizedBox(width: 5),
-        Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-      ],
-    ),
-  );
-
-  void _showAddSchoolSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _AddSchoolSheet(),
-    );
-  }
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.18),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
 }
 
 class _SchoolCard extends StatelessWidget {
   final Map<String, dynamic> school;
-  const _SchoolCard({required this.school});
+  final VoidCallback onRefresh;
+  const _SchoolCard({required this.school, required this.onRefresh});
 
   Color get _statusColor {
-    switch (school['status']) {
-      case 'Active':   return const Color(0xff16C74A);
-      case 'Inactive': return Colors.grey;
-      case 'New':      return const Color(0xffDB2777);
-      default:         return Colors.grey;
-    }
+    return school['status'] == 'Active' ? const Color(0xff16C74A) : Colors.red;
   }
 
   @override
   Widget build(BuildContext context) {
+    final initials = school['name'] != null && school['name'].toString().isNotEmpty ? school['name'][0].toUpperCase() : "?";
+
     return GestureDetector(
       onTap: () => _showSchoolDetail(context),
       child: Container(
@@ -871,10 +1088,10 @@ class _SchoolCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: (school['color'] as Color).withOpacity(.12),
+                  backgroundColor: const Color(0xff7C3AED).withOpacity(.12),
                   child: Text(
-                    school['initials'] as String,
-                    style: TextStyle(color: school['color'] as Color, fontWeight: FontWeight.bold, fontSize: 15),
+                    initials,
+                    style: const TextStyle(color: Color(0xff7C3AED), fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -882,13 +1099,13 @@ class _SchoolCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(school['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
+                      Text(school['name'] as String? ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
                       const SizedBox(height: 3),
                       Row(
                         children: [
                           Icon(Icons.location_on_outlined, size: 13, color: Colors.grey.shade500),
                           const SizedBox(width: 3),
-                          Text(school['location'] as String, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                          Text(school['school_city'] as String? ?? "No City Specified", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                         ],
                       ),
                     ],
@@ -901,7 +1118,7 @@ class _SchoolCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    school['status'] as String,
+                    school['status'] as String? ?? "Active",
                     style: TextStyle(color: _statusColor, fontWeight: FontWeight.w700, fontSize: 11),
                   ),
                 ),
@@ -916,7 +1133,7 @@ class _SchoolCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 _statChip(Icons.layers_outlined, "${school['batches']} Batches", const Color(0xff2563EB)),
                 const Spacer(),
-                _statChip(Icons.currency_rupee, school['revenue'] as String, const Color(0xff16C74A)),
+                _statChip(Icons.currency_rupee, "₹${(school['students'] ?? 0) * 150}", const Color(0xff16C74A)),
               ],
             ),
             const SizedBox(height: 10),
@@ -924,11 +1141,11 @@ class _SchoolCard extends StatelessWidget {
               children: [
                 Icon(Icons.person_outline, size: 13, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
-                Text(school['principal'] as String, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(school['principal_name'] as String? ?? "No Principal Specified", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 const Spacer(),
-                Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey.shade400),
+                Icon(Icons.badge_outlined, size: 12, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
-                Text("Since ${school['joined']}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                Text("Reg: ${school['reg_number'] ?? 'N/A'}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
               ],
             ),
           ],
@@ -938,12 +1155,12 @@ class _SchoolCard extends StatelessWidget {
   }
 
   Widget _statChip(IconData icon, String text, Color color) => Row(
-    children: [
-      Icon(icon, size: 14, color: color),
-      const SizedBox(width: 4),
-      Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
-    ],
-  );
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
+        ],
+      );
 
   void _showSchoolDetail(BuildContext context) {
     showModalBottomSheet(
@@ -962,9 +1179,9 @@ class _SchoolDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: .75,
-      maxChildSize: .92,
-      minChildSize: .5,
+      initialChildSize: .65,
+      maxChildSize: .85,
+      minChildSize: .4,
       builder: (_, controller) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -976,7 +1193,8 @@ class _SchoolDetailSheet extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
               ),
             ),
@@ -984,166 +1202,61 @@ class _SchoolDetailSheet extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 32,
-                  backgroundColor: (school['color'] as Color).withOpacity(.12),
-                  child: Text(school['initials'] as String, style: TextStyle(color: school['color'] as Color, fontWeight: FontWeight.bold, fontSize: 20)),
+                  radius: 30,
+                  backgroundColor: const Color(0xff7C3AED).withOpacity(.12),
+                  child: Text(
+                    school['name'] != null && school['name'].toString().isNotEmpty ? school['name'][0].toUpperCase() : "?",
+                    style: const TextStyle(color: Color(0xff7C3AED), fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(school['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      Text(school['location'] as String, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                      Text(school['name'] ?? "", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+                      Text("Registered School Details", style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                     ],
                   ),
                 ),
               ],
             ),
+            const Divider(height: 40),
+            const Text("Contact Information", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+            const SizedBox(height: 12),
+            _infoDetailRow("Email", school['email'] ?? "N/A", Icons.email_outlined),
+            _infoDetailRow("Phone", school['phone'] ?? "N/A", Icons.phone_outlined),
+            const Divider(height: 32),
+            const Text("Registration & Board details", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+            const SizedBox(height: 12),
+            _infoDetailRow("Principal Name", school['principal_name'] ?? "N/A", Icons.person_outline),
+            _infoDetailRow("Board Type", school['board_type'] ?? "N/A", Icons.domain_outlined),
+            _infoDetailRow("Registration No.", school['reg_number'] ?? "N/A", Icons.badge_outlined),
+            _infoDetailRow("City Location", school['school_city'] ?? "N/A", Icons.location_on_outlined),
             const SizedBox(height: 24),
-            _detailRow("Principal",  school['principal'] as String, Icons.person_outline),
-            _detailRow("Students",   "${school['students']}", Icons.people_alt_outlined),
-            _detailRow("Batches",    "${school['batches']}", Icons.layers_outlined),
-            _detailRow("Revenue",    school['revenue'] as String, Icons.payments_outlined),
-            _detailRow("Status",     school['status'] as String, Icons.circle_notifications_outlined),
-            _detailRow("Member Since", school['joined'] as String, Icons.calendar_today_outlined),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.call_outlined, size: 18),
-                    label: const Text("Call"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xff7C3AED),
-                      side: const BorderSide(color: Color(0xff7C3AED)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text("Edit"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xff7C3AED),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _detailRow(String label, String value, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xff7C3AED).withOpacity(.08),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 18, color: const Color(0xff7C3AED)),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _infoDetailRow(String label, String value, IconData icon) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
           children: [
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-            Text(value,  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xff1E1E1E))),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _AddSchoolSheet extends StatelessWidget {
-  const _AddSchoolSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text("Add New School", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
-            const SizedBox(height: 20),
-            _sheetField("School Name", Icons.school_outlined),
-            const SizedBox(height: 14),
-            _sheetField("Location", Icons.location_on_outlined),
-            const SizedBox(height: 14),
-            _sheetField("Principal Name", Icons.person_outline),
-            const SizedBox(height: 14),
-            _sheetField("Phone Number", Icons.call_outlined),
-            const SizedBox(height: 24),
+            Icon(icon, color: Colors.grey.shade400, size: 20),
+            const SizedBox(width: 14),
             SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xff7C3AED),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: const Text("Add School", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              ),
+              width: 120,
+              child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
             ),
-            const SizedBox(height: 10),
+            Expanded(
+              child: Text(value, style: const TextStyle(color: Color(0xff1E1E1E), fontSize: 14, fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _sheetField(String hint, IconData icon) => Container(
-    decoration: BoxDecoration(
-      color: const Color(0xffF5F5F5),
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: TextField(
-      decoration: InputDecoration(
-        border: InputBorder.none,
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-        prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-      ),
-    ),
-  );
+      );
 }
-
-// ============================================================
-//  ORDERS TAB — Fully Static Functional
-// ============================================================
 
 class _FranchiseOrdersTab extends StatefulWidget {
   const _FranchiseOrdersTab();
@@ -1155,73 +1268,42 @@ class _FranchiseOrdersTab extends StatefulWidget {
 class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
   String _selectedStatus = "All";
   final List<String> _statuses = ["All", "Pending", "Shipped", "Delivered", "Cancelled"];
+  bool _isLoading = false;
+  List<dynamic> _orders = [];
 
-  final List<Map<String, dynamic>> _orders = [
-    {
-      'id': '#ORD-2401',
-      'kit': 'Level 3 Kit',
-      'school': 'Sunrise Public School',
-      'qty': 25,
-      'amount': '₹12,500',
-      'date': '14 Jun 2025',
-      'status': 'Delivered',
-      'items': ['Workbook x25', 'Flashcards x25', 'Practice Sheets x50'],
-    },
-    {
-      'id': '#ORD-2402',
-      'kit': 'Level 5 Kit',
-      'school': 'Greenfield Academy',
-      'qty': 18,
-      'amount': '₹9,900',
-      'date': '11 Jun 2025',
-      'status': 'Shipped',
-      'items': ['Workbook x18', 'Abacus Frame x18', 'Practice Sheets x36'],
-    },
-    {
-      'id': '#ORD-2403',
-      'kit': 'Level 2 Kit',
-      'school': 'Bright Future School',
-      'qty': 30,
-      'amount': '₹13,500',
-      'date': '9 Jun 2025',
-      'status': 'Pending',
-      'items': ['Starter Workbook x30', 'Number Cards x30'],
-    },
-    {
-      'id': '#ORD-2404',
-      'kit': 'Level 7 Kit',
-      'school': 'New Horizon School',
-      'qty': 10,
-      'amount': '₹6,500',
-      'date': '5 Jun 2025',
-      'status': 'Delivered',
-      'items': ['Advanced Workbook x10', 'Speed Drills x10', 'Answer Keys x10'],
-    },
-    {
-      'id': '#ORD-2405',
-      'kit': 'Level 4 Kit',
-      'school': 'Excel High School',
-      'qty': 20,
-      'amount': '₹11,000',
-      'date': '2 Jun 2025',
-      'status': 'Cancelled',
-      'items': ['Workbook x20', 'Abacus Frame x20'],
-    },
-    {
-      'id': '#ORD-2406',
-      'kit': 'Level 6 Kit',
-      'school': 'Greenfield Academy',
-      'qty': 15,
-      'amount': '₹8,250',
-      'date': '28 May 2025',
-      'status': 'Delivered',
-      'items': ['Advanced Workbook x15', 'Practice Sheets x30', 'Flashcards x15'],
-    },
-  ];
+  Future<void> _fetchOrders() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final buyerId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_my_orders.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"buyer_id": buyerId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _orders = data['data'] ?? [];
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading my orders: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
-  List<Map<String, dynamic>> get _filtered {
+  List<dynamic> get _filtered {
     if (_selectedStatus == "All") return _orders;
-    return _orders.where((o) => o['status'] == _selectedStatus).toList();
+    return _orders.where((o) => o['delivery_status'] == _selectedStatus).toList();
   }
 
   Color _statusColor(String status) {
@@ -1244,27 +1326,23 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
     }
   }
 
-  int get _totalAmount {
-    return _orders
-        .where((o) => o['status'] != 'Cancelled')
-        .fold(0, (sum, o) {
-      final raw = (o['amount'] as String).replaceAll(RegExp(r'[₹,]'), '');
-      return sum + (int.tryParse(raw) ?? 0);
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
   }
 
   @override
   Widget build(BuildContext context) {
-    final delivered  = _orders.where((o) => o['status'] == 'Delivered').length;
-    final pending    = _orders.where((o) => o['status'] == 'Pending').length;
-    final shipped    = _orders.where((o) => o['status'] == 'Shipped').length;
+    final delivered  = _orders.where((o) => o['delivery_status'] == 'Delivered').length;
+    final pending    = _orders.where((o) => o['delivery_status'] == 'Pending').length;
+    final shipped    = _orders.where((o) => o['delivery_status'] == 'Shipped').length;
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
-            // HEADER
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 24),
@@ -1282,17 +1360,10 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Kit Orders",
-                    style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
-                  ),
+                  const Text("Kit Orders", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(
-                    "Track & manage all kit orders",
-                    style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 14),
-                  ),
+                  Text("Track & manage all kit orders", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 14)),
                   const SizedBox(height: 18),
-                  // Summary row
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -1314,8 +1385,6 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
                 ],
               ),
             ),
-
-            // FILTER CHIPS
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
               child: SingleChildScrollView(
@@ -1347,40 +1416,45 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // ORDERS LIST
             Expanded(
-              child: _filtered.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade300),
-                    const SizedBox(height: 12),
-                    Text("No orders found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-                itemCount: _filtered.length,
-                itemBuilder: (context, index) {
-                  final order = _filtered[index];
-                  return _OrderCard(
-                    order: order,
-                    statusColor: _statusColor(order['status'] as String),
-                    statusIcon:  _statusIcon(order['status'] as String),
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xffDB2777)))
+                  : _filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade300),
+                              const SizedBox(height: 12),
+                              Text("No orders found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                          itemCount: _filtered.length,
+                          itemBuilder: (context, index) {
+                            final order = _filtered[index];
+                            return _OrderCard(
+                              order: order,
+                              statusColor: _statusColor(order['delivery_status'] as String? ?? 'Pending'),
+                              statusIcon: _statusIcon(order['delivery_status'] as String? ?? 'Pending'),
+                            );
+                          },
+                        ),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showNewOrderSheet(context),
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FranchiseKitOrderScreen()),
+          );
+          _fetchOrders();
+        },
         backgroundColor: const Color(0xffDB2777),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text("New Order", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
@@ -1389,26 +1463,17 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
   }
 
   Widget _ordStat(String label, String value, IconData icon) => Expanded(
-    child: Column(
-      children: [
-        Icon(icon, color: Colors.white70, size: 18),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-      ],
-    ),
-  );
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white70, size: 18),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ],
+        ),
+      );
 
   Widget _vDivider() => Container(height: 40, width: 1, color: Colors.white.withOpacity(.25));
-
-  void _showNewOrderSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _NewOrderSheet(),
-    );
-  }
 }
 
 class _OrderCard extends StatelessWidget {
@@ -1420,6 +1485,13 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orderId = order['order_id'] ?? 0;
+    final kitLevel = order['kit_level'] ?? 0;
+    final qty = order['quantity'] ?? 0;
+    final totalAmount = order['total_amount'] ?? 0.0;
+    final deliveryStatus = order['delivery_status'] ?? 'Pending';
+    final date = order['created_at'] ?? "";
+
     return GestureDetector(
       onTap: () => _showOrderDetail(context),
       child: Container(
@@ -1448,8 +1520,8 @@ class _OrderCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(order['kit'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
-                      Text(order['id'] as String, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                      Text("Level $kitLevel Kit", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
+                      Text("Order #$orderId", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -1464,7 +1536,7 @@ class _OrderCard extends StatelessWidget {
                     children: [
                       Icon(statusIcon, size: 12, color: statusColor),
                       const SizedBox(width: 4),
-                      Text(order['status'] as String, style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 11)),
+                      Text(deliveryStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 11)),
                     ],
                   ),
                 ),
@@ -1475,21 +1547,13 @@ class _OrderCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.school_outlined, size: 14, color: Colors.grey.shade400),
-                const SizedBox(width: 5),
-                Expanded(child: Text(order['school'] as String, style: TextStyle(color: Colors.grey.shade600, fontSize: 13))),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _infoTag(Icons.format_list_numbered_rounded, "Qty: ${order['qty']}", const Color(0xff7C3AED)),
+                _infoTag(Icons.format_list_numbered_rounded, "Qty: $qty", const Color(0xff7C3AED)),
                 const SizedBox(width: 12),
-                _infoTag(Icons.payments_outlined, order['amount'] as String, const Color(0xff16C74A)),
+                _infoTag(Icons.payments_outlined, "₹$totalAmount", const Color(0xff16C74A)),
                 const Spacer(),
                 Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
-                Text(order['date'] as String, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                Text(date.toString().split(' ')[0], style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
               ],
             ),
           ],
@@ -1499,12 +1563,12 @@ class _OrderCard extends StatelessWidget {
   }
 
   Widget _infoTag(IconData icon, String text, Color color) => Row(
-    children: [
-      Icon(icon, size: 14, color: color),
-      const SizedBox(width: 4),
-      Text(text, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
-    ],
-  );
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(text, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
+        ],
+      );
 
   void _showOrderDetail(BuildContext context) {
     showModalBottomSheet(
@@ -1524,11 +1588,17 @@ class _OrderDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = order['items'] as List<String>;
+    final orderId = order['order_id'] ?? 0;
+    final kitLevel = order['kit_level'] ?? 0;
+    final qty = order['quantity'] ?? 0;
+    final totalAmount = order['total_amount'] ?? 0.0;
+    final deliveryStatus = order['delivery_status'] ?? 'Pending';
+    final date = order['created_at'] ?? "";
+
     return DraggableScrollableSheet(
-      initialChildSize: .65,
-      maxChildSize: .9,
-      minChildSize: .45,
+      initialChildSize: .5,
+      maxChildSize: .75,
+      minChildSize: .35,
       builder: (_, controller) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -1544,7 +1614,7 @@ class _OrderDetailSheet extends StatelessWidget {
             const SizedBox(height: 20),
             Row(
               children: [
-                Text(order['id'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xff1E1E1E))),
+                Text("Order #$orderId", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xff1E1E1E))),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1553,46 +1623,18 @@ class _OrderDetailSheet extends StatelessWidget {
                     children: [
                       Icon(statusIcon, size: 14, color: statusColor),
                       const SizedBox(width: 5),
-                      Text(order['status'] as String, style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 13)),
+                      Text(deliveryStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.w700, fontSize: 13)),
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            _row("Kit", order['kit'] as String, Icons.inventory_2_outlined),
-            _row("School", order['school'] as String, Icons.school_outlined),
-            _row("Quantity", "${order['qty']} units", Icons.format_list_numbered_rounded),
-            _row("Amount", order['amount'] as String, Icons.payments_outlined),
-            _row("Order Date", order['date'] as String, Icons.calendar_today_outlined),
-            const SizedBox(height: 16),
-            const Text("Items Included", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
-            const SizedBox(height: 10),
-            ...items.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle_outline, size: 16, color: const Color(0xff16C74A)),
-                  const SizedBox(width: 8),
-                  Text(item, style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
-                ],
-              ),
-            )),
+            _row("Kit Name", "Level $kitLevel Kit", Icons.inventory_2_outlined),
+            _row("Quantity Placed", "$qty units", Icons.format_list_numbered_rounded),
+            _row("Total Amount Paid", "₹$totalAmount", Icons.payments_outlined),
+            _row("Order Date & Time", date.toString(), Icons.calendar_today_outlined),
             const SizedBox(height: 24),
-            if (order['status'] != 'Delivered' && order['status'] != 'Cancelled')
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xffDB2777),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text("Track Order", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                ),
-              ),
           ],
         ),
       ),
@@ -1600,116 +1642,64 @@ class _OrderDetailSheet extends StatelessWidget {
   }
 
   Widget _row(String label, String value, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xffDB2777).withOpacity(.08), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 16, color: const Color(0xffDB2777)),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(
           children: [
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-            Text(value,  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xff1E1E1E))),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xffDB2777).withOpacity(.08), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 16, color: const Color(0xffDB2777)),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xff1E1E1E))),
+              ],
+            ),
           ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
-class _NewOrderSheet extends StatelessWidget {
-  const _NewOrderSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    final levels = ['Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', 'Level 7', 'Level 8'];
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4))),
-            ),
-            const SizedBox(height: 20),
-            const Text("New Kit Order", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
-            const SizedBox(height: 20),
-            const Text("Select Level", style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: levels.map((l) => GestureDetector(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffDB2777).withOpacity(.08),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xffDB2777).withOpacity(.3)),
-                  ),
-                  child: Text(l, style: const TextStyle(color: Color(0xffDB2777), fontWeight: FontWeight.w600, fontSize: 13)),
-                ),
-              )).toList(),
-            ),
-            const SizedBox(height: 16),
-            _sheetField("Select School", Icons.school_outlined),
-            const SizedBox(height: 12),
-            _sheetField("Quantity", Icons.format_list_numbered_rounded),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xffDB2777),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: const Text("Place Order", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sheetField(String hint, IconData icon) => Container(
-    decoration: BoxDecoration(color: const Color(0xffF5F5F5), borderRadius: BorderRadius.circular(14)),
-    child: TextField(
-      decoration: InputDecoration(
-        border: InputBorder.none,
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-        prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
-        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-      ),
-    ),
-  );
-}
-
-// ============================================================
-//  PROFILE TAB (stub)
-// ============================================================
-
-class _FranchiseProfileTab extends StatelessWidget {
+class _FranchiseProfileTab extends StatefulWidget {
   const _FranchiseProfileTab();
 
   @override
+  State<_FranchiseProfileTab> createState() => _FranchiseProfileTabState();
+}
+
+class _FranchiseProfileTabState extends State<_FranchiseProfileTab> {
+  String _name = "Franchise Partner";
+  String _email = "";
+  String _phone = "";
+  String _kycStatus = "Pending";
+
+  Future<void> _loadProfile() async {
+    final session = await SessionManager.getSession();
+    if (session != null) {
+      setState(() {
+        _name = session['name'] ?? "Franchise Partner";
+        _email = session['email'] ?? "";
+        _phone = session['phone'] ?? "";
+        _kycStatus = session['kyc_status'] ?? "Pending";
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    Color statusColor = Colors.orange;
+    if (_kycStatus == 'Approved') statusColor = Colors.green;
+    if (_kycStatus == 'Rejected') statusColor = Colors.red;
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(
@@ -1720,25 +1710,108 @@ class _FranchiseProfileTab extends StatelessWidget {
               padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 28),
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-                gradient: LinearGradient(colors: [Color(0xff7C3AED), Color(0xff7C3AED)]),
+                gradient: LinearGradient(colors: [Color(0xff7C3AED), Color(0xffDB2777)]),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 10),
-                  Text("Profile", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                  const Text("Profile", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Colors.white.withOpacity(.2),
+                        child: Text(
+                          _name.isNotEmpty ? _name[0].toUpperCase() : "?",
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(_email, style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const Expanded(child: Center(child: Text("Coming Soon", style: TextStyle(color: Colors.grey, fontSize: 16)))),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          _profileRow("Phone Number", _phone, Icons.phone_outlined),
+                          const Divider(height: 24),
+                          _profileRow("Account Role", "Franchise Partner", Icons.badge_outlined),
+                          const Divider(height: 24),
+                          Row(
+                            children: [
+                              const Icon(Icons.verified_user_outlined, color: Colors.grey, size: 20),
+                              const SizedBox(width: 12),
+                              const Text("KYC Status", style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(color: statusColor.withOpacity(.1), borderRadius: BorderRadius.circular(10)),
+                                child: Text(_kycStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => _confirmAndLogout(context),
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    label: const Text("Logout from Account", style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-// ============================================================
+  Widget _profileRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.grey, size: 20),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          ],
+        ),
+      ],
+    );
+  }
+}
 //  FRANCHISE DASHBOARD CARD
 // ============================================================
 

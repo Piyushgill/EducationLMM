@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:thenew/services/Agreement_signin.dart';
 
@@ -136,9 +136,6 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
 
   // Selfie
   File? _selfieImage;
-  bool _isCameraOpen = false;
-  CameraController? _cameraController;
-  bool _cameraReady = false;
 
   // Bank
   final TextEditingController _accountCtrl = TextEditingController();
@@ -149,7 +146,6 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
 
   @override
   void dispose() {
-    _cameraController?.dispose();
     _aadhaarCtrl.dispose();
     _panCtrl.dispose();
     _gstCtrl.dispose();
@@ -162,7 +158,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
 
   // ── Image picking ──
   Future<void> _pickImage(String type) async {
-    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final XFile? picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 60, // Compress to 60%
+      maxWidth: 1080,   // Max width constraint
+      maxHeight: 1080,  // Max height constraint
+    );
     if (picked == null) return;
     setState(() {
       if (type == 'aadhaar_front') _aadhaarFront = File(picked.path);
@@ -173,59 +174,26 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     });
   }
 
-  // ── Camera ──
-  Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
-    CameraDescription? frontCam;
-    for (var cam in cameras) {
-      if (cam.lensDirection == CameraLensDirection.front) {
-        frontCam = cam;
-        break;
-      }
-    }
-    _cameraController = CameraController(
-      frontCam ?? cameras.first,
-      ResolutionPreset.high,
-      enableAudio: false,
-    );
-    await _cameraController!.initialize();
-    if (mounted) setState(() => _cameraReady = true);
-  }
 
-  Future<void> _openCamera() async {
-    setState(() {
-      _isCameraOpen = true;
-      _cameraReady = false;
-    });
-    await _initCamera();
-  }
-
-  Future<void> _takeSelfie() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+  // ── Selfie Capture using System Camera ──
+  Future<void> _captureSelfie() async {
     try {
-      final XFile photo = await _cameraController!.takePicture();
-      await _cameraController!.dispose();
-      _cameraController = null;
-      setState(() {
-        _selfieImage = File(photo.path);
-        _isCameraOpen = false;
-        _cameraReady = false;
-      });
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 60, // Compress to 60%
+        maxWidth: 1080,   // Max width constraint
+        maxHeight: 1080,  // Max height constraint
+      );
+      if (picked != null) {
+        setState(() {
+          _selfieImage = File(picked.path);
+        });
+      }
     } catch (e) {
-      debugPrint("Capture error: $e");
+      debugPrint("Selfie capture error: $e");
     }
   }
-
-  void _closeCamera() {
-    _cameraController?.dispose();
-    _cameraController = null;
-    setState(() {
-      _isCameraOpen = false;
-      _cameraReady = false;
-    });
-  }
-
   // ── Validation ──
   bool _validateStep() {
     final docs = _currentStepConfig.docs;
@@ -233,8 +201,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     for (final doc in docs) {
       switch (doc) {
         case KycDocType.aadhaar:
-          if (_aadhaarCtrl.text.trim().isEmpty) {
+          final cleanAadhaar = _aadhaarCtrl.text.replaceAll(' ', '');
+          if (cleanAadhaar.isEmpty) {
             _showError("Please enter Aadhaar number");
+            return false;
+          }
+          if (cleanAadhaar.length != 12 || !RegExp(r'^\d{12}$').hasMatch(cleanAadhaar)) {
+            _showError("Aadhaar number must be exactly 12 digits");
             return false;
           }
           if (_aadhaarFront == null || _aadhaarBack == null) {
@@ -244,8 +217,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
           break;
 
         case KycDocType.pan:
-          if (_panCtrl.text.trim().isEmpty) {
+          final panVal = _panCtrl.text.trim().toUpperCase();
+          if (panVal.isEmpty) {
             _showError("Please enter PAN number");
+            return false;
+          }
+          if (panVal.length != 10 || !RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(panVal)) {
+            _showError("Enter a valid 10-character PAN (e.g. ABCDE1234F)");
             return false;
           }
           if (_panCard == null) {
@@ -255,8 +233,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
           break;
 
         case KycDocType.gst:
-          if (_gstCtrl.text.trim().isEmpty) {
+          final gstVal = _gstCtrl.text.trim().toUpperCase();
+          if (gstVal.isEmpty) {
             _showError("Please enter GST number");
+            return false;
+          }
+          if (gstVal.length != 15 || !RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$').hasMatch(gstVal)) {
+            _showError("Enter a valid 15-character GST (e.g. 22AAAAA0000A1Z5)");
             return false;
           }
           if (_gstCert == null) {
@@ -284,12 +267,22 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
           break;
 
         case KycDocType.bank:
-          if (_accountCtrl.text.trim().isEmpty) {
+          final accountVal = _accountCtrl.text.trim();
+          final ifscVal = _ifscCtrl.text.trim().toUpperCase();
+          if (accountVal.isEmpty) {
             _showError("Please enter account number");
             return false;
           }
-          if (_ifscCtrl.text.trim().isEmpty) {
+          if (accountVal.length < 9 || accountVal.length > 18 || !RegExp(r'^\d+$').hasMatch(accountVal)) {
+            _showError("Account number must be between 9 and 18 digits");
+            return false;
+          }
+          if (ifscVal.isEmpty) {
             _showError("Please enter IFSC code");
+            return false;
+          }
+          if (ifscVal.length != 11 || !RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifscVal)) {
+            _showError("Enter a valid 11-character IFSC (e.g. SBIN0001234)");
             return false;
           }
           if (_bankNameCtrl.text.trim().isEmpty) {
@@ -413,8 +406,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
         const SizedBox(height: 14),
         _label("Aadhaar Number"),
         const SizedBox(height: 10),
-        _textField(controller: _aadhaarCtrl, hint: "1234 5678 9012",
-            icon: Icons.credit_card_outlined, keyboardType: TextInputType.number),
+        _textField(
+          controller: _aadhaarCtrl,
+          hint: "1234 5678 9012",
+          icon: Icons.credit_card_outlined,
+          keyboardType: TextInputType.number,
+          inputFormatters: [AadhaarFormatter()],
+        ),
         const SizedBox(height: 16),
         _label("Upload Aadhaar Card"),
         const SizedBox(height: 12),
@@ -437,9 +435,16 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
         const SizedBox(height: 14),
         _label("PAN Number"),
         const SizedBox(height: 10),
-        _textField(controller: _panCtrl, hint: "ABCDE1234F",
-            icon: Icons.description_outlined,
-            textCapitalization: TextCapitalization.characters),
+        _textField(
+          controller: _panCtrl,
+          hint: "ABCDE1234F",
+          icon: Icons.description_outlined,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(10),
+          ],
+        ),
         const SizedBox(height: 16),
         _label("Upload PAN Card"),
         const SizedBox(height: 12),
@@ -458,9 +463,16 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
         const SizedBox(height: 14),
         _label("GST Number"),
         const SizedBox(height: 10),
-        _textField(controller: _gstCtrl, hint: "22AAAAA0000A1Z5",
-            icon: Icons.receipt_long_outlined,
-            textCapitalization: TextCapitalization.characters),
+        _textField(
+          controller: _gstCtrl,
+          hint: "22AAAAA0000A1Z5",
+          icon: Icons.receipt_long_outlined,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(15),
+          ],
+        ),
         const SizedBox(height: 16),
         _label("Upload GST Certificate"),
         const SizedBox(height: 12),
@@ -500,13 +512,29 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
         const SizedBox(height: 14),
         _label("Account Number"),
         const SizedBox(height: 10),
-        _textField(controller: _accountCtrl, hint: "1234567890",
-            icon: Icons.account_balance_outlined, keyboardType: TextInputType.number),
+        _textField(
+          controller: _accountCtrl,
+          hint: "1234567890",
+          icon: Icons.account_balance_outlined,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(18),
+          ],
+        ),
         const SizedBox(height: 16),
         _label("IFSC Code"),
         const SizedBox(height: 10),
-        _textField(controller: _ifscCtrl, hint: "SBIN0001234",
-            icon: Icons.code_rounded, textCapitalization: TextCapitalization.characters),
+        _textField(
+          controller: _ifscCtrl,
+          hint: "SBIN0001234",
+          icon: Icons.code_rounded,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(11),
+          ],
+        ),
         const SizedBox(height: 16),
         _label("Bank Name"),
         const SizedBox(height: 10),
@@ -542,79 +570,9 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
 
   // ── Selfie ──
   Widget _buildSelfieSection() {
-    if (_isCameraOpen) {
-      return Column(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: SizedBox(
-            height: 380,
-            width: double.infinity,
-            child: _cameraReady && _cameraController != null
-                ? Stack(fit: StackFit.expand, children: [
-              CameraPreview(_cameraController!),
-              Center(
-                child: Container(
-                  width: 200,
-                  height: 260,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(120),
-                    border: Border.all(color: Colors.white.withOpacity(0.8), width: 2.5),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: GestureDetector(
-                  onTap: _closeCamera,
-                  child: Container(
-                    height: 38,
-                    width: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-                  ),
-                ),
-              ),
-            ])
-                : Container(
-              color: Colors.black,
-              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        if (_cameraReady)
-          GestureDetector(
-            onTap: _takeSelfie,
-            child: Center(
-              child: Container(
-                height: 72,
-                width: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xff2563EB), width: 3),
-                ),
-                child: Container(
-                  margin: const EdgeInsets.all(5),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Color(0xff2563EB), Color(0xffA020F0)],
-                    ),
-                  ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 30),
-                ),
-              ),
-            ),
-          ),
-      ]);
-    }
-
+    Widget mainCard;
     if (_selfieImage != null) {
-      return ClipRRect(
+      mainCard = ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Stack(children: [
           Image.file(_selfieImage!, height: 320, width: double.infinity, fit: BoxFit.cover),
@@ -622,7 +580,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
             bottom: 14,
             right: 14,
             child: GestureDetector(
-              onTap: _openCamera,
+              onTap: _captureSelfie,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -663,12 +621,9 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
           ),
         ]),
       );
-    }
-
-    // Default — tap to open camera
-    return Column(children: [
-      GestureDetector(
-        onTap: _openCamera,
+    } else {
+      mainCard = GestureDetector(
+        onTap: _captureSelfie,
         child: Container(
           height: 280,
           width: double.infinity,
@@ -701,7 +656,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
             ],
           ),
         ),
-      ),
+      );
+    }
+
+    return Column(children: [
+      mainCard,
       const SizedBox(height: 16),
       Container(
         padding: const EdgeInsets.all(16),
@@ -823,10 +782,29 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
           if (!isLast) {
             setState(() => currentStep++);
           } else {
+            final Map<String, dynamic> kycData = {
+              "aadhaar_number": _aadhaarCtrl.text.replaceAll(' ', ''),
+              "aadhaar_front": _aadhaarFront,
+              "aadhaar_back": _aadhaarBack,
+              "pan_number": _panCtrl.text.trim(),
+              "pan_image": _panCard,
+              "gst_number_doc": _gstCtrl.text.trim(),
+              "gst_cert": _gstCert,
+              "school_reg_number": _schoolRegCtrl.text.trim(),
+              "school_reg_cert": _schoolRegCert,
+              "selfie": _selfieImage,
+              "bank_account": _accountCtrl.text.trim(),
+              "bank_ifsc": _ifscCtrl.text.trim(),
+              "bank_name": _bankNameCtrl.text.trim(),
+            };
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => AgreementSigningScreen(role: widget.role),
+                builder: (_) => AgreementSigningScreen(
+                  role: widget.role,
+                  formData: widget.formData,
+                  kycData: kycData,
+                ),
               ),
             );
           }
@@ -898,6 +876,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       height: 60,
@@ -910,6 +889,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
         controller: controller,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           border: InputBorder.none,
           prefixIcon: Icon(icon, color: Colors.grey.shade500, size: 20),
@@ -975,6 +955,48 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class AadhaarFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Remove all non-digits
+    final text = newValue.text.replaceAll(RegExp(r'\D'), '');
+    
+    // Limit to 12 digits
+    final String cleanText = text.substring(0, text.length > 12 ? 12 : text.length);
+    
+    final buffer = StringBuffer();
+    for (int i = 0; i < cleanText.length; i++) {
+      buffer.write(cleanText[i]);
+      // Add space after 4th and 8th characters, but not at the end
+      if ((i == 3 || i == 7) && i != cleanText.length - 1) {
+        buffer.write(' ');
+      }
+    }
+    
+    final string = buffer.toString();
+    return newValue.copyWith(
+      text: string,
+      selection: TextSelection.collapsed(offset: string.length),
+    );
+  }
+}
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

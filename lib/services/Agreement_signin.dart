@@ -1,8 +1,14 @@
 import 'dart:ui' as ui;
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
+import 'package:thenew/services/session_manager.dart';
+import 'package:thenew/services/kyc_status_screen.dart';
 import '../dashboards/distributor_dashboard.dart';
 
 // ─── Signature Painter ───────────────────────────────────────────────────────
@@ -46,8 +52,15 @@ class SignaturePainter extends CustomPainter {
 
 class AgreementSigningScreen extends StatefulWidget {
   final String role;
+  final Map<String, String> formData;
+  final Map<String, dynamic> kycData;
 
-  const AgreementSigningScreen({super.key, required this.role});
+  const AgreementSigningScreen({
+    super.key,
+    required this.role,
+    required this.formData,
+    required this.kycData,
+  });
 
   @override
   State<AgreementSigningScreen> createState() =>
@@ -117,35 +130,196 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
     setState(() => _showSignaturePad = true);
   }
 
-  void _onSubmit() {
+  Future<File?> _saveSignatureAsFile() async {
+    try {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, _padCanvasSize.width, _padCanvasSize.height));
+      
+      // Paint background white
+      final bgPaint = Paint()..color = Colors.white;
+      canvas.drawRect(Rect.fromLTWH(0, 0, _padCanvasSize.width, _padCanvasSize.height), bgPaint);
+
+      final paint = Paint()
+        ..color = const Color(0xff1D4ED8)
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+
+      for (final stroke in _strokes) {
+        final path = Path();
+        bool started = false;
+        for (final point in stroke) {
+          if (point == null) {
+            started = false;
+          } else if (!started) {
+            path.moveTo(point.dx, point.dy);
+            started = true;
+          } else {
+            path.lineTo(point.dx, point.dy);
+          }
+        }
+        canvas.drawPath(path, paint);
+      }
+
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(_padCanvasSize.width.toInt(), _padCanvasSize.height.toInt());
+      final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
+      if (pngBytes == null) return null;
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/signature_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(pngBytes.buffer.asUint8List());
+      return file;
+    } catch (e) {
+      debugPrint("Error saving signature image: $e");
+      return null;
+    }
+  }
+
+  void _onSubmit() async {
     if (!isAccepted || !isSigned) {
       _showSnack("Agreement sign karna zaroori hai", isError: true);
       return;
     }
 
-    Widget screen;
-    switch (widget.role) {
-      case "Distributor":
-        screen = const DistributorDashboard();
-        break;
-      case "Franchise Partner":
-        screen = const FranchiseDashboard();
-        break;
-      case "School":
-        screen = const SchoolDashboard();
-        break;
-      case "Student":
-        screen = const StudentDashboard();
-        break;
-      default:
-        screen = const DistributorDashboard();
-    }
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => screen),
-          (route) => false,
+    // Show Loader Dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xff2563EB)),
+                SizedBox(height: 18),
+                Text(
+                  "Submitting KYC & Registering...",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
+
+    try {
+      final sigFile = await _saveSignatureAsFile();
+      
+      final url = Uri.parse("https://apps.kofalt.in/api/signup.php");
+      
+      final Map<String, dynamic> requestBody = {};
+      
+      // Add common form fields
+      widget.formData.forEach((key, value) {
+        requestBody[key] = value;
+      });
+
+      // Add KYC text and file fields
+      for (final entry in widget.kycData.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        if (value == null) continue;
+        if (value is String) {
+          requestBody[key] = value;
+        } else if (value is File) {
+          final bytes = await value.readAsBytes();
+          requestBody['${key}_base64'] = base64Encode(bytes);
+          requestBody['${key}_ext'] = value.path.split('.').last;
+        }
+      }
+
+      // Add signature file
+      if (sigFile != null) {
+        final bytes = await sigFile.readAsBytes();
+        requestBody['signature_base64'] = base64Encode(bytes);
+        requestBody['signature_ext'] = 'png';
+      }
+
+      // Log fields being sent for verification
+      debugPrint("Sending registration to: ${url.toString()}");
+      requestBody.forEach((k, v) {
+        if (k.endsWith('_base64')) {
+          debugPrint("Base64 Field: $k (Length: ${v.toString().length} characters)");
+        } else {
+          debugPrint("Field: $k = $v");
+        }
+      });
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 60));
+      
+      final responseBody = response.body;
+
+      // Close Loader Dialog
+      if (mounted) Navigator.pop(context);
+
+      Map<String, dynamic> responseData;
+      try {
+        responseData = jsonDecode(responseBody);
+      } catch (e) {
+        debugPrint("Server Raw Response (HTML): $responseBody");
+        final String cleanResponse = responseBody.replaceAll(RegExp(r'<[^>]*>'), ' ').trim();
+        final String excerpt = cleanResponse.length > 120 ? cleanResponse.substring(0, 120) + "..." : cleanResponse;
+        if (mounted) {
+          _showSnack("Server Error: $excerpt", isError: true);
+        }
+        return;
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (responseData['status'] == 'success') {
+          // Success! Save session locally
+          final user = responseData['user'];
+          final int userId = user['id'] is int 
+              ? user['id'] 
+              : int.tryParse(user['id'].toString()) ?? 0;
+          
+          await SessionManager.saveSession(
+            id: userId,
+            name: user['name'],
+            email: user['email'],
+            phone: user['phone'],
+            role: user['role'],
+            kycStatus: user['kyc_status'],
+          );
+
+          if (mounted) {
+            _showSnack("KYC Submitted Successfully!", isError: false);
+            
+            // Navigate to KYC status blocking page
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (_) => KycStatusScreen(userSession: user),
+              ),
+              (route) => false,
+            );
+          }
+        } else {
+          _showSnack(responseData['message'] ?? "Registration failed", isError: true);
+        }
+      } else {
+        _showSnack(responseData['message'] ?? "Server returned error ${response.statusCode}", isError: true);
+      }
+    } catch (e) {
+      // Close Loader Dialog if open
+      if (mounted) {
+        Navigator.pop(context);
+        _showSnack("Connection error: $e", isError: true);
+      }
+    }
   }
 
   void _showSnack(String msg, {required bool isError}) {

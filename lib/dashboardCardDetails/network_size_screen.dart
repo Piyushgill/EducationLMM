@@ -1,18 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
-class NetworkSizeScreen extends StatelessWidget {
+class NetworkSizeScreen extends StatefulWidget {
   const NetworkSizeScreen({super.key});
 
   @override
+  State<NetworkSizeScreen> createState() => _NetworkSizeScreenState();
+}
+
+class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
+  bool _isLoading = false;
+  List<dynamic> _members = [];
+  String _searchQuery = "";
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNetwork();
+  }
+
+  Future<void> _fetchNetwork() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success' && data['network_users'] != null) {
+            if (mounted) {
+              setState(() {
+                _members = data['network_users'];
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching network size: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> members = [
-      {'name': 'Rajesh Kumar', 'role': 'Franchise', 'location': 'Delhi', 'status': 'Active'},
-      {'name': 'Priya Sharma', 'role': 'School', 'location': 'Noida', 'status': 'Active'},
-      {'name': 'Amit Singh', 'role': 'Franchise', 'location': 'Gurgaon', 'status': 'Inactive'},
-      {'name': 'Sunita Verma', 'role': 'School', 'location': 'Faridabad', 'status': 'Active'},
-      {'name': 'Rohit Yadav', 'role': 'Franchise', 'location': 'Ghaziabad', 'status': 'Active'},
-      {'name': 'Meena Patel', 'role': 'School', 'location': 'Greater Noida', 'status': 'Active'},
-    ];
+    final franchises = _members.where((u) => u['role'] == 'Franchise Partner').length;
+    final schools = _members.where((u) => u['role'] == 'School').length;
+
+    final filtered = _members.where((m) {
+      final name = (m['name'] ?? "").toString().toLowerCase();
+      final phone = (m['phone'] ?? "").toString().toLowerCase();
+      final query = _searchQuery.toLowerCase();
+      return name.contains(query) || phone.contains(query);
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -75,7 +133,7 @@ class NetworkSizeScreen extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text("250", style: TextStyle(color: Color(0xff2563EB), fontSize: 15, fontWeight: FontWeight.bold)),
+                      child: Text("${_members.length}", style: const TextStyle(color: Color(0xff2563EB), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -88,9 +146,9 @@ class NetworkSizeScreen extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
-                _statChip("Franchise", "120", const Color(0xff2563EB)),
+                _statChip("Franchise", "$franchises", const Color(0xff2563EB)),
                 const SizedBox(width: 12),
-                _statChip("Schools", "130", const Color(0xff16C74A)),
+                _statChip("Schools", "$schools", const Color(0xff16C74A)),
               ],
             ),
           ),
@@ -99,6 +157,8 @@ class NetworkSizeScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: TextField(
+              controller: _searchCtrl,
+              onChanged: (val) => setState(() => _searchQuery = val),
               decoration: InputDecoration(
                 hintText: "Search members...",
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -117,83 +177,92 @@ class NetworkSizeScreen extends StatelessWidget {
 
           // List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              itemCount: members.length,
-              itemBuilder: (context, index) {
-                final m = members[index];
-                final isActive = m['status'] == 'Active';
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: const Color(0xff2563EB).withOpacity(.1),
-                        child: Text(
-                          m['name'].toString().substring(0, 1),
-                          style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold, fontSize: 18),
-                        ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xff2563EB)))
+                : filtered.isEmpty
+                    ? Center(child: Text("No members found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final m = filtered[index];
+                          final isActive = m['status'] == 'Active';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3)),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: const Color(0xff2563EB).withOpacity(.1),
+                                  child: Text(
+                                    (m['name'] ?? "?").toString().substring(0, 1).toUpperCase(),
+                                    style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold, fontSize: 18),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(m['name'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                      Text("${m['role']} • ${m['phone']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isActive ? Colors.green.shade50 : Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    m['status'] ?? 'Active',
+                                    style: TextStyle(color: isActive ? Colors.green.shade600 : Colors.red.shade600, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(m['name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                            const SizedBox(height: 4),
-                            Text("${m['role']} • ${m['location']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isActive ? const Color(0xff16C74A).withOpacity(.1) : Colors.red.withOpacity(.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          m['status'],
-                          style: TextStyle(
-                            color: isActive ? const Color(0xff16C74A) : Colors.red,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _statChip(String label, String count, Color color) {
+  Widget _statChip(String label, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Text(count, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: color.withOpacity(.1),
+              child: Icon(Icons.people_outline, color: color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
           ],
         ),
       ),

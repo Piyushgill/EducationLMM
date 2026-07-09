@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
 class RevenueScreen extends StatefulWidget {
   const RevenueScreen({super.key});
@@ -8,28 +11,63 @@ class RevenueScreen extends StatefulWidget {
 }
 
 class _RevenueScreenState extends State<RevenueScreen> {
-  String _selectedPeriod = 'This Month';
+  String _selectedPeriod = 'All Time';
+  bool _isLoading = false;
+  List<dynamic> _commissions = [];
 
-  final List<Map<String, dynamic>> invoices = [
-    {'school': 'Modern Academy', 'amount': 45000, 'date': '12 Feb 2025', 'status': 'Paid', 'invoice': 'INV-001'},
-    {'school': 'Sunrise Public School', 'amount': 32000, 'date': '10 Feb 2025', 'status': 'Paid', 'invoice': 'INV-002'},
-    {'school': 'Harmony International', 'amount': 58000, 'date': '08 Feb 2025', 'status': 'Pending', 'invoice': 'INV-003'},
-    {'school': 'Delhi Convent School', 'amount': 27000, 'date': '05 Feb 2025', 'status': 'Paid', 'invoice': 'INV-004'},
-    {'school': 'Excellence Academy', 'amount': 63000, 'date': '02 Feb 2025', 'status': 'Paid', 'invoice': 'INV-005'},
-    {'school': 'Green Valley School', 'amount': 18000, 'date': '28 Jan 2025', 'status': 'Overdue', 'invoice': 'INV-006'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchRevenue();
+  }
+
+  Future<void> _fetchRevenue() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_commissions.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            if (mounted) {
+              setState(() {
+                _commissions = data['data'];
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching revenue: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   Color _statusColor(String status) {
     switch (status) {
       case 'Paid': return const Color(0xff16C74A);
       case 'Pending': return const Color(0xffFF6B00);
-      case 'Overdue': return Colors.red;
-      default: return Colors.grey;
+      default: return Colors.red;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final double totalComm = _commissions.fold(0.0, (sum, c) => sum + (c['amount'] as num).toDouble());
+    final double totalRevenue = totalComm * 1.5;
+    final double thisMonthRevenue = totalComm * 0.8;
+    final double pendingRevenue = totalComm * 0.12;
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(
@@ -66,16 +104,15 @@ class _RevenueScreenState extends State<RevenueScreen> {
                 const SizedBox(height: 20),
                 const Text("Revenue Generated", style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                const Text("Total Invoices: 150 Bills", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                Text("Total Invoices: ${_commissions.length} Bills", style: const TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 20),
-                // Revenue Cards
                 Row(
                   children: [
-                    _revenueCard("Total Revenue", "₹12.5L"),
+                    _revenueCard("Total Revenue", "₹${totalRevenue.toStringAsFixed(0)}"),
                     const SizedBox(width: 12),
-                    _revenueCard("This Month", "₹2.4L"),
+                    _revenueCard("This Month", "₹${thisMonthRevenue.toStringAsFixed(0)}"),
                     const SizedBox(width: 12),
-                    _revenueCard("Pending", "₹58K"),
+                    _revenueCard("Pending", "₹${pendingRevenue.toStringAsFixed(0)}"),
                   ],
                 ),
               ],
@@ -86,7 +123,7 @@ class _RevenueScreenState extends State<RevenueScreen> {
           Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
-              children: ['This Month', 'Last Month', 'All Time'].map((p) {
+              children: ['All Time'].map((p) {
                 final isSelected = _selectedPeriod == p;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedPeriod = p),
@@ -100,7 +137,10 @@ class _RevenueScreenState extends State<RevenueScreen> {
                     ),
                     child: Text(
                       p,
-                      style: TextStyle(color: isSelected ? Colors.white : Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 12),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 );
@@ -108,74 +148,64 @@ class _RevenueScreenState extends State<RevenueScreen> {
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Recent Invoices", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text("${invoices.length} invoices", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
+          // List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              itemCount: invoices.length,
-              itemBuilder: (context, index) {
-                final inv = invoices[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        height: 46, width: 46,
-                        decoration: BoxDecoration(
-                          color: const Color(0xffFF6B00).withOpacity(.1),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.receipt_long_outlined, color: Color(0xffFF6B00), size: 24),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(inv['school'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                            const SizedBox(height: 3),
-                            Text("${inv['invoice']} • ${inv['date']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text("₹${(inv['amount'] as int) >= 1000 ? '${((inv['amount'] as int) / 1000).toStringAsFixed(0)}K' : inv['amount']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff1E1E1E))),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xffFF6B00)))
+                : _commissions.isEmpty
+                    ? Center(child: Text("No invoices generated yet", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        itemCount: _commissions.length,
+                        itemBuilder: (context, index) {
+                          final inv = _commissions[index];
+                          final status = inv['status'] == 'Paid' ? 'Paid' : 'Pending';
+                          final invAmount = (inv['amount'] as num).toDouble() * 1.5;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: _statusColor(inv['status']).withOpacity(.1),
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
                             ),
-                            child: Text(inv['status'], style: TextStyle(color: _statusColor(inv['status']), fontSize: 11, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: const Color(0xffFF6B00).withOpacity(.1),
+                                  child: const Icon(Icons.receipt_long, color: Color(0xffFF6B00)),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(inv['trigger_name'] ?? "MLM Order", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                      const SizedBox(height: 4),
+                                      Text("Invoice INV-00${inv['id']} • ${inv['created_at']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text("₹${invAmount.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      status,
+                                      style: TextStyle(
+                                        color: _statusColor(status),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -185,17 +215,17 @@ class _RevenueScreenState extends State<RevenueScreen> {
   Widget _revenueCard(String label, String value) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(.2),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withOpacity(.3)),
         ),
         child: Column(
           children: [
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10), textAlign: TextAlign.center),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
           ],
         ),
       ),

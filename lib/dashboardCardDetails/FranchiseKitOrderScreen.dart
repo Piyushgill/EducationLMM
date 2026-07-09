@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/services/session_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class FranchiseKitOrderScreen extends StatefulWidget {
   const FranchiseKitOrderScreen({super.key});
@@ -10,7 +13,6 @@ class FranchiseKitOrderScreen extends StatefulWidget {
 class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
   int _mainKitQty = 0;
   final Map<int, int> _levelQty = {for (var l in [2, 3, 4, 5, 6, 7, 8]) l: 0};
-  int _lastOrderId = 1042;
 
   int get _totalItems => _mainKitQty + _levelQty.values.fold(0, (a, b) => a + b);
 
@@ -114,54 +116,130 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
   // ----------------------------------------------------------
   //  PLACE ORDER
   // ----------------------------------------------------------
-  void _placeOrder() {
-    final orderId = _lastOrderId++;
-    final placedItems = _totalItems;
-    setState(() {
-      _mainKitQty = 0;
-      for (final l in _levelQty.keys) {
-        _levelQty[l] = 0;
-      }
-    });
-
+  Future<void> _placeOrder() async {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 64, width: 64,
-              decoration: BoxDecoration(color: const Color(0xff16C74A).withOpacity(.1), shape: BoxShape.circle),
-              child: const Icon(Icons.check_circle, color: Color(0xff16C74A), size: 40),
-            ),
-            const SizedBox(height: 16),
-            const Text("Order Placed!", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              "Order #$orderId • $placedItems items\nYou'll be notified once it ships.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xffFF6B00),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  elevation: 0,
-                ),
-                child: const Text("Done", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
-      ),
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xffFF6B00))),
     );
+
+    try {
+      final session = await SessionManager.getSession();
+      if (session == null) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: User session not found. Please log in.")),
+        );
+        return;
+      }
+      final buyerId = session['id'];
+
+      final orders = <Future>[];
+      if (_mainKitQty > 0) {
+        orders.add(
+          http.post(
+            Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "buyer_id": buyerId,
+              "level": "Level 1",
+              "quantity": _mainKitQty,
+            }),
+          )
+        );
+      }
+      for (final l in _levelQty.keys) {
+        final qty = _levelQty[l]!;
+        if (qty > 0) {
+          orders.add(
+            http.post(
+              Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "buyer_id": buyerId,
+                "level": "Level $l",
+                "quantity": qty,
+              }),
+            )
+          );
+        }
+      }
+
+      final responses = await Future.wait(orders);
+      
+      Navigator.pop(context); // Close loader
+
+      bool allSuccess = true;
+      for (final res in responses) {
+        final data = jsonDecode((res as http.Response).body);
+        if (data['status'] != 'success') {
+          allSuccess = false;
+        }
+      }
+
+      if (allSuccess) {
+        final placedItems = _totalItems;
+        setState(() {
+          _mainKitQty = 0;
+          for (final l in _levelQty.keys) {
+            _levelQty[l] = 0;
+          }
+        });
+        
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 64, width: 64,
+                  decoration: BoxDecoration(color: const Color(0xff16C74A).withOpacity(.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle, color: Color(0xff16C74A), size: 40),
+                ),
+                const SizedBox(height: 16),
+                const Text("Order Placed!", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                  "Total items ordered: $placedItems\nMLM downline commissions distributed.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xffFF6B00),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                    ),
+                    child: const Text("Done", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Some orders failed to process. Please check connection."), backgroundColor: Colors.red),
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Network error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   // ----------------------------------------------------------
@@ -181,11 +259,11 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sectionLabel("New Main Kit"),
+                  _label("New Main Kit"),
                   const SizedBox(height: 10),
                   _kitCard(
                     name: "New Kit (Main)",
@@ -195,66 +273,72 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
                     onAdd: () => _changeMainQty(1),
                     onRemove: () => _changeMainQty(-1),
                   ),
-                  const SizedBox(height: 20),
-                  _sectionLabel("Level Kits"),
+                  const SizedBox(height: 24),
+                  _label("Level Kits (2-8)"),
                   const SizedBox(height: 10),
-                  ...[2, 3, 4, 5, 6, 7, 8].map((l) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _kitCard(
-                      name: "Level $l Kit",
-                      desc: "For students progressing to Level $l",
-                      color: const Color(0xffFF6B00),
-                      qty: _levelQty[l]!,
-                      onAdd: () => _changeLevelQty(l, 1),
-                      onRemove: () => _changeLevelQty(l, -1),
-                    ),
-                  )),
-                  if (_totalItems > 0) const SizedBox(height: 70),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _levelQty.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (ctx, i) {
+                      final lvl = _levelQty.keys.elementAt(i);
+                      return _kitCard(
+                        name: "Level $lvl Kit",
+                        desc: "Advanced training modules",
+                        color: const Color(0xffFF9500),
+                        qty: _levelQty[lvl]!,
+                        onAdd: () => _changeLevelQty(lvl, 1),
+                        onRemove: () => _changeLevelQty(lvl, -1),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _totalItems > 0 ? _bottomBar() : null,
-    );
-  }
-
-  // ----------------------------------------------------------
-  //  BOTTOM CART BAR
-  // ----------------------------------------------------------
-  Widget _bottomBar() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + MediaQuery.of(context).padding.bottom),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 16, offset: const Offset(0, -4))],
-      ),
-      child: Row(children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      bottomNavigationBar: _totalItems == 0
+          ? null
+          : Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 10)],
+        ),
+        child: SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("$_totalItems item${_totalItems > 1 ? 's' : ''} selected", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text("Tap to review before ordering", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Total Selected", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  Text("$_totalItems items", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: _openOrderSummary,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xffFF6B00),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: const Text("View Summary", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         ),
-        ElevatedButton(
-          onPressed: _openOrderSummary,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xffFF6B00),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            elevation: 0,
-          ),
-          child: const Text("Place Order", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        ),
-      ]),
+      ),
     );
   }
 
-  // HEADER
+  // ── Helper Widgets ──
 
   Widget _detailHeader({
     required String title,
@@ -264,39 +348,29 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 50, bottom: 28),
+      padding: const EdgeInsets.fromLTRB(20, 48, 20, 20),
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-        gradient: LinearGradient(colors: colors),
+        gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          GestureDetector(
-            onTap: onBack,
-            child: Container(
-              height: 42,
-              width: 42,
-              decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
-            ),
+          IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: onBack),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(.8), fontSize: 13)),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 14)),
         ],
       ),
     );
   }
 
-  // SECTION TITLE
-
-  Widget _sectionLabel(String t) {
-    return Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
-  }
-
-  // KIT CARD (with quantity stepper)
+  Widget _label(String t) => Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
 
   Widget _kitCard({
     required String name,

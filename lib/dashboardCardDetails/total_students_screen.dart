@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
 class TotalStudentsScreen extends StatefulWidget {
   const TotalStudentsScreen({super.key});
@@ -9,23 +12,71 @@ class TotalStudentsScreen extends StatefulWidget {
 
 class _TotalStudentsScreenState extends State<TotalStudentsScreen> {
   String _selectedSchool = 'All Schools';
+  bool _isLoading = false;
+  List<dynamic> _schools = [];
+  List<dynamic> _students = [];
 
-  final List<Map<String, dynamic>> schoolData = [
-    {'school': 'Sunrise Public School', 'students': 120, 'level': 'Level 1-3', 'location': 'Delhi'},
-    {'school': 'Delhi Convent School', 'students': 85, 'level': 'Level 2-4', 'location': 'Noida'},
-    {'school': 'Modern Academy', 'students': 200, 'level': 'Level 1-5', 'location': 'Gurgaon'},
-    {'school': 'Green Valley School', 'students': 60, 'level': 'Level 1-2', 'location': 'Faridabad'},
-    {'school': 'Harmony International', 'students': 150, 'level': 'Level 3-6', 'location': 'Ghaziabad'},
-    {'school': 'Lotus Academy', 'students': 95, 'level': 'Level 1-4', 'location': 'Greater Noida'},
-    {'school': 'Bright Future School', 'students': 130, 'level': 'Level 2-5', 'location': 'Delhi'},
-    {'school': 'Star Kids School', 'students': 70, 'level': 'Level 1-3', 'location': 'Noida'},
-    {'school': 'Rainbow School', 'students': 110, 'level': 'Level 1-4', 'location': 'Gurgaon'},
-    {'school': 'Excellence Academy', 'students': 180, 'level': 'Level 2-6', 'location': 'Faridabad'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchNetworkData();
+  }
+
+  Future<void> _fetchNetworkData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success' && data['network_users'] != null) {
+            final List<dynamic> users = data['network_users'];
+            if (mounted) {
+              setState(() {
+                _schools = users.where((u) => u['role'] == 'School').toList();
+                _students = users.where((u) => u['role'] == 'Student').toList();
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching students: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Generate school list items grouped for display
+    final List<Map<String, dynamic>> schoolData = _schools.map((sch) {
+      final schId = sch['id'] as int;
+      final schName = sch['name'] as String? ?? "Unknown School";
+      final count = _students.where((st) => st['parent_id'] == schId).length;
+      return {
+        'id': schId,
+        'school': schName,
+        'students': count,
+        'level': 'Level 1-3',
+        'location': sch['email'] ?? 'India',
+      };
+    }).toList();
+
     final total = schoolData.fold(0, (sum, s) => sum + (s['students'] as int));
+
+    final filtered = _selectedSchool == 'All Schools'
+        ? schoolData
+        : schoolData.where((s) => s['school'] == _selectedSchool).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -69,21 +120,21 @@ class _TotalStudentsScreenState extends State<TotalStudentsScreen> {
                         color: Colors.white.withOpacity(.18),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.groups_outlined, color: Colors.white, size: 28),
+                      child: const Icon(Icons.people_outline, color: Colors.white, size: 28),
                     ),
                     const SizedBox(width: 16),
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Total Students", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                        Text("Across all schools", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text("Total students enrolled", style: TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                      child: const Text("1,250", style: TextStyle(color: Color(0xffA020F0), fontSize: 15, fontWeight: FontWeight.bold)),
+                      child: Text("$total", style: const TextStyle(color: Color(0xffA020F0), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -91,121 +142,93 @@ class _TotalStudentsScreenState extends State<TotalStudentsScreen> {
             ),
           ),
 
-          // Summary Stats
+          // Dropdown filter
           Padding(
             padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                _summaryCard("Total Schools", "10", const Color(0xff2563EB)),
-                const SizedBox(width: 12),
-                _summaryCard("Avg per School", "125", const Color(0xffA020F0)),
-                const SizedBox(width: 12),
-                _summaryCard("Max in School", "200", const Color(0xff16C74A)),
-              ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 10)],
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedSchool,
+                  isExpanded: true,
+                  icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xffA020F0)),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() => _selectedSchool = newValue);
+                    }
+                  },
+                  items: ['All Schools', ...schoolData.map((s) => s['school'] as String)]
+                      .map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ),
 
-          // List Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                const Text("School-wise Breakdown", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
-                const Spacer(),
-                Text("${schoolData.length} schools", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // School List
+          // List Cards
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              itemCount: schoolData.length,
-              itemBuilder: (context, index) {
-                final s = schoolData[index];
-                final percentage = ((s['students'] as int) / total * 100).toStringAsFixed(1);
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            height: 40, width: 40,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xffA020F0)))
+                : filtered.isEmpty
+                    ? Center(child: Text("No student records found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final item = filtered[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xffA020F0).withOpacity(.1),
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3))],
                             ),
-                            child: Center(
-                              child: Text("${index + 1}", style: const TextStyle(color: Color(0xffA020F0), fontWeight: FontWeight.bold, fontSize: 16)),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(s['school'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                Text("${s['location']} • ${s['level']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: const Color(0xffA020F0).withOpacity(.1),
+                                  child: const Icon(Icons.school, color: Color(0xffA020F0), size: 24),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item['school'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                      const SizedBox(height: 3),
+                                      Text("Levels: ${item['level']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                      Text("Email: ${item['location']}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      "${item['students']}",
+                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xffA020F0)),
+                                    ),
+                                    const Text("Students", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                  ],
+                                ),
                               ],
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text("${s['students']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xffA020F0))),
-                              Text("$percentage%", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                            ],
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: (s['students'] as int) / 200,
-                          backgroundColor: const Color(0xffA020F0).withOpacity(.1),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xffA020F0)),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _summaryCard(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
-        ),
-        child: Column(
-          children: [
-            Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 11), textAlign: TextAlign.center),
-          ],
-        ),
       ),
     );
   }

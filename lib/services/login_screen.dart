@@ -1,4 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:thenew/services/session_manager.dart';
+import 'package:thenew/services/kyc_status_screen.dart';
+import 'package:thenew/dashboards/distributor_dashboard.dart';
+import 'package:thenew/dashboards/franchisedashboard.dart';
+import 'package:thenew/dashboards/schoolDashboard.dart';
+import 'package:thenew/dashboards/studentdashboard.dart';
+import 'package:thenew/dashboards/super_admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,26 +52,155 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   String? _validate() {
-    if (_emailController.text.trim().isEmpty) return "Please enter your email";
-    if (!_emailController.text.contains('@')) return "Enter a valid email address";
+    if (_emailController.text.trim().isEmpty) return "Please enter your email or phone number";
     if (_passwordController.text.length < 6) return "Password must be at least 6 characters";
     return null;
   }
 
-  void _onLogin() {
+  void _onLogin() async {
     final error = _validate();
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      _showError(error);
       return;
     }
-    // TODO: handle login
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xff2563EB)),
+                SizedBox(height: 18),
+                Text(
+                  "Authenticating...",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final url = Uri.parse("https://apps.kofalt.in/api/login.php");
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": _emailController.text.trim(),
+          "password": _passwordController.text,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (responseData['status'] == 'success') {
+          final user = responseData['user'];
+          
+          final int userId = user['id'] is int
+              ? user['id']
+              : int.tryParse(user['id'].toString()) ?? 0;
+          await SessionManager.saveSession(
+            id: userId,
+            name: user['name'] ?? "",
+            email: user['email'] ?? "",
+            phone: user['phone'] ?? "",
+            role: user['role'] ?? "",
+            kycStatus: user['kyc_status'] ?? "Pending",
+          );
+
+          if (mounted) {
+            _showSuccess("Login Successful!");
+            
+            // Check KYC Status
+            if (user['role'] == 'Super Admin' || user['kyc_status'] == 'Approved') {
+              // Redirect to role-specific dashboard
+              _navigateToDashboard(user['role']);
+            } else {
+              // KYC Pending or Rejected -> Route to blocking screen
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => KycStatusScreen(userSession: user),
+                ),
+                (route) => false,
+              );
+            }
+          }
+        } else {
+          _showError(responseData['message'] ?? "Login failed.");
+        }
+      } else {
+        _showError(responseData['message'] ?? "Invalid username or password.");
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // close loader
+        _showError("Connection error: $e");
+      }
+    }
+  }
+
+  void _navigateToDashboard(String role) {
+    Widget dashboard;
+    switch (role) {
+      case "Super Admin":
+        dashboard = const SuperAdminDashboard();
+        break;
+      case "Distributor":
+        dashboard = const DistributorDashboard();
+        break;
+      case "Franchise Partner":
+        dashboard = const FranchiseDashboard();
+        break;
+      case "School":
+        dashboard = const SchoolDashboard();
+        break;
+      case "Student":
+        dashboard = const StudentDashboard();
+        break;
+      default:
+        dashboard = const DistributorDashboard();
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => dashboard),
+      (route) => false,
+    );
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _showSuccess(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: const Color(0xff2563EB),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override

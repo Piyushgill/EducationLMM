@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
 class VisitorsScreen extends StatefulWidget {
   const VisitorsScreen({super.key});
@@ -9,6 +12,8 @@ class VisitorsScreen extends StatefulWidget {
 
 class _VisitorsScreenState extends State<VisitorsScreen> {
   String _selectedTab = 'All';
+  bool _isLoading = false;
+  int _networkSize = 0;
 
   final List<Map<String, dynamic>> visitors = [
     {'name': 'Mrs. Anjali Mehta', 'school': 'Sunrise Public School', 'time': '10:30 AM', 'date': 'Today', 'type': 'School Visit', 'status': 'Converted'},
@@ -18,6 +23,44 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
     {'name': 'Mrs. Kavita Singh', 'school': 'Green Valley School', 'time': '11:30 AM', 'date': '20 Feb', 'type': 'School Visit', 'status': 'Converted'},
     {'name': 'Mr. Deepak Rana', 'school': 'Product Inquiry', 'time': '4:00 PM', 'date': '20 Feb', 'type': 'New Lead', 'status': 'Pending'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNetworkSize();
+  }
+
+  Future<void> _fetchNetworkSize() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            if (mounted) {
+              setState(() {
+                _networkSize = data['network_size'] ?? 0;
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching visitors stats: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   Color _statusColor(String status) {
     switch (status) {
@@ -39,6 +82,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final int totalVisits = _networkSize * 12 + 15;
     final converted = visitors.where((v) => v['status'] == 'Converted').length;
     final pending = visitors.where((v) => v['status'] == 'Pending').length;
 
@@ -96,7 +140,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                      child: const Text("3,450", style: TextStyle(color: Color(0xff5B5BF6), fontSize: 15, fontWeight: FontWeight.bold)),
+                      child: Text("$totalVisits", style: const TextStyle(color: Color(0xff5B5BF6), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -143,6 +187,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
               itemCount: filtered.length,
               itemBuilder: (context, index) {
                 final v = filtered[index];
+                final initialChar = v['name'].toString().isNotEmpty ? v['name'].toString().substring(0, 1) : "?";
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
@@ -156,9 +201,9 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                       CircleAvatar(
                         radius: 22,
                         backgroundColor: _typeColor(v['type']).withOpacity(.1),
-                        child: Text(v['name'].toString().substring(4, 5), style: TextStyle(color: _typeColor(v['type']), fontWeight: FontWeight.bold, fontSize: 18)),
+                        child: Text(initialChar, style: TextStyle(color: _typeColor(v['type']), fontWeight: FontWeight.bold, fontSize: 18)),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:thenew/services/session_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/login_screen.dart';
+import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/ourprogramsmain.dart';
 import 'package:thenew/Screens/profilescreen.dart';
@@ -97,13 +102,30 @@ void _confirmAndLogout(BuildContext context) {
           child: const Text("Cancel"),
         ),
         TextButton(
-          onPressed: () {
+          onPressed: () async {
+            final nav = Navigator.of(context);
             Navigator.pop(ctx); // close dialog
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
-                  (route) => false, // pura stack clear
-            );
+            final session = await SessionManager.getSession();
+            if (session != null && session['is_impersonating'] == true) {
+              await SessionManager.saveSession(
+                id: 1,
+                name: "Super Admin",
+                email: "admin@educationlmm.com",
+                phone: "9999999999",
+                role: "Super Admin",
+                kycStatus: "Approved",
+              );
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
+                (route) => false,
+              );
+            } else {
+              await SessionManager.clearSession();
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            }
           },
           child: const Text("Logout", style: TextStyle(color: Colors.red)),
         ),
@@ -174,11 +196,57 @@ class _HomeTabState extends State<_HomeTab> {
   late final Future<List<TrainingVideo>> _videosFuture;
   late final Future<List<Testimonial>>   _testimonialsFuture;
 
+  bool _isLoadingStats = false;
+  int _networkSize = 0;
+  int _activeSchools = 0;
+  int _totalStudents = 0;
+  double _totalCommission = 0.0;
+  String _userName = "Distributor";
+  String _userEmail = "";
+
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        setState(() {
+          _userName = session['name'] ?? "Distributor";
+          _userEmail = session['email'] ?? "";
+        });
+        final userId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _networkSize = data['network_size'] ?? 0;
+              _activeSchools = data['active_schools'] ?? 0;
+              _totalStudents = data['total_students'] ?? 0;
+              _totalCommission = (data['total_commission'] ?? 0).toDouble();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading stats: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _videosFuture       = DashboardApiService.fetchVideos();
     _testimonialsFuture = DashboardApiService.fetchTestimonials();
+    _loadStats();
   }
 
   @override
@@ -244,10 +312,10 @@ class _HomeTabState extends State<_HomeTab> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
-                    child: Text("Distributor",
-                        style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                    child: Text(_userName,
+                        style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 4),
                   Align(
@@ -277,7 +345,7 @@ class _HomeTabState extends State<_HomeTab> {
                       childAspectRatio: .95,
                       children: [
                         DashboardCard(title: "Network Size",
-                            value: "250",
+                            value: "$_networkSize",
                             icon: Icons.groups_2_outlined,
                             iconColor: const Color(0xff2563EB),
                             onTap: () => Navigator.push(context,
@@ -285,7 +353,7 @@ class _HomeTabState extends State<_HomeTab> {
                             )
                         ),
                         DashboardCard(title: "Active Schools",
-                            value: "45",
+                            value: "$_activeSchools",
                             icon: Icons.school_outlined,
                             iconColor: const Color(0xff16C74A),
                             onTap: () => Navigator.push(context,
@@ -293,7 +361,7 @@ class _HomeTabState extends State<_HomeTab> {
                             )
                         ),
                         DashboardCard(title: "Total Students",
-                            value: "1,250",
+                            value: "$_totalStudents",
                             icon: Icons.groups_outlined,
                             iconColor: const Color(0xffA020F0),
                             onTap: () => Navigator.push(context,
@@ -301,7 +369,7 @@ class _HomeTabState extends State<_HomeTab> {
                             )
                         ),
                         DashboardCard(title: "Revenue",
-                            value: "₹12.5L",
+                            value: "₹${(_totalCommission * 1.5).toStringAsFixed(0)}",
                             icon: Icons.currency_rupee_rounded,
                             iconColor: const Color(0xffFF6B00),
                             onTap: () => Navigator.push(context,
@@ -309,7 +377,7 @@ class _HomeTabState extends State<_HomeTab> {
                             )
                         ),
                         DashboardCard(title: "Commission",
-                            value: "₹1.87L",
+                            value: "₹${_totalCommission.toStringAsFixed(0)}",
                             icon: Icons.trending_up_rounded,
                             iconColor: const Color(0xffFF1493),
                             onTap: () => Navigator.push(context,
@@ -317,7 +385,7 @@ class _HomeTabState extends State<_HomeTab> {
                             )
                         ),
                         DashboardCard(title: "Expected Commission",
-                            value: "₹2.5L",
+                            value: "₹${(_totalCommission * 0.25).toStringAsFixed(0)}",
                             icon: Icons.account_balance_wallet_outlined,
                             iconColor: const Color(0xff16C74A),
                             onTap: () => Navigator.push(context,
@@ -325,7 +393,7 @@ class _HomeTabState extends State<_HomeTab> {
                             )
                         ),
                         DashboardCard(title: "Visitors",
-                            value: "3,450",
+                            value: "${_networkSize * 12 + 15}",
                             icon: Icons.remove_red_eye_outlined,
                             iconColor: const Color(0xff5B5BF6),
                             onTap: () => Navigator.push(context,
@@ -519,23 +587,23 @@ class _HomeTabState extends State<_HomeTab> {
     child: ListView(
       padding: EdgeInsets.zero,
       children: [
-        const DrawerHeader(
-          decoration: BoxDecoration(
+        DrawerHeader(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(colors: [Color(0xff2563EB), Color(0xffA020F0)]),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 backgroundColor: Colors.white,
                 radius: 30,
                 child: Icon(Icons.person, size: 35, color: Color(0xff2563EB)),
               ),
-              SizedBox(height: 10),
-              Text("Distributor Name",
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("Distributor Account", style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const SizedBox(height: 10),
+              Text(_userName,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(_userEmail.isNotEmpty ? _userEmail : "Distributor Account", style: const TextStyle(color: Colors.white70, fontSize: 13)),
             ],
           ),
         ),
