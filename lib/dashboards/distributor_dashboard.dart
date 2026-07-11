@@ -15,80 +15,22 @@ import 'package:thenew/dashboardCardDetails/revenue_screen.dart';
 import 'package:thenew/dashboardCardDetails/total_students_screen.dart';
 import 'package:thenew/dashboardCardDetails/visitors_screen.dart';
 
-class TrainingVideo {
-  final String title;
-  final String duration;
-  final Color color;
-  const TrainingVideo({
-    required this.title,
-    required this.duration,
-    required this.color,
-  });
+// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
+const String _kMyRole = "Distributor";
+
+/// Returns true if this admin-managed content item (video/testimonial/faq)
+/// should be visible to [role], based on its 'target_roles' field which the
+/// Super Admin sets when creating the content ("All" or a specific list).
+bool _visibleToRole(dynamic targetRolesField, String role) {
+  List<String> roles;
+  if (targetRolesField is List) {
+    roles = targetRolesField.map((e) => e.toString()).toList();
+  } else {
+    roles = (targetRolesField?.toString().split(',') ?? const ["All"]);
+  }
+  return roles.contains("All") || roles.contains(role);
 }
 
-class Testimonial {
-  final String name;
-  final String text;
-  final int stars;
-  const Testimonial({
-    required this.name,
-    required this.text,
-    required this.stars,
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FAKE API SERVICE  ← replace with your real HTTP calls
-// ─────────────────────────────────────────────────────────────
-
-class DashboardApiService {
-  /// Replace the bodies of these two methods with your real API calls.
-  /// e.g. final res = await http.get(Uri.parse('https://yourapi.com/videos'));
-
-  static Future<List<TrainingVideo>> fetchVideos() async {
-    await Future.delayed(const Duration(milliseconds: 900)); // simulate network
-    // TODO: parse real JSON here
-    return const [
-      TrainingVideo(title: "Sales Techniques",
-          duration: "12 min",
-          color: Color(0xff2563EB)
-      ),
-      TrainingVideo(title: "How to Approach Schools",
-          duration: "18 min", color: Color(0xffA020F0)
-      ),
-      TrainingVideo(title: "Objection Handling",
-          duration: "25 min",
-          color: Color(0xffFF6B00)
-      ),
-      TrainingVideo(title: "Closing Deals",
-          duration: "15 min",
-          color: Color(0xff16C74A)
-      ),
-    ];
-  }
-
-  static Future<List<Testimonial>> fetchTestimonials() async {
-    await Future.delayed(const Duration(milliseconds: 1100)); // simulate network
-    // TODO: parse real JSON here
-    return const [
-      Testimonial(name: "Rajesh Kumar",
-          text: "This program has helped me grow my network tremendously.",
-          stars: 5),
-      Testimonial(name: "Priya Sharma",
-          text: "Excellent training support and commission structure.",
-          stars: 4),
-    ];
-  }
-
-  static Future<List<TrainingVideo>> fetchvideos() async {
-    await Future.delayed(const Duration(milliseconds: 800)); // simulate network
-    return const [
-      TrainingVideo(title: "Getting Started", duration: "5:20", color: Colors.blue),
-      TrainingVideo(title: "Network Growth", duration: "12:45", color: Colors.purple),
-      TrainingVideo(title: "Commission Guide", duration: "8:15", color: Colors.orange),
-    ];
-  }
-}
 void _confirmAndLogout(BuildContext context) {
   showDialog(
     context: context,
@@ -117,13 +59,13 @@ void _confirmAndLogout(BuildContext context) {
               );
               nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
-                (route) => false,
+                    (route) => false,
               );
             } else {
               await SessionManager.clearSession();
               nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
+                    (route) => false,
               );
             }
           },
@@ -168,9 +110,6 @@ class _DistributorDashboardState extends State<DistributorDashboard> {
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home),
               label: "Home"),
-          // BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined),
-          //     activeIcon: Icon(Icons.menu_book),
-          //     label: "Programs"),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),
               label: "Profile"),
@@ -192,10 +131,6 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  // Futures are created ONCE in initState so they don't re-fire on rebuild
-  late final Future<List<TrainingVideo>> _videosFuture;
-  late final Future<List<Testimonial>>   _testimonialsFuture;
-
   bool _isLoadingStats = false;
   int _networkSize = 0;
   int _activeSchools = 0;
@@ -203,6 +138,14 @@ class _HomeTabState extends State<_HomeTab> {
   double _totalCommission = 0.0;
   String _userName = "Distributor";
   String _userEmail = "";
+
+  // ── Admin-managed content (Videos / Testimonials / FAQs), filtered by role ──
+  bool _isLoadingVideos = false;
+  bool _isLoadingTestimonials = false;
+  bool _isLoadingFaqs = false;
+  List<dynamic> _adminVideos = [];
+  List<dynamic> _adminTestimonials = [];
+  List<dynamic> _adminFaqs = [];
 
   Future<void> _loadStats() async {
     if (!mounted) return;
@@ -241,12 +184,75 @@ class _HomeTabState extends State<_HomeTab> {
     }
   }
 
+  // ----------------------------------------------------------
+  //  Fetch Videos / Testimonials / FAQs added by Super Admin,
+  //  keeping only the ones targeted at "Distributor" or "All".
+  // ----------------------------------------------------------
+  Future<void> _fetchAdminContent() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingVideos = true;
+      _isLoadingTestimonials = true;
+      _isLoadingFaqs = true;
+    });
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_videos.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminVideos = all.where((v) => _visibleToRole(v['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching videos: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingVideos = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_testimonials.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminTestimonials = all.where((t) => _visibleToRole(t['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching testimonials: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingTestimonials = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_faqs.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminFaqs = all.where((f) => _visibleToRole(f['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching FAQs: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingFaqs = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _videosFuture       = DashboardApiService.fetchVideos();
-    _testimonialsFuture = DashboardApiService.fetchTestimonials();
     _loadStats();
+    _fetchAdminContent();
   }
 
   @override
@@ -275,36 +281,61 @@ class _HomeTabState extends State<_HomeTab> {
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Builder(
                         builder: (ctx) => GestureDetector(
                           onTap: () => Scaffold.of(ctx).openDrawer(),
                           child: Container(
-                            height: 48, width: 48,
+                            height: 48,
+                            width: 48,
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(.18),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+                            child: const Icon(
+                              Icons.menu_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
                         ),
                       ),
+
+                      const SizedBox(width: 6),
+
+                      Image.asset(
+                        'assets/image/kofalt-global-title-logo.png',
+                        height: 38,
+                        fit: BoxFit.contain,
+                      ),
+
+                      const Spacer(),
+
                       Stack(
                         children: [
                           Container(
-                            height: 48, width: 48,
+                            height: 48,
+                            width: 48,
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(.18),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28),
+                            child: const Icon(
+                              Icons.notifications_none_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
                           Positioned(
-                            right: 10, top: 10,
+                            right: 10,
+                            top: 10,
                             child: Container(
-                              height: 10, width: 10,
-                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                              height: 10,
+                              width: 10,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                           ),
                         ],
@@ -320,7 +351,7 @@ class _HomeTabState extends State<_HomeTab> {
                   const SizedBox(height: 4),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text("Welcome back!",
+                    child: Text("Distributor",
                         style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16)),
                   ),
                 ],
@@ -405,91 +436,62 @@ class _HomeTabState extends State<_HomeTab> {
 
                     const SizedBox(height: 24),
 
-                    // ── TRAINING VIDEOS  ──────────────────────
+                    // ── TRAINING VIDEOS (live, from Admin panel) ──
                     _sectionTitle("Training Videos"),
                     const SizedBox(height: 12),
-                    FutureBuilder<List<TrainingVideo>>(
-                      future: _videosFuture,
-                      builder: (context, snap) {
-                        // Loading
-                        if (snap.connectionState == ConnectionState.waiting) {
-                          return _VideoShimmerRow();
-                        }
-                        // Error
-                        if (snap.hasError) {
-                          return _SectionError(
-                            message: "Couldn't load videos",
-                            onRetry: () => setState(() {}),
+                    _isLoadingVideos
+                        ? _VideoShimmerRow()
+                        : _adminVideos.isEmpty
+                        ? _SectionEmpty(label: "No training videos yet")
+                        : SizedBox(
+                      height: 130,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _adminVideos.length,
+                        itemBuilder: (_, i) {
+                          final v = _adminVideos[i];
+                          return _videoCard(
+                            v['title'] ?? "",
+                            (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
+                            const Color(0xff2563EB),
                           );
-                        }
-                        // Empty
-                        final videos = snap.data ?? [];
-                        if (videos.isEmpty) {
-                          return _SectionEmpty(label: "No training videos yet");
-                        }
-                        // Data
-                        return SizedBox(
-                          height: 130,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: videos.length,
-                            itemBuilder: (_, i) => _videoCard(
-                              videos[i].title,
-                              videos[i].duration,
-                              videos[i].color,
-                            ),
-                          ),
-                        );
-                      },
+                        },
+                      ),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // ── TESTIMONIALS ──────────────────────────
+                    // ── TESTIMONIALS (live, from Admin panel) ──
                     _sectionTitle("Testimonials"),
                     const SizedBox(height: 12),
-                    FutureBuilder<List<Testimonial>>(
-                      future: _testimonialsFuture,
-                      builder: (context, snap) {
-                        // Loading
-                        if (snap.connectionState == ConnectionState.waiting) {
-                          return _TestimonialShimmer();
-                        }
-                        // Error
-                        if (snap.hasError) {
-                          return _SectionError(
-                            message: "Couldn't load testimonials",
-                            onRetry: () => setState(() {}),
-                          );
-                        }
-                        // Empty
-                        final list = snap.data ?? [];
-                        if (list.isEmpty) {
-                          return _SectionEmpty(label: "No testimonials yet");
-                        }
-                        // Data
-                        return Column(
-                          children: list
-                              .map((t) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _testimonialCard(t.name, t.text, t.stars),
-                          ))
-                              .toList(),
+                    _isLoadingTestimonials
+                        ? _TestimonialShimmer()
+                        : _adminTestimonials.isEmpty
+                        ? _SectionEmpty(label: "No testimonials yet")
+                        : Column(
+                      children: _adminTestimonials.map((t) {
+                        final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _testimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
                         );
-                      },
+                      }).toList(),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // ── FAQ ───────────────────────────────────
+                    // ── FAQ (live, from Admin panel) ──
                     _sectionTitle("FAQ"),
                     const SizedBox(height: 12),
-                    _faqItem("How is commission calculated?",
-                        "Commission is calculated based on total revenue generated from your network at applicable rates."),
-                    _faqItem("When is commission paid?",
-                        "Commission is credited to your account on the 7th of every month for the previous month."),
-                    _faqItem("How to add a new school?",
-                        "Contact the company support team or use the New Lead section to register a school."),
+                    if (_isLoadingFaqs)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator(color: Color(0xff2563EB))),
+                      )
+                    else if (_adminFaqs.isEmpty)
+                      _SectionEmpty(label: "No FAQs yet")
+                    else
+                      ..._adminFaqs.map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
 
                     const SizedBox(height: 20),
                   ],
@@ -528,7 +530,7 @@ class _HomeTabState extends State<_HomeTab> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis),
         const SizedBox(height: 4),
-        Text(duration, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+        Text(duration, style: TextStyle(color: Colors.grey.shade600, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
     ),
   );
@@ -548,7 +550,7 @@ class _HomeTabState extends State<_HomeTab> {
             CircleAvatar(
               backgroundColor: const Color(0xff2563EB).withOpacity(.1),
               radius: 18,
-              child: Text(name[0],
+              child: Text(name.isNotEmpty ? name[0] : "?",
                   style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 10),
@@ -583,36 +585,284 @@ class _HomeTabState extends State<_HomeTab> {
     ),
   );
 
-  Widget _buildDrawer(BuildContext context) => Drawer(
-    child: ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        DrawerHeader(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xff2563EB), Color(0xffA020F0)]),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircleAvatar(
-                backgroundColor: Colors.white,
-                radius: 30,
-                child: Icon(Icons.person, size: 35, color: Color(0xff2563EB)),
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+
+            //================ HEADER =================//
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xff2563EB),
+                    Color(0xffA020F0),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(22),
               ),
-              const SizedBox(height: 10),
-              Text(_userName,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(_userEmail.isNotEmpty ? _userEmail : "Distributor Account", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            ],
+              child: Column(
+                children: [
+
+                  const CircleAvatar(
+                    radius: 36,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 42,
+                      color: Color(0xff2563EB),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Text(
+                    _userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    _userEmail.isEmpty
+                        ? "Distributor Account"
+                        : _userEmail,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      "Distributor",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            //================ STATS =================//
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+
+                  Expanded(
+                    child: _drawerStat(
+                      "Network",
+                      "$_networkSize",
+                      Icons.groups,
+                      Colors.blue,
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: _drawerStat(
+                      "Schools",
+                      "$_activeSchools",
+                      Icons.school,
+                      Colors.green,
+                    ),
+                  ),
+
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            //================ MENU =================//
+
+            _drawerTile(
+              Icons.dashboard_outlined,
+              "Dashboard",
+                  () {
+                Navigator.pop(context);
+              },
+            ),
+
+            _drawerTile(
+              Icons.menu_book_outlined,
+              "Programs",
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>  ourprogramsmainScreen(),
+                  ),
+                );
+              },
+            ),
+
+            _drawerTile(
+              Icons.cast_for_education,
+              "Education",
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EducationLLMHomeScreen(),
+                  ),
+                );
+              },
+            ),
+
+            _drawerTile(
+              Icons.settings_outlined,
+              "Settings",
+                  () {},
+            ),
+
+            const Spacer(),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    minimumSize: const Size(
+                      double.infinity,
+                      50,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                      BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () =>
+                      _confirmAndLogout(context),
+                  icon: const Icon(
+                    Icons.logout,
+                    color: Colors.white,
+                  ),
+                  label: const Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            Text(
+              "Version 1.0.0",
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 12,
+              ),
+            ),
+
+          ],
+        ),
+      ),
+    );
+  }
+}
+Widget _drawerTile(
+    IconData icon,
+    String title,
+    VoidCallback onTap,
+    ) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 4),
+    child: ListTile(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      leading: CircleAvatar(
+        radius: 18,
+        backgroundColor:
+        const Color(0xff2563EB).withOpacity(.1),
+        child: Icon(
+          icon,
+          color: const Color(0xff2563EB),
+        ),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+      ),
+      onTap: onTap,
+    ),
+  );
+}
+
+Widget _drawerStat(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+    ) {
+  return Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(.05),
+          blurRadius: 8,
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        Icon(icon, color: color),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        ListTile(leading: const Icon(Icons.dashboard_outlined), title: const Text('Dashboard'), onTap: () => Navigator.pop(context)),
-        ListTile(leading: const Icon(Icons.settings_outlined),  title: const Text('Settings'),  onTap: () {}),
-        ListTile(
-          leading: const Icon(Icons.logout, color: Colors.red),
-          title: const Text('Logout', style: TextStyle(color: Colors.red)),
-          onTap: () => _confirmAndLogout(context),
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.grey.shade600,
+          ),
         ),
       ],
     ),
@@ -779,39 +1029,6 @@ class _SectionEmpty extends StatelessWidget {
   }
 }
 
-class _SectionError extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _SectionError({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.shade100),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: Colors.red.shade400, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(message,
-                style: TextStyle(color: Colors.red.shade600, fontSize: 13)),
-          ),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text("Retry", style: TextStyle(color: Color(0xff2563EB))),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────
 //  DASHBOARD CARD (unchanged public API)
 // ─────────────────────────────────────────────────────────────
@@ -856,9 +1073,9 @@ class DashboardCard extends StatelessWidget {
               ),
               child: Icon(icon, color: Colors.white, size: 26),
             ),
-             Spacer(),
+            Spacer(),
             Text(title, style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500)),
-             SizedBox(height: 10),
+            SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

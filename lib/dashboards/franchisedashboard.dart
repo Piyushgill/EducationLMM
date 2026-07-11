@@ -11,6 +11,22 @@ import 'package:thenew/dashboardCardDetails/Fee_Collection_Screen.dart';
 import 'package:thenew/dashboardCardDetails/FranchiseKitOrderScreen.dart';
 import 'package:thenew/dashboardCardDetails/Student_Enrollment_Screen.dart';
 
+// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
+const String _kMyRole = "Franchise Partner";
+
+/// Returns true if this admin-managed content item (video/testimonial/faq)
+/// should be visible to [role], based on its 'target_roles' field which the
+/// Super Admin sets when creating the content ("All" or a specific list).
+bool _visibleToRole(dynamic targetRolesField, String role) {
+  List<String> roles;
+  if (targetRolesField is List) {
+    roles = targetRolesField.map((e) => e.toString()).toList();
+  } else {
+    roles = (targetRolesField?.toString().split(',') ?? const ["All"]);
+  }
+  return roles.contains("All") || roles.contains(role);
+}
+
 // ============================================================
 //  FRANCHISE DASHBOARD — Main Entry
 // ============================================================
@@ -283,15 +299,10 @@ class _FranchiseDrawerState extends State<_FranchiseDrawer> {
 
                   const Divider(height: 28, indent: 20, endIndent: 20),
 
-                  _DrawerItem(
-                    icon: Icons.logout_rounded,
-                    label: "Logout",
-                    isActive: false,
-                    isLogout: true,
-                    onTap: () {
-                      Navigator.pop(context); // drawer close
-                      _confirmAndLogout(context);
-                    },
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text('Logout', style: TextStyle(color: Colors.red)),
+                    onTap: () => _confirmAndLogout(context),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -386,6 +397,14 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
   double _totalCommission = 0.0;
   String _userName = "Franchise Partner";
 
+  // ── Admin-managed content (Videos / Testimonials / FAQs), filtered by role ──
+  bool _isLoadingVideos = false;
+  bool _isLoadingTestimonials = false;
+  bool _isLoadingFaqs = false;
+  List<dynamic> _adminVideos = [];
+  List<dynamic> _adminTestimonials = [];
+  List<dynamic> _adminFaqs = [];
+
   Future<void> _loadStats() async {
     if (!mounted) return;
     setState(() => _isLoadingStats = true);
@@ -422,10 +441,75 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
     }
   }
 
+  // ----------------------------------------------------------
+  //  Fetch Videos / Testimonials / FAQs added by Super Admin,
+  //  keeping only the ones targeted at "Franchise Partner" or "All".
+  // ----------------------------------------------------------
+  Future<void> _fetchAdminContent() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingVideos = true;
+      _isLoadingTestimonials = true;
+      _isLoadingFaqs = true;
+    });
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_videos.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminVideos = all.where((v) => _visibleToRole(v['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching videos: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingVideos = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_testimonials.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminTestimonials = all.where((t) => _visibleToRole(t['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching testimonials: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingTestimonials = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_faqs.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminFaqs = all.where((f) => _visibleToRole(f['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching FAQs: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingFaqs = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _loadStats();
+    _fetchAdminContent();
   }
 
   @override
@@ -456,34 +540,59 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       GestureDetector(
                         onTap: () => widget.scaffoldKey.currentState?.openDrawer(),
                         child: Container(
-                          height: 48, width: 48,
+                          height: 48,
+                          width: 48,
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(.18),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+                          child: const Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                       ),
+
+                      const SizedBox(width: 8),
+
+                      Image.asset(
+                        'assets/image/kofalt-global-title-logo.png',
+                        height: 40,
+                        fit: BoxFit.contain,
+                      ),
+
+                      const Spacer(),
+
                       Stack(
                         children: [
                           Container(
-                            height: 48, width: 48,
+                            height: 48,
+                            width: 48,
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(.18),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28),
+                            child: const Icon(
+                              Icons.notifications_none_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
                           Positioned(
-                            right: 10, top: 10,
+                            right: 10,
+                            top: 10,
                             child: Container(
-                              height: 10, width: 10,
-                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                              height: 10,
+                              width: 10,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                           ),
                         ],
@@ -502,7 +611,7 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      "Welcome back!",
+                      "Franchise",
                       style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16),
                     ),
                   ),
@@ -577,25 +686,43 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
                     const SizedBox(height: 24),
                     _sectionTitle("Training Videos"),
                     const SizedBox(height: 12),
-                    SizedBox(
+                    _isLoadingVideos
+                        ? SizedBox(
+                      height: 120,
+                      child: Center(child: CircularProgressIndicator(color: const Color(0xff7C3AED))),
+                    )
+                        : _adminVideos.isEmpty
+                        ? _emptyBlock("No training videos yet")
+                        : SizedBox(
                       height: 120,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
-                        children: [
-                          _videoCard("Batch Management",    "10 min", const Color(0xff7C3AED)),
-                          _videoCard("Fee Collection Tips", "14 min", const Color(0xffDB2777)),
-                          _videoCard("Student Engagement",  "20 min", const Color(0xff2563EB)),
-                          _videoCard("Centre Growth Tips",  "18 min", const Color(0xff16C74A)),
-                        ],
+                        children: _adminVideos.map((v) {
+                          return _videoCard(
+                            v['title'] ?? "",
+                            (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
+                            const Color(0xff7C3AED),
+                          );
+                        }).toList(),
                       ),
                     ),
 
                     const SizedBox(height: 24),
                     _sectionTitle("Testimonials"),
                     const SizedBox(height: 12),
-                    _testimonialCard("Ramesh Verma",  "Running 3 centres with this system is now so easy!", 5),
-                    const SizedBox(height: 10),
-                    _testimonialCard("Sneha Kapoor", "Fee tracking and batch management saves hours daily.", 4),
+                    _isLoadingTestimonials
+                        ? const Center(child: CircularProgressIndicator())
+                        : _adminTestimonials.isEmpty
+                        ? _emptyBlock("No testimonials yet")
+                        : Column(
+                      children: _adminTestimonials.map((t) {
+                        final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _testimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
+                        );
+                      }).toList(),
+                    ),
 
                     const SizedBox(height: 24),
                     _sectionTitle("Gallery"),
@@ -619,9 +746,15 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
                     const SizedBox(height: 24),
                     _sectionTitle("FAQ"),
                     const SizedBox(height: 12),
-                    _faqItem("How to add a new batch?",   "Go to Batch Management and tap 'Add Batch'. Fill in the details and assign students."),
-                    _faqItem("How is fee tracked?",       "Fee collection is updated when a payment is marked against a student's account."),
-                    _faqItem("How to order level kits?",  "Go to Kit Ordering, select level (2-8) and place your order directly."),
+                    if (_isLoadingFaqs)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_adminFaqs.isEmpty)
+                      _emptyBlock("No FAQs yet")
+                    else
+                      ..._adminFaqs.map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
 
                     const SizedBox(height: 20),
                   ],
@@ -641,6 +774,13 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
   Widget _vDivider() => Container(height: 28, width: 1, color: Colors.white.withOpacity(.3));
   Widget _sectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
 
+  Widget _emptyBlock(String label) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+    child: Center(child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
+  );
+
   Widget _videoCard(String title, String duration, Color color) => Container(
     width: 150, margin: const EdgeInsets.only(right: 12),
     padding: const EdgeInsets.all(14),
@@ -649,9 +789,9 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
       Icon(Icons.play_circle_filled, color: color, size: 28),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 2),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 3),
-        Text(duration, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+        Text(duration, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
       ])),
     ]),
   );
@@ -661,7 +801,7 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        CircleAvatar(backgroundColor: const Color(0xff7C3AED).withOpacity(.1), radius: 18, child: Text(name[0], style: const TextStyle(color: Color(0xff7C3AED), fontWeight: FontWeight.bold))),
+        CircleAvatar(backgroundColor: const Color(0xff7C3AED).withOpacity(.1), radius: 18, child: Text(name.isNotEmpty ? name[0] : "?", style: const TextStyle(color: Color(0xff7C3AED), fontWeight: FontWeight.bold))),
         const SizedBox(width: 10),
         Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         const Spacer(),
@@ -712,13 +852,13 @@ void _confirmAndLogout(BuildContext context) {
               );
               nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
-                (route) => false,
+                    (route) => false,
               );
             } else {
               await SessionManager.clearSession();
               nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
+                    (route) => false,
               );
             }
           },
@@ -1010,24 +1150,24 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xff7C3AED)))
                   : _filtered.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade300),
-                              const SizedBox(height: 12),
-                              Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final s = _filtered[index];
-                            return _SchoolCard(school: s, onRefresh: _fetchSchools);
-                          },
-                        ),
+                  ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                  ],
+                ),
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                itemCount: _filtered.length,
+                itemBuilder: (context, index) {
+                  final s = _filtered[index];
+                  return _SchoolCard(school: s, onRefresh: _fetchSchools);
+                },
+              ),
             ),
           ],
         ),
@@ -1042,20 +1182,20 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
   }
 
   Widget _summaryChip(IconData icon, String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.18),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(.18),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 5),
+        Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+      ],
+    ),
+  );
 }
 
 class _SchoolCard extends StatelessWidget {
@@ -1155,12 +1295,12 @@ class _SchoolCard extends StatelessWidget {
   }
 
   Widget _statChip(IconData icon, String text, Color color) => Row(
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
-      );
+    children: [
+      Icon(icon, size: 14, color: color),
+      const SizedBox(width: 4),
+      Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
+    ],
+  );
 
   void _showSchoolDetail(BuildContext context) {
     showModalBottomSheet(
@@ -1241,21 +1381,21 @@ class _SchoolDetailSheet extends StatelessWidget {
   }
 
   Widget _infoDetailRow(String label, String value, IconData icon) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.grey.shade400, size: 20),
-            const SizedBox(width: 14),
-            SizedBox(
-              width: 120,
-              child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
-            ),
-            Expanded(
-              child: Text(value, style: const TextStyle(color: Color(0xff1E1E1E), fontSize: 14, fontWeight: FontWeight.bold)),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      children: [
+        Icon(icon, color: Colors.grey.shade400, size: 20),
+        const SizedBox(width: 14),
+        SizedBox(
+          width: 120,
+          child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
         ),
-      );
+        Expanded(
+          child: Text(value, style: const TextStyle(color: Color(0xff1E1E1E), fontSize: 14, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    ),
+  );
 }
 
 class _FranchiseOrdersTab extends StatefulWidget {
@@ -1421,28 +1561,28 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xffDB2777)))
                   : _filtered.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade300),
-                              const SizedBox(height: 12),
-                              Text("No orders found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final order = _filtered[index];
-                            return _OrderCard(
-                              order: order,
-                              statusColor: _statusColor(order['delivery_status'] as String? ?? 'Pending'),
-                              statusIcon: _statusIcon(order['delivery_status'] as String? ?? 'Pending'),
-                            );
-                          },
-                        ),
+                  ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    Text("No orders found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                  ],
+                ),
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+                itemCount: _filtered.length,
+                itemBuilder: (context, index) {
+                  final order = _filtered[index];
+                  return _OrderCard(
+                    order: order,
+                    statusColor: _statusColor(order['delivery_status'] as String? ?? 'Pending'),
+                    statusIcon: _statusIcon(order['delivery_status'] as String? ?? 'Pending'),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -1463,15 +1603,15 @@ class _FranchiseOrdersTabState extends State<_FranchiseOrdersTab> {
   }
 
   Widget _ordStat(String label, String value, IconData icon) => Expanded(
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.white70, size: 18),
-            const SizedBox(height: 4),
-            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-          ],
-        ),
-      );
+    child: Column(
+      children: [
+        Icon(icon, color: Colors.white70, size: 18),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+      ],
+    ),
+  );
 
   Widget _vDivider() => Container(height: 40, width: 1, color: Colors.white.withOpacity(.25));
 }
@@ -1563,12 +1703,12 @@ class _OrderCard extends StatelessWidget {
   }
 
   Widget _infoTag(IconData icon, String text, Color color) => Row(
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(text, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
-        ],
-      );
+    children: [
+      Icon(icon, size: 14, color: color),
+      const SizedBox(width: 4),
+      Text(text, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
+    ],
+  );
 
   void _showOrderDetail(BuildContext context) {
     showModalBottomSheet(
@@ -1642,25 +1782,25 @@ class _OrderDetailSheet extends StatelessWidget {
   }
 
   Widget _row(String label, String value, IconData icon) => Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Row(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: const Color(0xffDB2777).withOpacity(.08), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 16, color: const Color(0xffDB2777)),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xffDB2777).withOpacity(.08), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, size: 16, color: const Color(0xffDB2777)),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xff1E1E1E))),
-              ],
-            ),
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xff1E1E1E))),
           ],
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _FranchiseProfileTab extends StatefulWidget {

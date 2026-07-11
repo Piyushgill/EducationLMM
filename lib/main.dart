@@ -53,6 +53,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Education LLM',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        primarySwatch: Colors.indigo,
+        visualDensity: VisualDensity.compact,
+      ),
       home: _getInitialScreen(),
       onGenerateRoute: Routes.generateRoute,
     );

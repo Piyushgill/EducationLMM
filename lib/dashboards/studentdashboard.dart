@@ -290,9 +290,7 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-
                   Builder(
                     builder: (context) => GestureDetector(
                       onTap: () {
@@ -312,6 +310,16 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                       ),
                     ),
                   ),
+
+                  const SizedBox(width: 8), // Gap between menu and logo
+
+                  Image.asset(
+                    'assets/image/kofalt-global-title-logo.png',
+                    height: 38,
+                    fit: BoxFit.contain,
+                  ),
+
+                  const Spacer(),
 
                   CircleAvatar(
                     radius: 24,
@@ -564,6 +572,7 @@ class _SettingsScreenState extends State<_SettingsScreen> {
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                visualDensity: VisualDensity.compact,
               ),
               const Text("Settings", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
             ]),
@@ -814,6 +823,7 @@ class _VideosTabState extends State<_VideosTab> {
                                 }
                               },
                               icon: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
+                              visualDensity: VisualDensity.compact,
                             ),
                           ]),
                         );

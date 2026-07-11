@@ -4,7 +4,22 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:thenew/services/login_screen.dart';
 import 'package:thenew/dashboards/super_admin_dashboard.dart';
-import 'package:thenew/Screens/EducationHomeScreen.dart';
+
+// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
+const String _kMyRole = "School";
+
+/// Returns true if this admin-managed content item (video/testimonial/faq)
+/// should be visible to [role], based on its 'target_roles' field which the
+/// Super Admin sets when creating the content ("All" or a specific list).
+bool _visibleToRole(dynamic targetRolesField, String role) {
+  List<String> roles;
+  if (targetRolesField is List) {
+    roles = targetRolesField.map((e) => e.toString()).toList();
+  } else {
+    roles = (targetRolesField?.toString().split(',') ?? const ["All"]);
+  }
+  return roles.contains("All") || roles.contains(role);
+}
 
 // ============================================================
 //  SCHOOL DASHBOARD — Main Entry
@@ -96,11 +111,6 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
                 gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff0EA5E9), Color(0xff0284C7)]),
               ),
               child: Row(children: [
-                // Container(
-                //   height: 56, width: 56,
-                //   decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(18)),
-                //   child: const Icon(Icons.school_rounded, color: Colors.white, size: 30),
-                // ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -168,6 +178,7 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
     );
   }
 }
+
 void _confirmAndLogout(BuildContext context) {
   showDialog(
     context: context,
@@ -196,13 +207,13 @@ void _confirmAndLogout(BuildContext context) {
               );
               nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
-                (route) => false,
+                    (route) => false,
               );
             } else {
               await SessionManager.clearSession();
               nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
+                    (route) => false,
               );
             }
           },
@@ -231,6 +242,14 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
   int _totalStudents = 0;
   double _totalCommission = 0.0;
   String _userName = "School";
+
+  // ── Admin-managed content (Videos / Testimonials / FAQs), filtered by role ──
+  bool _isLoadingVideos = false;
+  bool _isLoadingTestimonials = false;
+  bool _isLoadingFaqs = false;
+  List<dynamic> _adminVideos = [];
+  List<dynamic> _adminTestimonials = [];
+  List<dynamic> _adminFaqs = [];
 
   Future<void> _loadStats() async {
     if (!mounted) return;
@@ -268,10 +287,75 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
     }
   }
 
+  // ----------------------------------------------------------
+  //  Fetch Videos / Testimonials / FAQs added by Super Admin,
+  //  keeping only the ones targeted at "School" or "All".
+  // ----------------------------------------------------------
+  Future<void> _fetchAdminContent() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingVideos = true;
+      _isLoadingTestimonials = true;
+      _isLoadingFaqs = true;
+    });
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_videos.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminVideos = all.where((v) => _visibleToRole(v['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching videos: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingVideos = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_testimonials.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminTestimonials = all.where((t) => _visibleToRole(t['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching testimonials: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingTestimonials = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_faqs.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminFaqs = all.where((f) => _visibleToRole(f['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching FAQs: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingFaqs = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _loadStats();
+    _fetchAdminContent();
   }
 
   @override
@@ -291,17 +375,67 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
               gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff0EA5E9), Color(0xff0284C7)]),
             ),
             child: Column(children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                GestureDetector(
-                  onTap: widget.onMenuTap,
-                  child: Container(height: 48, width: 48, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28)),
-                ),
-                Stack(children: [
-                  Container(height: 48, width: 48, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28)),
-                  Positioned(right: 10, top: 10, child: Container(height: 10, width: 10, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
-                ]),
-              ]),
-              const SizedBox(height: 20),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: widget.onMenuTap,
+                    child: Container(
+                      height: 48,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.18),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.menu_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Image.asset(
+                    'assets/image/kofalt-global-title-logo.png',
+                    height: 38,
+                    fit: BoxFit.contain,
+                  ),
+
+                  const Spacer(),
+
+                  Stack(
+                    children: [
+                      Container(
+                        height: 48,
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.18),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.notifications_none_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: Container(
+                          height: 10,
+                          width: 10,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: 20),
               Align(alignment: Alignment.centerLeft, child: Text(_userName, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold))),
               const SizedBox(height: 4),
               Align(alignment: Alignment.centerLeft, child: Text("School Account", style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16))),
@@ -344,17 +478,25 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
 
                 const SizedBox(height: 24),
 
-                // TRAINING VIDEOS
+                // TRAINING VIDEOS (live, from Admin panel)
                 _sectionTitle("Training Videos"),
                 const SizedBox(height: 12),
-                SizedBox(
+                _isLoadingVideos
+                    ? SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: const Color(0xff0EA5E9))))
+                    : _adminVideos.isEmpty
+                    ? _emptyBlock("No training videos yet")
+                    : SizedBox(
                   height: 120,
-                  child: ListView(scrollDirection: Axis.horizontal, children: [
-                    _videoCard("Abacus Basics",     "15 min", const Color(0xff0EA5E9)),
-                    _videoCard("Vedic Maths Tips",  "20 min", const Color(0xffA020F0)),
-                    _videoCard("Phonics Workshop",  "18 min", const Color(0xff16C74A)),
-                    _videoCard("English Speaking",  "22 min", const Color(0xffFF6B00)),
-                  ]),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: _adminVideos.map((v) {
+                      return _videoCard(
+                        v['title'] ?? "",
+                        (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
+                        const Color(0xff0EA5E9),
+                      );
+                    }).toList(),
+                  ),
                 ),
 
                 const SizedBox(height: 24),
@@ -373,21 +515,37 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
 
                 const SizedBox(height: 24),
 
-                // TESTIMONIALS
+                // TESTIMONIALS (live, from Admin panel)
                 _sectionTitle("Testimonials"),
                 const SizedBox(height: 12),
-                _testimonialCard("Mrs. Sharma",   "Students' performance has improved tremendously with these programs.", 5),
-                const SizedBox(height: 10),
-                _testimonialCard("Mr. Kapoor",    "The kit ordering and tracking system is very smooth.", 4),
+                _isLoadingTestimonials
+                    ? const Center(child: CircularProgressIndicator())
+                    : _adminTestimonials.isEmpty
+                    ? _emptyBlock("No testimonials yet")
+                    : Column(
+                  children: _adminTestimonials.map((t) {
+                    final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _testimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
+                    );
+                  }).toList(),
+                ),
 
                 const SizedBox(height: 24),
 
-                // FAQ
+                // FAQ (live, from Admin panel)
                 _sectionTitle("FAQ"),
                 const SizedBox(height: 12),
-                _faqItem("How to register new student?", "Use the Student Data section and tap 'Add Student'. Fill in required details and select program."),
-                _faqItem("How to track payments?",       "Go to Pending Payments. All dues are listed with due dates and status."),
-                _faqItem("How to order level kits?",     "Go to Kit Ordering, select Main or Level (2-8) kit and place your order."),
+                if (_isLoadingFaqs)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_adminFaqs.isEmpty)
+                  _emptyBlock("No FAQs yet")
+                else
+                  ..._adminFaqs.map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
 
                 const SizedBox(height: 20),
               ]),
@@ -405,6 +563,13 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
   Widget _vDivider() => Container(height: 28, width: 1, color: Colors.white.withOpacity(.3));
   Widget _sectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
 
+  Widget _emptyBlock(String label) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+    child: Center(child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
+  );
+
   Widget _videoCard(String title, String duration, Color color) => Container(
     width: 150, margin: const EdgeInsets.only(right: 12),
     padding: const EdgeInsets.all(14),
@@ -413,8 +578,8 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
       Icon(Icons.play_circle_filled, color: color, size: 28),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 2),
-        Text(duration, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+        Text(duration, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
       ])),
     ]),
   );
@@ -424,7 +589,7 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        CircleAvatar(backgroundColor: const Color(0xff0EA5E9).withOpacity(.1), radius: 18, child: Text(name[0], style: const TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold))),
+        CircleAvatar(backgroundColor: const Color(0xff0EA5E9).withOpacity(.1), radius: 18, child: Text(name.isNotEmpty ? name[0] : "?", style: const TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold))),
         const SizedBox(width: 10),
         Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         const Spacer(),
@@ -734,65 +899,249 @@ class ProgramsRunningScreen extends StatelessWidget {
 // 2. STUDENT DATA
 class SchoolStudentDataScreen extends StatelessWidget {
   const SchoolStudentDataScreen({super.key});
-  final List<Map<String, dynamic>> students = const [
-    {'name': 'Anjali Mehta',  'program': 'Abacus',      'level': 'Level 3', 'status': 'Active'},
-    {'name': 'Rahul Kumar',   'program': 'Phonics',     'level': 'Level 1', 'status': 'Active'},
-    {'name': 'Pooja Sharma',  'program': 'Vedic Maths', 'level': 'Level 5', 'status': 'Active'},
-    {'name': 'Sanjay Verma',  'program': 'Abacus',      'level': 'Level 2', 'status': 'Inactive'},
-    {'name': 'Meena Gupta',   'program': 'English',     'level': 'Level 3', 'status': 'Active'},
-    {'name': 'Aryan Singh',   'program': 'Abacus',      'level': 'Level 6', 'status': 'Active'},
-    {'name': 'Divya Patel',   'program': 'Phonics',     'level': 'Level 2', 'status': 'Active'},
+
+  // This data will come from API dynamically
+  final List<Map<String, dynamic>> classes = const [
+    {
+      "class_name": "Nursery",
+      "strength": 28,
+    },
+    {
+      "class_name": "LKG",
+      "strength": 32,
+    },
+    {
+      "class_name": "UKG",
+      "strength": 30,
+    },
+    {
+      "class_name": "Class 1",
+      "strength": 36,
+    },
+    {
+      "class_name": "Class 2",
+      "strength": 34,
+    },
+    {
+      "class_name": "Class 3",
+      "strength": 31,
+    },
   ];
+
   @override
   Widget build(BuildContext context) {
+    final int totalStudents = classes.fold(
+      0,
+          (sum, item) => sum + (item["strength"] as int),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
-      body: Column(children: [
-        _sDetailHeader(
-          title: "Student Data", subtitle: "Total: ${students.length} Students",
-          colors: const [Color(0xffA020F0), Color(0xff7B10BF)],
-          onBack: () => Navigator.pop(context),
-          extra: [Row(children: [
-            _wStat("Total",    "${students.length}"),
-            const SizedBox(width: 16),
-            _wStat("Active",   "${students.where((s) => s['status'] == 'Active').length}"),
-            const SizedBox(width: 16),
-            _wStat("Inactive", "${students.where((s) => s['status'] == 'Inactive').length}"),
-          ])],
-        ),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(18),
-          itemCount: students.length,
-          itemBuilder: (_, i) {
-            final s = students[i];
-            final isActive = s['status'] == 'Active';
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-              child: Row(children: [
-                CircleAvatar(radius: 22, backgroundColor: const Color(0xffA020F0).withOpacity(.1), child: Text(s['name'][0], style: const TextStyle(color: Color(0xffA020F0), fontWeight: FontWeight.bold, fontSize: 16))),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(s['name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text("${s['program']} • ${s['level']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                ])),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: (isActive ? const Color(0xff16C74A) : Colors.red).withOpacity(.1), borderRadius: BorderRadius.circular(20)),
-                  child: Text(s['status'], style: TextStyle(color: isActive ? const Color(0xff16C74A) : Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+
+      body: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(
+              top: 55,
+              left: 20,
+              right: 20,
+              bottom: 24,
+            ),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xffA020F0),
+                  Color(0xff7B10BF),
+                ],
+              ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () => Navigator.pop(context),
+                  child: const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.white24,
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ]),
-            );
-          },
-        )),
-      ]),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
-        backgroundColor: const Color(0xffA020F0),
-        icon: const Icon(Icons.person_add_outlined, color: Colors.white),
-        label: const Text("Add Student", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  "Class Strength",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  "Total Classes : ${classes.length}",
+                  style: const TextStyle(
+                    color: Colors.white70,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    _statCard(
+                      "Classes",
+                      "${classes.length}",
+                    ),
+                    const SizedBox(width: 18),
+                    _statCard(
+                      "Students",
+                      "$totalStudents",
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Class List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(18),
+              itemCount: classes.length,
+              itemBuilder: (context, index) {
+                final data = classes[index];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        height: 55,
+                        width: 55,
+                        decoration: BoxDecoration(
+                          color: const Color(0xffA020F0).withOpacity(.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.school,
+                          color: Color(0xffA020F0),
+                          size: 28,
+                        ),
+                      ),
+
+                      const SizedBox(width: 16),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data["class_name"],
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              "Class Strength",
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                          const Color(0xffA020F0).withOpacity(.12),
+                          borderRadius:
+                          BorderRadius.circular(30),
+                        ),
+                        child: Text(
+                          "${data["strength"]} Students",
+                          style: const TextStyle(
+                            color: Color(0xffA020F0),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
+
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // Add Class
+        },
+        backgroundColor: const Color(0xffA020F0),
+        icon: const Icon(
+          Icons.add,
+          color: Colors.white,
+        ),
+        label: const Text(
+          "Add Class",
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  static Widget _statCard(String title, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white70,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -860,16 +1209,84 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
   int _mainKitQty = 0;
   final Map<int, int> _levelQty = {for (var l in [2, 3, 4, 5, 6, 7, 8]) l: 0};
 
-  int get _totalItems => _mainKitQty + _levelQty.values.fold(0, (a, b) => a + b);
+  // NEW: 4 extra courses
+  final Map<String, int> _courseQty = {
+    for (var c in ['Vedic Math', 'Phonics', 'English', 'Abacus']) c: 0,
+  };
+
+  int get _totalItems =>
+      _mainKitQty +
+          _levelQty.values.fold<int>(0, (a, b) => a + b) +
+          _courseQty.values.fold<int>(0, (a, b) => a + b);
 
   void _changeMainQty(int delta) => setState(() => _mainKitQty = (_mainKitQty + delta).clamp(0, 99));
   void _changeLevelQty(int level, int delta) => setState(() => _levelQty[level] = (_levelQty[level]! + delta).clamp(0, 99));
+  void _changeCourseQty(String course, int delta) =>
+      setState(() => _courseQty[course] = (_courseQty[course]! + delta).clamp(0, 99));
+
+  void _setMainQty(int value) => setState(() => _mainKitQty = value.clamp(0, 99));
+  void _setLevelQty(int level, int value) => setState(() => _levelQty[level] = value.clamp(0, 99));
+  void _setCourseQty(String course, int value) => setState(() => _courseQty[course] = value.clamp(0, 99));
+
+  // NEW: dialog to type quantity directly instead of only using +/- steppers
+  Future<void> _editQtyDialog({
+    required String name,
+    required int currentQty,
+    required Color color,
+    required ValueChanged<int> onConfirm,
+  }) async {
+    final controller = TextEditingController(text: currentQty.toString());
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: "Enter quantity",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: color, width: 1.5),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                final parsed = int.tryParse(controller.text.trim()) ?? currentQty;
+                onConfirm(parsed.clamp(0, 99));
+                Navigator.pop(ctx);
+              },
+              child: const Text("OK", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _openOrderSummary() {
     final items = <Map<String, dynamic>>[];
     if (_mainKitQty > 0) items.add({'name': 'New Kit (Main)', 'qty': _mainKitQty});
     for (final l in _levelQty.keys) {
       if (_levelQty[l]! > 0) items.add({'name': 'Level $l Kit', 'qty': _levelQty[l]});
+    }
+    // NEW: include courses in summary
+    for (final c in _courseQty.keys) {
+      if (_courseQty[c]! > 0) items.add({'name': c, 'qty': _courseQty[c]});
     }
 
     showModalBottomSheet(
@@ -974,36 +1391,55 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
       final orders = <Future>[];
       if (_mainKitQty > 0) {
         orders.add(
-          http.post(
-            Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode({
-              "buyer_id": buyerId,
-              "level": "Level 1",
-              "quantity": _mainKitQty,
-            }),
-          )
+            http.post(
+              Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "buyer_id": buyerId,
+                "level": "Level 1",
+                "quantity": _mainKitQty,
+              }),
+            )
         );
       }
       for (final l in _levelQty.keys) {
         final qty = _levelQty[l]!;
         if (qty > 0) {
           orders.add(
-            http.post(
-              Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
-              headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "buyer_id": buyerId,
-                "level": "Level $l",
-                "quantity": qty,
-              }),
-            )
+              http.post(
+                Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({
+                  "buyer_id": buyerId,
+                  "level": "Level $l",
+                  "quantity": qty,
+                }),
+              )
+          );
+        }
+      }
+
+      // NEW: send course orders too
+      for (final c in _courseQty.keys) {
+        final qty = _courseQty[c]!;
+        if (qty > 0) {
+          orders.add(
+              http.post(
+                Uri.parse("https://apps.kofalt.in/api/order_kit.php"),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({
+                  "buyer_id": buyerId,
+                  "level": c,
+                  "quantity": qty,
+                }),
+              )
           );
         }
       }
 
       final responses = await Future.wait(orders);
-      
+
+      if (!mounted) return;
       Navigator.pop(context); // Close loader
 
       bool allSuccess = true;
@@ -1021,8 +1457,11 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
           for (final l in _levelQty.keys) {
             _levelQty[l] = 0;
           }
+          for (final c in _courseQty.keys) {
+            _courseQty[c] = 0;
+          }
         });
-        
+
         if (!mounted) return;
         showDialog(
           context: context,
@@ -1084,7 +1523,7 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(children: [
-        _sDetailHeader(title: "Kit Ordering", subtitle: "Main kit + Level 2-8 kits", colors: const [Color(0xff16C74A), Color(0xff059669)], onBack: () => Navigator.pop(context)),
+        _sDetailHeader(title: "Kit Ordering", subtitle: "Main kit + Level 2-8 kits + Courses", colors: const [Color(0xff16C74A), Color(0xff059669)], onBack: () => Navigator.pop(context)),
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(18),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1097,6 +1536,7 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
               qty: _mainKitQty,
               onAdd: () => _changeMainQty(1),
               onRemove: () => _changeMainQty(-1),
+              onQtyChanged: (v) => _setMainQty(v),
             ),
             const SizedBox(height: 20),
             _label("Level Kits (2-8)"),
@@ -1115,6 +1555,29 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
                   qty: _levelQty[lvl]!,
                   onAdd: () => _changeLevelQty(lvl, 1),
                   onRemove: () => _changeLevelQty(lvl, -1),
+                  onQtyChanged: (v) => _setLevelQty(lvl, v),
+                );
+              },
+            ),
+            // NEW: Courses section
+            const SizedBox(height: 20),
+            _label("Courses"),
+            const SizedBox(height: 10),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _courseQty.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (ctx, i) {
+                final course = _courseQty.keys.elementAt(i);
+                return _kitCard(
+                  name: course,
+                  desc: "Course kit",
+                  color: const Color(0xff16C74A),
+                  qty: _courseQty[course]!,
+                  onAdd: () => _changeCourseQty(course, 1),
+                  onRemove: () => _changeCourseQty(course, -1),
+                  onQtyChanged: (v) => _setCourseQty(course, v),
                 );
               },
             ),
@@ -1169,6 +1632,7 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
     required int qty,
     required VoidCallback onAdd,
     required VoidCallback onRemove,
+    required ValueChanged<int> onQtyChanged, // NEW
   }) {
     final selected = qty > 0;
     return Container(
@@ -1213,7 +1677,19 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _stepBtn(Icons.remove, color, onRemove),
-                SizedBox(width: 28, child: Text("$qty", textAlign: TextAlign.center, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14))),
+                // NEW: tap on the number to type quantity directly
+                GestureDetector(
+                  onTap: () => _editQtyDialog(
+                    name: name,
+                    currentQty: qty,
+                    color: color,
+                    onConfirm: onQtyChanged,
+                  ),
+                  child: SizedBox(
+                    width: 28,
+                    child: Text("$qty", textAlign: TextAlign.center, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                ),
                 _stepBtn(Icons.add, color, onAdd),
               ],
             ),
@@ -1234,7 +1710,6 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
     ),
   );
 }
-
 // 5. TRAINING SCHEDULE
 class TrainingScheduleScreen extends StatelessWidget {
   const TrainingScheduleScreen({super.key});
@@ -1329,32 +1804,32 @@ class _CircularsScreenState extends State<CircularsScreen> {
       body: Column(children: [
         _sDetailHeader(title: "Circulars", subtitle: "Latest announcements", colors: const [Color(0xffFF1493), Color(0xffC71585)], onBack: () => Navigator.pop(context)),
         Expanded(
-          child: _isLoading 
+          child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xffFF1493)))
               : _circulars.isEmpty
-                  ? const Center(child: Text("No announcements published yet.", style: TextStyle(color: Colors.grey)))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(18),
-                      itemCount: _circulars.length,
-                      itemBuilder: (_, i) {
-                        final c = _circulars[i];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-                          child: Row(children: [
-                            Container(height: 46, width: 46, decoration: BoxDecoration(color: const Color(0xffFF1493).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.announcement_outlined, color: Color(0xffFF1493), size: 24)),
-                            const SizedBox(width: 14),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(c['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              Text(c['message'] ?? "", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                              const SizedBox(height: 4),
-                              Text(c['created_at'] ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                            ])),
-                          ]),
-                        );
-                      },
-                    ),
+              ? const Center(child: Text("No announcements published yet.", style: TextStyle(color: Colors.grey)))
+              : ListView.builder(
+            padding: const EdgeInsets.all(18),
+            itemCount: _circulars.length,
+            itemBuilder: (_, i) {
+              final c = _circulars[i];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+                child: Row(children: [
+                  Container(height: 46, width: 46, decoration: BoxDecoration(color: const Color(0xffFF1493).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.announcement_outlined, color: Color(0xffFF1493), size: 24)),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(c['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(c['message'] ?? "", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text(c['created_at'] ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                  ])),
+                ]),
+              );
+            },
+          ),
         ),
       ]),
     );
