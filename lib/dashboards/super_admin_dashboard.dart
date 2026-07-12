@@ -11,9 +11,9 @@ import 'package:thenew/dashboards/studentdashboard.dart';
 
 
 class _AdminTheme {
-  static const Color primary = Color(0xff4F46E5); // Indigo-600
-  static const Color primaryDark = Color(0xff4338CA); // Indigo-700
-  static const Color primaryLight = Color(0xffEEF2FF); // Indigo-50
+  static const Color primary = Color(0xff4F46E5);
+  static const Color primaryDark = Color(0xff4338CA);
+  static const Color primaryLight = Color(0xffEEF2FF);
 }
 
 Widget adminEmptyState(IconData icon, String message, {String? subMessage}) {
@@ -182,7 +182,6 @@ void adminShowRejectionDialog(BuildContext context, int userId, void Function(in
     ),
   );
 }
-
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
 
@@ -1670,13 +1669,13 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
     }
   }
 
-  Future<void> _addCircular(String title, String message) async {
+  Future<void> _addCircular(String title, String message, List<String> targetRoles) async {
     showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
     try {
       final response = await http.post(
         Uri.parse("https://apps.kofalt.in/api/admin/add_circular.php"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"title": title, "message": message}),
+        body: jsonEncode({"title": title, "message": message, "target_roles": targetRoles}),
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -1968,35 +1967,71 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
   void _showCircularDialog() {
     final titleCtrl = TextEditingController();
     final msgCtrl = TextEditingController();
+    final Map<String, bool> targetRoles = {"All": true, "Distributor": false, "Franchise Partner": false, "School": false, "Student": false};
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Publish Announcement", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: "Circular Title")),
-            TextField(controller: msgCtrl, maxLines: 4, decoration: const InputDecoration(labelText: "Message Text Details")),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _AdminTheme.primary, foregroundColor: Colors.white),
-            onPressed: () {
-              final title = titleCtrl.text.trim();
-              final msg = msgCtrl.text.trim();
-              if (title.isEmpty || msg.isEmpty) {
-                adminShowSnack(ctx, "Please fill out all fields", true);
-                return;
-              }
-              Navigator.pop(ctx);
-              _addCircular(title, msg);
-            },
-            child: const Text("Publish"),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text("Publish Announcement", style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: "Announcement Heading")),
+                  TextField(controller: msgCtrl, maxLines: 4, decoration: const InputDecoration(labelText: "Announcement Description")),
+                  const SizedBox(height: 16),
+                  const Text("Visible To", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xff1E293B))),
+                  const Divider(height: 12),
+                  ...targetRoles.keys.map((role) {
+                    return CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: _AdminTheme.primary,
+                      title: Text(role, style: const TextStyle(fontSize: 14)),
+                      value: targetRoles[role],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          if (role == "All") {
+                            targetRoles.updateAll((key, value) => key == "All" ? (val ?? false) : false);
+                          } else {
+                            targetRoles[role] = val ?? false;
+                            if (targetRoles[role] == true) targetRoles["All"] = false;
+                          }
+                        });
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xffFF6B00), foregroundColor: Colors.white),
+                onPressed: () {
+                  final title = titleCtrl.text.trim();
+                  final msg = msgCtrl.text.trim();
+                  if (title.isEmpty || msg.isEmpty) {
+                    adminShowSnack(ctx, "Please fill out all fields", true);
+                    return;
+                  }
+                  final selectedRoles = targetRoles.entries.where((e) => e.value).map((e) => e.key).toList();
+                  if (selectedRoles.isEmpty) {
+                    adminShowSnack(ctx, "Please select at least one role", true);
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  _addCircular(title, msg, selectedRoles);
+                },
+                child: const Text("Publish"),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2275,7 +2310,7 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text("Announcements", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                  Text("Publish circular alerts to selected dashboards", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                  Text("Publish a custom announcement to selected roles", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                                 ],
                               ),
                             ),
@@ -2573,6 +2608,12 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
   List<dynamic> _ordersList = [];
   Timer? _timer;
 
+
+  String _roleFilter = "All";
+  String _statusFilter = "All";
+  String _timeFilter = "All";
+  String _sortOrder = "Newest";
+
   @override
   void initState() {
     super.initState();
@@ -2668,6 +2709,78 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
     }
   }
 
+  Future<void> _markAsPaid(int orderId) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/mark_order_paid.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"order_id": orderId}),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Order #$orderId marked as Paid!", false);
+        _fetchOrders();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Failed to mark as paid", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
+  DateTime? _parseOrderDate(dynamic order) {
+    final raw = order['created_at'] ?? order['order_date'] ?? order['date'];
+    if (raw == null) return null;
+    return DateTime.tryParse(raw.toString());
+  }
+
+  String _formatOrderDateTime(dynamic order) {
+    final dt = _parseOrderDate(order);
+    if (dt == null) return "Date unavailable";
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final ampm = dt.hour >= 12 ? "PM" : "AM";
+    final min = dt.minute.toString().padLeft(2, '0');
+    return "${dt.day} ${months[dt.month - 1]} ${dt.year} • $hour12:$min $ampm";
+  }
+
+  List<dynamic> get _filteredSortedOrders {
+    var list = List<dynamic>.from(_ordersList);
+
+
+    if (_roleFilter != "All") {
+      list = list.where((o) => (o['buyer_role'] ?? "").toString() == _roleFilter).toList();
+    }
+
+    if (_statusFilter != "All") {
+      list = list.where((o) => (o['delivery_status'] ?? "Pending").toString() == _statusFilter).toList();
+    }
+
+    if (_timeFilter != "All") {
+      final now = DateTime.now();
+      final cutoff = _timeFilter == "Last 7 Days" ? now.subtract(const Duration(days: 7)) : now.subtract(const Duration(days: 30));
+      list = list.where((o) {
+        final dt = _parseOrderDate(o);
+        return dt != null && dt.isAfter(cutoff);
+      }).toList();
+    }
+
+    // Sort
+    list.sort((a, b) {
+      final da = _parseOrderDate(a);
+      final db = _parseOrderDate(b);
+      if (da == null || db == null) return 0;
+      return _sortOrder == "Newest" ? db.compareTo(da) : da.compareTo(db);
+    });
+
+    return list;
+  }
+
   void _showKitCatalogDialog() {
     final levelCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
@@ -2704,6 +2817,30 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
     );
   }
 
+  Widget _orderFilterChip(String label, String current, List<String> options, void Function(String) onSelect) {
+    return PopupMenuButton<String>(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: onSelect,
+      itemBuilder: (ctx) => options.map((o) => PopupMenuItem(value: o, child: Text(o))).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: current == "All" ? Colors.white : _AdminTheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: current == "All" ? Colors.grey.shade200 : _AdminTheme.primary),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("$label: $current", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: current == "All" ? Colors.grey.shade700 : _AdminTheme.primary)),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_drop_down, size: 18, color: current == "All" ? Colors.grey.shade500 : _AdminTheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2713,7 +2850,7 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
           adminDetailHeader(
             context: context,
             title: "Kits & Orders",
-            subtitle: "${_ordersList.length} orders • ${_kitsList.length} kit types",
+            subtitle: "${_filteredSortedOrders.length} of ${_ordersList.length} orders • ${_kitsList.length} kit types",
             icon: Icons.inventory_2_outlined,
             colors: const [Color(0xff16C74A), Color(0xff059669)],
           ),
@@ -2805,21 +2942,40 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    SizedBox(
+                      height: 34,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _orderFilterChip("Role", _roleFilter, ["All", "School", "Franchise Partner", "Distributor"], (v) => setState(() => _roleFilter = v)),
+                          const SizedBox(width: 8),
+                          _orderFilterChip("Status", _statusFilter, ["All", "Pending", "Approved", "Shipped", "Delivered", "Cancelled"], (v) => setState(() => _statusFilter = v)),
+                          const SizedBox(width: 8),
+                          _orderFilterChip("Time", _timeFilter, ["All", "Last 7 Days", "Last 30 Days"], (v) => setState(() => _timeFilter = v)),
+                          const SizedBox(width: 8),
+                          _orderFilterChip("Sort", _sortOrder, ["Newest", "Oldest"], (v) => setState(() => _sortOrder = v)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     if (_isLoadingOrders)
                       const Center(child: CircularProgressIndicator())
-                    else if (_ordersList.isEmpty)
-                      adminEmptyState(Icons.receipt_long_outlined, "No kit orders placed yet.", subMessage: "Orders from franchises and schools will show up here.")
+                    else if (_filteredSortedOrders.isEmpty)
+                      adminEmptyState(Icons.receipt_long_outlined, "No orders match this filter.", subMessage: "Try changing role, status, or time filters.")
                     else
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _ordersList.length,
+                        itemCount: _filteredSortedOrders.length,
                         itemBuilder: (context, index) {
-                          final order = _ordersList[index];
+                          final order = _filteredSortedOrders[index];
                           final String buyerName = order['buyer_name'] ?? "";
                           final String buyerRole = order['buyer_role'] ?? "";
                           final String deliveryStatus = order['delivery_status'] ?? "Pending";
+                          final String paymentStatus = order['payment_status'] ?? "Unpaid";
+                          final bool isPaid = paymentStatus == "Paid";
                           Color statusColor = Colors.orange;
+                          if (deliveryStatus == 'Approved') statusColor = Colors.teal;
                           if (deliveryStatus == 'Shipped') statusColor = Colors.blue;
                           if (deliveryStatus == 'Delivered') statusColor = Colors.green;
                           if (deliveryStatus == 'Cancelled') statusColor = Colors.red;
@@ -2837,11 +2993,29 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text("Order #${order['order_id']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                                        child: Text(deliveryStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                            child: Text(deliveryStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(color: isPaid ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                            child: Text(paymentStatus, style: TextStyle(color: isPaid ? Colors.green.shade700 : Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 11)),
+                                          ),
+                                        ],
                                       ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade400),
+                                      const SizedBox(width: 4),
+                                      Text(_formatOrderDateTime(order), style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                                     ],
                                   ),
                                   const Divider(height: 20),
@@ -2882,13 +3056,22 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
-                                      const Text("Update Shipping:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                      if (!isPaid)
+                                        OutlinedButton.icon(
+                                          onPressed: () => _markAsPaid(order['order_id']),
+                                          icon: const Icon(Icons.payments_outlined, size: 15, color: Colors.green),
+                                          label: const Text("Mark as Paid", style: TextStyle(fontSize: 12, color: Colors.green)),
+                                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.green), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                                        ),
                                       const SizedBox(width: 10),
+                                      const Text("Shipping:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                      const SizedBox(width: 8),
                                       PopupMenuButton<String>(
                                         onSelected: (value) => _updateOrderStatus(order['order_id'], value),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                         offset: const Offset(0, 40),
                                         itemBuilder: (context) => [
+                                          PopupMenuItem(value: "Approved", child: Row(children: const [Icon(Icons.thumb_up_alt_outlined, color: Colors.teal, size: 18), SizedBox(width: 8), Text("Approve")])),
                                           PopupMenuItem(value: "Shipped", child: Row(children: const [Icon(Icons.local_shipping, color: Colors.blue, size: 18), SizedBox(width: 8), Text("Ship")])),
                                           PopupMenuItem(value: "Delivered", child: Row(children: const [Icon(Icons.check_circle, color: Colors.green, size: 18), SizedBox(width: 8), Text("Deliver")])),
                                           PopupMenuItem(value: "Cancelled", child: Row(children: const [Icon(Icons.cancel, color: Colors.red, size: 18), SizedBox(width: 8), Text("Cancel")])),
