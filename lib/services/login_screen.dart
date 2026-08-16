@@ -9,6 +9,7 @@ import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
 import 'package:thenew/dashboards/super_admin_dashboard.dart';
+import 'package:thenew/dashboards/agent_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -181,6 +182,9 @@ class _LoginScreenState extends State<LoginScreen>
         break;
       case "Student":
         dashboard = const StudentDashboard();
+        break;
+      case "Agent":
+        dashboard = const AgentDashboard();
         break;
       default:
         dashboard = const DistributorDashboard();

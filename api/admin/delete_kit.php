@@ -24,42 +24,32 @@ if (!$data) {
     exit();
 }
 
-$orderId = isset($data['order_id']) ? (int)$data['order_id'] : 0;
-$status = isset($data['status']) ? trim($data['status']) : '';
+$kitId = isset($data['kit_id']) ? (int)$data['kit_id'] : 0;
 
-if (empty($orderId) || empty($status)) {
+if ($kitId <= 0) {
     http_response_code(400);
     echo json_encode([
         "status" => "error",
-        "message" => "Required parameters (order_id, status) are missing."
+        "message" => "Required parameter (kit_id) is missing or invalid."
     ]);
     exit();
 }
 
 try {
-    $conn->beginTransaction();
-
-    $stmt = $conn->prepare("UPDATE kit_orders SET delivery_status = ? WHERE id = ?");
-    $stmt->execute([$status, $orderId]);
-
-    if ($status === 'Delivered') {
-        // Automatically mark payment as Paid and distribute commissions
-        $stmtPay = $conn->prepare("UPDATE kit_orders SET payment_status = 'Paid' WHERE id = ?");
-        $stmtPay->execute([$orderId]);
-        distributeCommission($conn, $orderId);
-    }
-
-    $conn->commit();
+    // Delete the kit from catalog
+    $stmt = $conn->prepare("DELETE FROM kits WHERE id = ?");
+    $stmt->execute([$kitId]);
 
     echo json_encode([
         "status" => "success",
-        "message" => "Order delivery status successfully updated to $status."
+        "message" => "Kit deleted successfully from catalog."
     ]);
 
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode([
         "status" => "error",
-        "message" => "Failed to update status: " . $e->getMessage()
+        "message" => "Failed to delete kit: " . $e->getMessage()
     ]);
 }
 ?>

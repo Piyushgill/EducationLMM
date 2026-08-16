@@ -104,48 +104,9 @@ class _CommissionScreenState extends State<CommissionScreen> {
                     _headerStat("Total Earned", "₹${totalEarned.toStringAsFixed(0)}"),
                     const SizedBox(width: 12),
                     _headerStat("Pending", "₹${totalPending.toStringAsFixed(0)}"),
-                    const SizedBox(width: 12),
-                    _headerStat("Expected Target", "₹${monthlyTarget.toStringAsFixed(0)}"),
                   ],
                 ),
               ],
-            ),
-          ),
-
-          // Progress Bar Section
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Target Progress", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      Text("₹${totalEarned.toStringAsFixed(0)} / ₹${monthlyTarget.toStringAsFixed(0)}", style: const TextStyle(color: Color(0xffFF1493), fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: progressRatio,
-                      backgroundColor: const Color(0xffFF1493).withOpacity(.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xffFF1493)),
-                      minHeight: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text("${(progressRatio * 100).toStringAsFixed(1)}% of monthly target achieved", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                ],
-              ),
             ),
           ),
 

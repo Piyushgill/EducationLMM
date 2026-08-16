@@ -25,6 +25,31 @@ try {
 
     foreach ($users as &$row) {
         $row['id'] = (int)$row['id'];
+        $row['distributor_name'] = null;
+        if ($row['role'] === 'Agent') {
+            $curr = $row['id'];
+            $loopLimit = 10; // prevent infinite loops
+            while ($loopLimit-- > 0) {
+                $stmtP = $conn->prepare("SELECT parent_id FROM user_relations WHERE child_id = ?");
+                $stmtP->execute([$curr]);
+                $rel = $stmtP->fetch();
+                if (!$rel) break;
+
+                $pId = (int)$rel['parent_id'];
+                $stmtPRole = $conn->prepare("SELECT name, role FROM users WHERE id = ?");
+                $stmtPRole->execute([$pId]);
+                $pUser = $stmtPRole->fetch();
+                if ($pUser) {
+                    if ($pUser['role'] === 'Distributor') {
+                        $row['distributor_name'] = $pUser['name'];
+                        break;
+                    }
+                    $curr = $pId;
+                } else {
+                    break;
+                }
+            }
+        }
     }
 
     echo json_encode([

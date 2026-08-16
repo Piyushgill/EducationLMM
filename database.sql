@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `email` VARCHAR(100) NOT NULL UNIQUE,
     `phone` VARCHAR(20) NOT NULL UNIQUE,
     `password` VARCHAR(255) NOT NULL,
-    `role` ENUM('Super Admin', 'Student', 'School', 'Franchise Partner', 'Distributor') NOT NULL,
+    `role` ENUM('Super Admin', 'Student', 'School', 'Franchise Partner', 'Distributor', 'Agent') NOT NULL,
     `kyc_status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -95,8 +95,18 @@ CREATE TABLE IF NOT EXISTS `kit_orders` (
     `buyer_id` INT NOT NULL,
     `total_amount` DECIMAL(10, 2) NOT NULL,
     `payment_status` ENUM('Pending', 'Paid', 'Failed') NOT NULL DEFAULT 'Pending',
+    `delivery_status` ENUM('Pending', 'Shipped', 'Delivered', 'Cancelled') NOT NULL DEFAULT 'Pending',
+    `agent_id` INT DEFAULT NULL,
+    `distributor_id` INT DEFAULT NULL,
+    `school_name` VARCHAR(150) DEFAULT NULL,
+    `school_address` TEXT DEFAULT NULL,
+    `contact_person` VARCHAR(100) DEFAULT NULL,
+    `mobile_number` VARCHAR(20) DEFAULT NULL,
+    `order_type` ENUM('MLM', 'Direct') NOT NULL DEFAULT 'Direct',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`buyer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    FOREIGN KEY (`buyer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`agent_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`distributor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 7. Kit Order Items
@@ -173,3 +183,32 @@ CREATE TABLE IF NOT EXISTS `circulars` (
     `message` TEXT NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 14. MLM Wallets
+CREATE TABLE IF NOT EXISTS `wallets` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL UNIQUE,
+    `balance` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 15. MLM Wallet Transactions
+CREATE TABLE IF NOT EXISTS `wallet_transactions` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `wallet_id` INT NOT NULL,
+    `amount` DECIMAL(10, 2) NOT NULL,
+    `type` ENUM('Credit', 'Debit') NOT NULL,
+    `description` VARCHAR(255) NOT NULL,
+    `reference_id` INT DEFAULT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`wallet_id`) REFERENCES `wallets` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 16. MLM Commission Settings
+CREATE TABLE IF NOT EXISTS `commission_settings` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `setting_key` VARCHAR(100) NOT NULL UNIQUE,
+    `setting_value` VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

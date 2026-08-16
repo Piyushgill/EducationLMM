@@ -5,6 +5,7 @@ import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
 import 'package:thenew/dashboards/super_admin_dashboard.dart';
+import 'package:thenew/dashboards/agent_dashboard.dart';
 import 'package:thenew/services/session_manager.dart';
 import 'package:thenew/services/kyc_status_screen.dart';
 import 'package:thenew/routes/routes.dart';
@@ -40,6 +41,8 @@ class MyApp extends StatelessWidget {
           return const SchoolDashboard();
         case "Student":
           return const StudentDashboard();
+        case "Agent":
+          return const AgentDashboard();
         default:
           return const DistributorDashboard();
       }

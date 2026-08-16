@@ -27,7 +27,12 @@ try {
             ko.created_at,
             koi.quantity,
             koi.price_at_purchase,
-            k.level AS kit_level
+            k.level AS kit_level,
+            ko.order_type,
+            ko.school_name,
+            ko.school_address,
+            ko.contact_person,
+            ko.mobile_number
         FROM kit_orders ko
         JOIN users u ON ko.buyer_id = u.id
         LEFT JOIN kit_order_items koi ON ko.id = koi.order_id

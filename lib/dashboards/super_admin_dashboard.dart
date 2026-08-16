@@ -8,6 +8,7 @@ import 'package:thenew/dashboards/distributor_dashboard.dart';
 import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
+import 'package:thenew/dashboards/agent_dashboard.dart';
 
 
 class _AdminTheme {
@@ -200,6 +201,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   int _schools = 0;
   int _franchises = 0;
   int _distributors = 0;
+  int _agents = 0;
   int _pendingKyc = 0;
   int _totalOrders = 0;
 
@@ -246,6 +248,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               _schools = users.where((u) => u['role'] == 'School').length;
               _franchises = users.where((u) => u['role'] == 'Franchise Partner').length;
               _distributors = users.where((u) => u['role'] == 'Distributor').length;
+              _agents = users.where((u) => u['role'] == 'Agent').length;
             });
           }
         }
@@ -374,6 +377,13 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleUsersListScreen(role: "Distributor", color: Color(0xff8B5CF6), icon: Icons.local_shipping_rounded))),
                           ),
                           _AdminCard(
+                            title: "Agents",
+                            value: "$_agents",
+                            icon: Icons.person_pin_outlined,
+                            iconColor: const Color(0xffFF6D00),
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleUsersListScreen(role: "Agent", color: Color(0xffFF6D00), icon: Icons.person_pin_rounded))),
+                          ),
+                          _AdminCard(
                             title: "Content Manager",
                             value: "Manage",
                             icon: Icons.dashboard_customize_outlined,
@@ -386,6 +396,13 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             icon: Icons.inventory_2_outlined,
                             iconColor: const Color(0xff16C74A),
                             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KitsOrdersScreen())),
+                          ),
+                          _AdminCard(
+                            title: "MLM Dashboard",
+                            value: "Track",
+                            icon: Icons.account_tree_outlined,
+                            iconColor: const Color(0xff06B6D4),
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MlmCommissionsScreen())),
                           ),
                         ],
                       ),
@@ -540,6 +557,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const KitsOrdersScreen()));
+              },
+            ),
+            _drawerItem(
+              icon: Icons.account_balance_wallet_outlined,
+              label: "MLM & Commissions",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const MlmCommissionsScreen()));
               },
             ),
             const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8), child: Divider()),
@@ -1350,6 +1375,9 @@ class _RoleUsersListScreenState extends State<RoleUsersListScreen> {
       case "Student":
         dashboard = const StudentDashboard();
         break;
+      case "Agent":
+        dashboard = const AgentDashboard();
+        break;
       default:
         dashboard = const DistributorDashboard();
     }
@@ -1492,6 +1520,10 @@ class _RoleUsersListScreenState extends State<RoleUsersListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(user['name'] ?? "", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, decoration: isSuspended ? TextDecoration.lineThrough : null, color: const Color(0xff1E293B))),
+                            if (widget.role == 'Agent' && user['distributor_name'] != null) ...[
+                              const SizedBox(height: 2),
+                              Text("Distributor: ${user['distributor_name']}", style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.w600, fontSize: 11.5)),
+                            ],
                             const SizedBox(height: 2),
                             Text(user['phone'] ?? "", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                             const SizedBox(height: 6),
@@ -2817,6 +2849,96 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
     );
   }
 
+  void _confirmDeleteKit(dynamic kit) {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool canDelete = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text("Delete ${kit['level']}?"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Are you sure you want to delete this kit? This action cannot be undone.\n\nPlease type \"delete\" to confirm:"),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: textCtrl,
+                    decoration: const InputDecoration(
+                      hintText: "delete",
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        canDelete = val.toLowerCase().trim() == "delete";
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: canDelete
+                      ? () {
+                          Navigator.pop(ctx);
+                          _deleteKit(kit['id']);
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    disabledBackgroundColor: Colors.grey.shade200,
+                  ),
+                  child: const Text("Delete", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteKit(dynamic kitId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xff16C74A))),
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/delete_kit.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"kit_id": kitId}),
+      );
+
+      if (mounted) Navigator.pop(context); // close loader
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          adminShowSnack(context, "Kit deleted successfully!", false);
+          _fetchKits();
+        } else {
+          adminShowSnack(context, data['message'] ?? "Deletion failed", true);
+        }
+      } else {
+        adminShowSnack(context, "Server error", true);
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      adminShowSnack(context, "Error: $e", true);
+    }
+  }
+
   Widget _orderFilterChip(String label, String current, List<String> options, void Function(String) onSelect) {
     return PopupMenuButton<String>(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2907,27 +3029,42 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                           itemCount: _kitsList.length,
                           itemBuilder: (ctx, i) {
                             final kit = _kitsList[i];
-                            return Card(
-                              margin: const EdgeInsets.only(right: 12, bottom: 4),
-                              elevation: 1,
-                              shadowColor: Colors.black.withOpacity(0.04),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(color: const Color(0xffECFDF5), borderRadius: BorderRadius.circular(8)),
-                                      child: const Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xff10B981)),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(kit['level'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                    const SizedBox(height: 4),
-                                    Text("₹${kit['price']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xff10B981), fontSize: 16)),
-                                  ],
+                            return SizedBox(
+                              width: 145,
+                              child: Card(
+                                margin: const EdgeInsets.only(right: 12, bottom: 4),
+                                elevation: 1,
+                                shadowColor: Colors.black.withOpacity(0.04),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(color: const Color(0xffECFDF5), borderRadius: BorderRadius.circular(8)),
+                                            child: const Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xff10B981)),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                            onPressed: () => _confirmDeleteKit(kit),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            splashRadius: 16,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(kit['level'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      const SizedBox(height: 4),
+                                      Text("₹${kit['price']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xff10B981), fontSize: 14)),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
@@ -2949,7 +3086,7 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                         children: [
                           _orderFilterChip("Role", _roleFilter, ["All", "School", "Franchise Partner", "Distributor"], (v) => setState(() => _roleFilter = v)),
                           const SizedBox(width: 8),
-                          _orderFilterChip("Status", _statusFilter, ["All", "Pending", "Approved", "Shipped", "Delivered", "Cancelled"], (v) => setState(() => _statusFilter = v)),
+                          _orderFilterChip("Status", _statusFilter, ["All", "Pending", "Shipped", "Delivered", "Cancelled"], (v) => setState(() => _statusFilter = v)),
                           const SizedBox(width: 8),
                           _orderFilterChip("Time", _timeFilter, ["All", "Last 7 Days", "Last 30 Days"], (v) => setState(() => _timeFilter = v)),
                           const SizedBox(width: 8),
@@ -3071,7 +3208,6 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                         offset: const Offset(0, 40),
                                         itemBuilder: (context) => [
-                                          PopupMenuItem(value: "Approved", child: Row(children: const [Icon(Icons.thumb_up_alt_outlined, color: Colors.teal, size: 18), SizedBox(width: 8), Text("Approve")])),
                                           PopupMenuItem(value: "Shipped", child: Row(children: const [Icon(Icons.local_shipping, color: Colors.blue, size: 18), SizedBox(width: 8), Text("Ship")])),
                                           PopupMenuItem(value: "Delivered", child: Row(children: const [Icon(Icons.check_circle, color: Colors.green, size: 18), SizedBox(width: 8), Text("Deliver")])),
                                           PopupMenuItem(value: "Cancelled", child: Row(children: const [Icon(Icons.cancel, color: Colors.red, size: 18), SizedBox(width: 8), Text("Cancel")])),
@@ -3104,6 +3240,1304 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+//  MLM & COMMISSIONS MANAGER SCREEN
+// ============================================================
+class MlmCommissionsScreen extends StatefulWidget {
+  const MlmCommissionsScreen({super.key});
+
+  @override
+  State<MlmCommissionsScreen> createState() => _MlmCommissionsScreenState();
+}
+
+class _MlmCommissionsScreenState extends State<MlmCommissionsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+  bool _isLoading = false;
+  
+  // Tab 1: Analytics
+  List<dynamic> _allUsersForAnalytics = [];
+
+  // Tab 2: Payout Manager
+  final Set<int> _selectedReleaseUserIds = {};
+  bool _isReleasing = false;
+
+  // Tab 3: Settings & Wallets
+  String _commType = 'global';
+  final _globalPercentCtrl = TextEditingController(text: '5');
+  final Map<String, TextEditingController> _levelCtrls = {
+    for (var l in [1,2,3,4,5,6,7,8]) "Level $l": TextEditingController(text: '${l + 4}')
+  };
+  List<dynamic> _wallets = [];
+  List<dynamic> _txs = [];
+
+  // Tab 4: MLM Directory (Distributors & Agents tree)
+  List<dynamic> _distributors = [];
+
+  // Tab 5: MLM Orders
+  List<dynamic> _orders = [];
+  String _selectedStatus = "All";
+  final List<String> _statuses = ["All", "Pending", "Paid", "Shipped", "Delivered", "Cancelled"];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 5, vsync: this);
+    _fetchSettings();
+    _fetchWallets();
+    _fetchDistributors();
+    _fetchMLMOrders();
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    _globalPercentCtrl.dispose();
+    for (var ctrl in _levelCtrls.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _fetchSettings() async {
+    try {
+      final response = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_commission_settings.php"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['settings'] != null) {
+          final s = data['settings'];
+          setState(() {
+            _commType = s['commission_type'] ?? 'global';
+            if (s['global_percent'] != null) {
+              _globalPercentCtrl.text = s['global_percent'].toString();
+            }
+            for (var l in [1,2,3,4,5,6,7,8]) {
+              final key = 'percent_Level $l';
+              if (s[key] != null) {
+                _levelCtrls["Level $l"]!.text = s[key].toString();
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching settings: $e");
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    setState(() => _isLoading = true);
+    final settingsMap = <String, String>{
+      "commission_type": _commType,
+      "global_percent": _globalPercentCtrl.text,
+    };
+    for (var l in [1,2,3,4,5,6,7,8]) {
+      settingsMap["percent_Level $l"] = _levelCtrls["Level $l"]!.text;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/update_commission_settings.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"settings": settingsMap}),
+      );
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Settings updated successfully!", false);
+        _fetchSettings();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Save failed.", true);
+      }
+    } catch (e) {
+      adminShowSnack(context, "Error: $e", true);
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _releaseCommissions(List<int> userIds) async {
+    if (userIds.isEmpty) return;
+    setState(() => _isReleasing = true);
+    
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/release_commission.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"user_ids": userIds}),
+      );
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, data['message'] ?? "Payouts released!", false);
+        setState(() {
+          _selectedReleaseUserIds.removeAll(userIds);
+        });
+        _fetchWallets();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Payout failed.", true);
+      }
+    } catch (e) {
+      adminShowSnack(context, "Error: $e", true);
+    } finally {
+      setState(() => _isReleasing = false);
+    }
+  }
+
+  Future<void> _fetchWallets() async {
+    try {
+      final response = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_all_wallets.php"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _wallets = data['wallets'] ?? [];
+            _txs = data['transactions'] ?? [];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching wallets: $e");
+    }
+  }
+
+  Future<void> _fetchDistributors() async {
+    try {
+      final response = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_all_users.php"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          final list = data['data'] as List? ?? [];
+          setState(() {
+            _allUsersForAnalytics = list;
+            _distributors = list.where((u) => u['role'] == 'Distributor').toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching distributors: $e");
+    }
+  }
+
+  Future<void> _fetchMLMOrders() async {
+    try {
+      final response = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_kit_orders.php"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          final list = data['data'] as List? ?? [];
+          setState(() {
+            _orders = list.where((o) => o['order_type'] == 'MLM').toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching MLM orders: $e");
+    }
+  }
+
+  Future<void> _markOrderAsPaid(int orderId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)),
+    );
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/mark_order_paid.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"order_id": orderId}),
+      );
+      if (context.mounted) Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Order #$orderId marked as Paid & commissions calculated!", false);
+        _fetchMLMOrders();
+        _fetchWallets();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Action failed", true);
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      adminShowSnack(context, "Error: $e", true);
+    }
+  }
+
+  Future<void> _updateDeliveryStatus(int orderId, String status) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)),
+    );
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/update_order_status.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"order_id": orderId, "status": status}),
+      );
+      if (context.mounted) Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Order delivery status updated to $status!", false);
+        _fetchMLMOrders();
+        _fetchWallets();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Action failed", true);
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      adminShowSnack(context, "Error: $e", true);
+    }
+  }
+
+  void _viewDistributorAgents(dynamic dist) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)),
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/distributor/get_agents.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"distributor_id": dist['id']}),
+      );
+      if (context.mounted) Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        final agentsList = data['agents'] as List? ?? [];
+        if (mounted) {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (ctx) => Container(
+              height: MediaQuery.of(ctx).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("${dist['name']}'s Linear Agents", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  Expanded(
+                    child: agentsList.isEmpty
+                        ? const Center(child: Text("No agents recruited under this distributor.", style: TextStyle(color: Colors.grey)))
+                        : ListView.builder(
+                            itemCount: agentsList.length,
+                            itemBuilder: (context, idx) {
+                              final ag = agentsList[idx];
+                              return Card(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.orange.shade50,
+                                    child: const Icon(Icons.person, color: Colors.orange),
+                                  ),
+                                  title: Text(ag['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text("Level ${ag['level']} • Phone: ${ag['phone']}\nStatus: ${ag['status']}"),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.lock_reset, color: Colors.grey),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      _openResetPasswordAdmin(ag);
+                                    },
+                                    tooltip: "Reset Password",
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      adminShowSnack(context, "Error: $e", true);
+    }
+  }
+
+  void _openResetPasswordAdmin(dynamic user) {
+    final passCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Reset Password for ${user['name']}"),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: passCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: "New Password", border: OutlineInputBorder()),
+            validator: (v) => v == null || v.length < 6 ? "Password must be at least 6 characters" : null,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(ctx);
+              
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)),
+              );
+
+              try {
+                // We reuse the distributor agent reset API since it updates by agent ID
+                final res = await http.post(
+                  Uri.parse("https://apps.kofalt.in/api/distributor/reset_password.php"),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "agent_id": user['id'],
+                    "password": passCtrl.text,
+                  }),
+                );
+                if (context.mounted) Navigator.pop(context);
+                final data = jsonDecode(res.body);
+                if (data['status'] == 'success') {
+                  adminShowSnack(context, "Password reset successfully!", false);
+                } else {
+                  adminShowSnack(context, data['message'] ?? "Reset failed", true);
+                }
+              } catch (e) {
+                if (context.mounted) Navigator.pop(context);
+                adminShowSnack(context, "Error: $e", true);
+              }
+            },
+            child: const Text("Reset", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleUserStatusAdmin(dynamic user) async {
+    final nextStatus = user['status'] == 'Active' ? 'Suspended' : 'Active';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)),
+    );
+
+    try {
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/toggle_user_status.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "user_id": user['id'],
+          "status": nextStatus,
+        }),
+      );
+      if (context.mounted) Navigator.pop(context);
+      final data = jsonDecode(res.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "User marked as $nextStatus successfully!", false);
+        _fetchDistributors();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Update failed", true);
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      adminShowSnack(context, "Error: $e", true);
+    }
+  }
+
+  List<dynamic> get _filteredOrders {
+    if (_selectedStatus == "All") return _orders;
+    return _orders.where((o) {
+      if (_selectedStatus == "Paid") return o['payment_status'] == "Paid";
+      return o['delivery_status'] == _selectedStatus;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF1F5F9),
+      appBar: AppBar(
+        title: const Text("MLM & Commissions Manager", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
+        backgroundColor: _AdminTheme.primary,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        bottom: TabBar(
+          controller: _tabCtrl,
+          isScrollable: true,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: "MLM Analytics"),
+            Tab(text: "Payout Manager"),
+            Tab(text: "Config Settings"),
+            Tab(text: "Distributors"),
+            Tab(text: "MLM Orders"),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          // TAB 1: MLM ANALYTICS
+          RefreshIndicator(
+            onRefresh: () async {
+              await _fetchDistributors();
+              await _fetchMLMOrders();
+              await _fetchWallets();
+            },
+            child: _buildAnalyticsTab(),
+          ),
+
+          // TAB 2: PAYOUT MANAGER
+          _buildPayoutManagerTab(),
+
+          // TAB 3: CONFIG SETTINGS
+          RefreshIndicator(
+            onRefresh: () async {
+              await _fetchSettings();
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Commission Configuration Settings", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _AdminTheme.primary)),
+                        const SizedBox(height: 15),
+                        TextFormField(
+                          controller: _globalPercentCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: "Per Kit Commission (₹)",
+                            prefixText: "₹",
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: _AdminTheme.primary),
+                            onPressed: _saveSettings,
+                            child: const Text("Save Config Settings", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // TAB 4: DISTRIBUTORS LIST
+          RefreshIndicator(
+            onRefresh: _fetchDistributors,
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _distributors.length,
+              itemBuilder: (context, index) {
+                final dist = _distributors[index];
+                final isSuspended = dist['status'] == 'Suspended';
+                return Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isSuspended ? Colors.red.shade50 : const Color(0xffEFF6FF),
+                      child: Icon(Icons.business, color: isSuspended ? Colors.red : _AdminTheme.primary),
+                    ),
+                    title: Text(dist['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text("Phone: ${dist['phone']}\nStatus: ${dist['status']}"),
+                    isThreeLine: true,
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (val) {
+                        if (val == 'agents') _viewDistributorAgents(dist);
+                        if (val == 'reset') _openResetPasswordAdmin(dist);
+                        if (val == 'toggle') _toggleUserStatusAdmin(dist);
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(value: 'agents', child: Text("View Agents Chain")),
+                        const PopupMenuItem(value: 'reset', child: Text("Reset Password")),
+                        PopupMenuItem(
+                          value: 'toggle',
+                          child: Text(isSuspended ? "Activate User" : "Suspend User", style: TextStyle(color: isSuspended ? Colors.green : Colors.red)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // TAB 5: MLM ORDERS
+          Column(
+            children: [
+              Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _statuses.length,
+                  itemBuilder: (context, index) {
+                    final st = _statuses[index];
+                    final isSel = _selectedStatus == st;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(st),
+                        selected: isSel,
+                        selectedColor: _AdminTheme.primary,
+                        labelStyle: TextStyle(color: isSel ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+                        onSelected: (selected) {
+                          if (selected) setState(() => _selectedStatus = st);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _fetchMLMOrders,
+                  child: _filteredOrders.isEmpty
+                      ? const Center(child: Text("No MLM orders found.", style: TextStyle(color: Colors.grey)))
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _filteredOrders.length,
+                          itemBuilder: (context, index) {
+                            final o = _filteredOrders[index];
+                            final isPaid = o['payment_status'] == 'Paid';
+                            return Card(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text("Order #${o['order_id']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: isPaid ? Colors.green.shade50 : Colors.orange.shade50,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            isPaid ? "Paid" : "Pending Payment",
+                                            style: TextStyle(
+                                              color: isPaid ? Colors.green : Colors.orange,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 20),
+                                    Text("School: ${o['school_name'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 3),
+                                    Text("Address: ${o['school_address'] ?? 'N/A'}", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                                    const SizedBox(height: 3),
+                                    Text("Contact: ${o['contact_person'] ?? 'N/A'} (${o['mobile_number'] ?? 'N/A'})", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                                    const SizedBox(height: 6),
+                                    Text("Kit Level: ${o['kit_level'] ?? o['level'] ?? 'N/A'} x ${o['quantity']}", style: const TextStyle(fontWeight: FontWeight.w500)),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text("Agent: ${o['buyer_name'] ?? 'N/A'}", style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                                            Text("Delivery Status: ${o['delivery_status']}", style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                          ],
+                                        ),
+                                        Text("₹${o['total_amount']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      ],
+                                    ),
+                                    const Divider(height: 20),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        if (!isPaid)
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                            onPressed: () => _markOrderAsPaid(int.parse(o['order_id'].toString())),
+                                            child: const Text("Verify Payment", style: TextStyle(color: Colors.white)),
+                                          ),
+                                        const SizedBox(width: 8),
+                                        PopupMenuButton<String>(
+                                          onSelected: (status) => _updateDeliveryStatus(int.parse(o['order_id'].toString()), status),
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(value: "Pending", child: Text("Mark Pending")),
+                                            const PopupMenuItem(value: "Shipped", child: Text("Mark Shipped")),
+                                            const PopupMenuItem(value: "Delivered", child: Text("Mark Delivered")),
+                                            const PopupMenuItem(value: "Cancelled", child: Text("Mark Cancelled")),
+                                          ],
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+                                            child: const Row(
+                                              children: [
+                                                Text("Update Delivery"),
+                                                Icon(Icons.arrow_drop_down),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  double get _totalMlmSalesAmount {
+    double total = 0.0;
+    for (var o in _orders) {
+      if (o['payment_status'] == 'Paid') {
+        total += double.tryParse(o['total_amount'].toString()) ?? 0.0;
+      }
+    }
+    return total;
+  }
+
+  double get _totalCommissionsAmount {
+    double total = 0.0;
+    for (var tx in _txs) {
+      total += double.tryParse(tx['amount'].toString()) ?? 0.0;
+    }
+    return total;
+  }
+
+  double get _totalWalletBalance {
+    double total = 0.0;
+    for (var w in _wallets) {
+      total += double.tryParse(w['balance'].toString()) ?? 0.0;
+    }
+    return total;
+  }
+
+  Widget _buildAnalyticsTab() {
+    final int totalDists = _distributors.length;
+    final int totalAgents = _allUsersForAnalytics.where((u) => u['role'] == 'Agent').length;
+    final int totalUsersCount = totalDists + totalAgents;
+    
+    final double distPercent = totalUsersCount > 0 ? (totalDists / totalUsersCount) : 0.0;
+    final double agentPercent = totalUsersCount > 0 ? (totalAgents / totalUsersCount) : 0.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildKpiCard(
+                  title: "Total MLM Sales",
+                  value: "₹${_totalMlmSalesAmount.toStringAsFixed(0)}",
+                  subtitle: "${_orders.where((o) => o['payment_status'] == 'Paid').length} Orders Paid",
+                  color: Colors.green,
+                  icon: Icons.shopping_bag_outlined,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: _buildKpiCard(
+                  title: "Commissions Paid",
+                  value: "₹${_totalCommissionsAmount.toStringAsFixed(0)}",
+                  subtitle: "${_txs.length} Payouts",
+                  color: Colors.pink,
+                  icon: Icons.trending_up_rounded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          _buildKpiCard(
+            title: "Total Wallet Balances",
+            value: "₹${_totalWalletBalance.toStringAsFixed(2)}",
+            subtitle: "Held in user network wallets",
+            color: Colors.blue,
+            icon: Icons.account_balance_wallet_outlined,
+            isWide: true,
+          ),
+          const SizedBox(height: 25),
+
+          // Network composition visualization
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("MLM Network Composition", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E293B))),
+                const SizedBox(height: 15),
+                // Horizontal Bar Chart
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    height: 20,
+                    child: Row(
+                      children: [
+                        if (distPercent > 0)
+                          Expanded(
+                            flex: (distPercent * 100).round(),
+                            child: Container(color: const Color(0xff8B5CF6)),
+                          ),
+                        if (agentPercent > 0)
+                          Expanded(
+                            flex: (agentPercent * 100).round(),
+                            child: Container(color: const Color(0xffFF6D00)),
+                          ),
+                        if (totalUsersCount == 0)
+                          Expanded(child: Container(color: Colors.grey.shade200)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildLegendItem(label: "Distributors ($totalDists)", percent: distPercent, color: const Color(0xff8B5CF6)),
+                    _buildLegendItem(label: "Agents ($totalAgents)", percent: agentPercent, color: const Color(0xffFF6D00)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 25),
+
+          // MLM Graph Visualizer Section
+          const Text("MLM Network Tree Tracker", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E293B))),
+          const SizedBox(height: 10),
+          _distributors.isEmpty
+              ? const Card(child: Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No distributors available to build trees.", style: TextStyle(color: Colors.grey)))))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _distributors.length,
+                  itemBuilder: (context, index) {
+                    final d = _distributors[index];
+                    return _MlmTreeTrackerTile(distributor: d);
+                  },
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayoutManagerTab() {
+    final eligibleUsers = _wallets.where((w) => (double.tryParse(w['balance']?.toString() ?? '0') ?? 0.0) > 0).toList();
+    final allSelected = eligibleUsers.isNotEmpty && eligibleUsers.every((w) => _selectedReleaseUserIds.contains(int.tryParse(w['id']?.toString() ?? '')));
+    
+    return Column(
+      children: [
+        // Bulk Actions Bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Checkbox(
+                value: allSelected,
+                activeColor: _AdminTheme.primary,
+                onChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      for (var w in eligibleUsers) {
+                        final id = int.tryParse(w['id']?.toString() ?? '');
+                        if (id != null) _selectedReleaseUserIds.add(id);
+                      }
+                    } else {
+                      _selectedReleaseUserIds.clear();
+                    }
+                  });
+                },
+              ),
+              const Text("Select All Payouts", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                icon: const Icon(Icons.payments, color: Colors.white),
+                label: Text("Release Selected (${_selectedReleaseUserIds.length})", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: _selectedReleaseUserIds.isEmpty || _isReleasing
+                    ? null
+                    : () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text("Confirm Release"),
+                            content: Text("Are you sure you want to release payouts for ${_selectedReleaseUserIds.length} users? This will transfer their balances and reset their wallets to ₹0."),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _releaseCommissions(_selectedReleaseUserIds.toList());
+                                },
+                                child: const Text("Confirm"),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+              ),
+            ],
+          ),
+        ),
+        
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _fetchWallets,
+            child: _wallets.isEmpty
+                ? const Center(child: Text("No MLM wallets found.", style: TextStyle(color: Colors.grey)))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _wallets.length,
+                    itemBuilder: (context, idx) {
+                      final w = _wallets[idx];
+                      final uid = int.tryParse(w['id']?.toString() ?? '') ?? 0;
+                      final bal = double.tryParse(w['balance']?.toString() ?? '0') ?? 0.0;
+                      final earned = double.tryParse(w['total_earned']?.toString() ?? '0') ?? 0.0;
+                      final isSelected = _selectedReleaseUserIds.contains(uid);
+                      
+                      final hasBank = w['bank_name'] != null && w['bank_name'].toString().trim().isNotEmpty;
+                      
+                      // Find order-wise commissions for this user
+                      final userTxs = _txs.where((tx) => int.tryParse(tx['recipient_id']?.toString() ?? '') == uid).toList();
+                      
+                      return Card(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 1,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ExpansionTile(
+                          leading: Checkbox(
+                            value: isSelected,
+                            activeColor: _AdminTheme.primary,
+                            onChanged: bal <= 0
+                                ? null
+                                : (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        _selectedReleaseUserIds.add(uid);
+                                      } else {
+                                        _selectedReleaseUserIds.remove(uid);
+                                      }
+                                    });
+                                  },
+                          ),
+                          title: Row(
+                            children: [
+                              Text(w['name'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (w['role'] == 'Distributor' ? Colors.blue : Colors.orange).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  w['role'] ?? "",
+                                  style: TextStyle(
+                                    color: w['role'] == 'Distributor' ? Colors.blue : Colors.orange,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text("Email: ${w['email']} • Phone: ${w['phone']}", style: const TextStyle(fontSize: 12)),
+                              if (w['parent_distributor_name'] != null)
+                                Text("Distributor: ${w['parent_distributor_name']}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Text("Wallet: ₹${bal.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13)),
+                                  const SizedBox(width: 12),
+                                  Text("Total Earned: ₹${earned.toStringAsFixed(2)}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                ],
+                              ),
+                            ],
+                          ),
+                          trailing: bal <= 0
+                              ? const Icon(Icons.keyboard_arrow_down)
+                              : ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
+                                  onPressed: _isReleasing
+                                      ? null
+                                      : () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text("Confirm Release"),
+                                              content: Text("Release payout of ₹${bal.toStringAsFixed(2)} for ${w['name']}?"),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                                  onPressed: () {
+                                                    Navigator.pop(ctx);
+                                                    _releaseCommissions([uid]);
+                                                  },
+                                                  child: const Text("Confirm"),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                  child: const Text("Release", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                ),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Divider(),
+                                  const Text("Bank Payout Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                  const SizedBox(height: 8),
+                                  if (hasBank) ...[
+                                    Text("Account Holder: ${w['account_holder_name']}", style: const TextStyle(fontSize: 13)),
+                                    Text("Bank Name: ${w['bank_name']}", style: const TextStyle(fontSize: 13)),
+                                    Text("Account Number: ${w['account_number']}", style: const TextStyle(fontSize: 13)),
+                                    Text("IFSC Code: ${w['ifsc_code']}", style: const TextStyle(fontSize: 13)),
+                                  ] else
+                                    const Text("Bank Details: Not Added", style: TextStyle(fontSize: 13, color: Colors.red, fontWeight: FontWeight.bold)),
+                                  
+                                  const SizedBox(height: 16),
+                                  const Text("Commission Orders History", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                                  const SizedBox(height: 8),
+                                  if (userTxs.isEmpty)
+                                    const Text("No commission payouts recorded from orders yet.", style: TextStyle(fontSize: 12, color: Colors.grey))
+                                  else
+                                    Column(
+                                      children: userTxs.map((tx) => Card(
+                                        color: const Color(0xffF8FAFC),
+                                        margin: const EdgeInsets.only(bottom: 6),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(10),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text("Order #${tx['order_id']} • Tier ${tx['tier_level']}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                                  Text("Agent: ${tx['trigger_name']}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                                ],
+                                              ),
+                                              Text("₹${tx['amount']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                                            ],
+                                          ),
+                                        ),
+                                      )).toList(),
+                                    ),
+                                ],
+                              ),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+    bool isWide = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 4))],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 4),
+                Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1E293B))),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem({required String label, required double percent, required Color color}) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 8),
+        Text(
+          "$label (${(percent * 100).toStringAsFixed(1)}%)",
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+//  MLM HIERARCHICAL TREE VISUAL TRACKER
+// ============================================================
+class _MlmTreeTrackerTile extends StatefulWidget {
+  final dynamic distributor;
+  const _MlmTreeTrackerTile({required this.distributor});
+
+  @override
+  State<_MlmTreeTrackerTile> createState() => _MlmTreeTrackerTileState();
+}
+
+class _MlmTreeTrackerTileState extends State<_MlmTreeTrackerTile> {
+  bool _isExpanded = false;
+  bool _isLoading = false;
+  List<dynamic> _agents = [];
+  double _distributorSales = 0.0;
+  int _distributorKits = 0;
+
+  Future<void> _fetchTree() async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. Fetch agents chain
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/distributor/get_agents.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"distributor_id": widget.distributor['id']}),
+      );
+      
+      // 2. Fetch distributor sales to show stats
+      final salesRes = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/distributor/get_agent_sales.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"distributor_id": widget.distributor['id']}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            _agents = data['agents'] ?? [];
+          });
+        }
+      }
+
+      if (salesRes.statusCode == 200) {
+        final salesData = jsonDecode(salesRes.body);
+        if (salesData['status'] == 'success') {
+          setState(() {
+            _distributorSales = (salesData['total_sales'] ?? 0.0).toDouble();
+            _distributorKits = salesData['total_kits'] ?? 0;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching MLM tree: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dist = widget.distributor;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0.5,
+      child: Column(
+        children: [
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: const Color(0xff8B5CF6).withOpacity(0.1),
+              child: const Icon(Icons.business, color: Color(0xff8B5CF6)),
+            ),
+            title: Text(dist['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text("Distributor • ID: #${dist['id']}\nPhone: ${dist['phone']}"),
+            isThreeLine: true,
+            trailing: IconButton(
+              icon: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
+              onPressed: () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                  if (_isExpanded && _agents.isEmpty) {
+                    _fetchTree();
+                  }
+                });
+              },
+            ),
+          ),
+          if (_isExpanded) ...[
+            const Divider(height: 1),
+            if (_isLoading)
+              const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(color: Color(0xff8B5CF6))))
+            else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Total Chain Sales: ₹${_distributorSales.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.green)),
+                    Text("Total Kits: $_distributorKits Kits", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.orange)),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Container(
+                color: const Color(0xffF8FAFC),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Root Distributor Node
+                    _buildTreeNode(
+                      name: dist['name'],
+                      role: "Level 1 Distributor",
+                      phone: dist['phone'],
+                      color: const Color(0xff8B5CF6),
+                      isRoot: true,
+                    ),
+                    
+                    if (_agents.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text("No agents recruited under this line.", style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      )
+                    else
+                      for (int idx = 0; idx < _agents.length; idx++) ...[
+                        const Icon(Icons.arrow_downward, color: Colors.grey, size: 20),
+                        _buildTreeNode(
+                          name: _agents[idx]['name'],
+                          role: "Level ${_agents[idx]['level']} Agent",
+                          phone: _agents[idx]['phone'],
+                          color: const Color(0xffFF6D00),
+                          isRoot: false,
+                        ),
+                      ],
+                  ],
+                ),
+              ),
+            ]
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTreeNode({
+    required String name,
+    required String role,
+    required String phone,
+    required Color color,
+    required bool isRoot,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 4)],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withOpacity(0.1),
+            radius: 18,
+            child: Icon(isRoot ? Icons.business : Icons.person_pin_rounded, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                Text(role, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11)),
+              ],
+            ),
+          ),
+          Text(phone, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
         ],
       ),
     );
