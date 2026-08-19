@@ -65,18 +65,40 @@ class MathTestHistoryStore {
   static const _key = 'math_test_history';
 
   static Future<List<MathTestAttempt>> getAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_key) ?? [];
-    final list = raw.map((s) => MathTestAttempt.fromJson(jsonDecode(s))).toList();
-    list.sort((a, b) => b.date.compareTo(a.date));
-    return list;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_key) ?? [];
+
+      final list = <MathTestAttempt>[];
+      for (final s in raw) {
+        try {
+          list.add(MathTestAttempt.fromJson(jsonDecode(s)));
+        } catch (e) {
+          // Ek corrupt/old-format entry poori history crash na kare —
+          // usko skip karo aur baaki sab load hone do.
+          debugPrint("Skipping corrupt history entry: $e");
+        }
+      }
+      list.sort((a, b) => b.date.compareTo(a.date));
+      return list;
+    } catch (e) {
+      debugPrint("MathTestHistoryStore.getAll failed: $e");
+      return [];
+    }
   }
 
-  static Future<void> add(MathTestAttempt attempt) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_key) ?? [];
-    raw.add(jsonEncode(attempt.toJson()));
-    await prefs.setStringList(_key, raw);
+  static Future<bool> add(MathTestAttempt attempt) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_key) ?? [];
+      raw.add(jsonEncode(attempt.toJson()));
+      final ok = await prefs.setStringList(_key, raw);
+      debugPrint("History save ${ok ? 'succeeded' : 'FAILED'} — total entries now: ${raw.length}");
+      return ok;
+    } catch (e) {
+      debugPrint("MathTestHistoryStore.add failed: $e");
+      return false;
+    }
   }
 }
 
@@ -601,33 +623,33 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (_isLoading)
-                  const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
-                else if (_attempts.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                    child: Center(
-                      child: Text(
-                        "No practice tests completed yet",
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                      ),
-                    ),
-                  )
-                else
-                  ..._attempts.map((attempt) {
-                    final int lvl = attempt['level'] as int? ?? 1;
-                    final int sc = attempt['score'] as int? ?? 0;
-                    final String grade = sc >= 45 ? "A+" : (sc >= 40 ? "A" : "B");
-                    final String dt = attempt['created_at'] != null ? attempt['created_at'].toString().split(' ')[0] : "Recently";
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _resultCard("Level $lvl", "$sc/50", dt, grade),
-                    );
-                  }).toList(),
+                // if (_isLoading)
+                //   const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
+                // else if (_attempts.isEmpty)
+                //   Container(
+                //     width: double.infinity,
+                //     padding: const EdgeInsets.all(16),
+                //     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                //     child: Center(
+                //       child: Text(
+                //         "No practice tests completed yet",
+                //         style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                //       ),
+                //     ),
+                //   )
+                // else
+                //   ..._attempts.map((attempt) {
+                //     final int lvl = attempt['level'] as int? ?? 1;
+                //     final int sc = attempt['score'] as int? ?? 0;
+                //     final String grade = sc >= 45 ? "A+" : (sc >= 40 ? "A" : "B");
+                //     final String dt = attempt['created_at'] != null ? attempt['created_at'].toString().split(' ')[0] : "Recently";
+                //     return Padding(
+                //       padding: const EdgeInsets.only(bottom: 10),
+                //       child: _resultCard("Level $lvl", "$sc/50", dt, grade),
+                //     );
+                //   }).toList(),
 
-                const SizedBox(height: 24),
+                // const SizedBox(height: 24),
 
                 // QUICK START PRACTICE
                 // _sectionTitle("Quick Start Practice"),
@@ -926,14 +948,8 @@ class MathSubLevelScreen extends StatelessWidget {
   final MathCategoryInfo categoryInfo;
   const MathSubLevelScreen({super.key, required this.categoryInfo});
 
-  static const List<Color> _rowColors = [
-    Color(0xff1E9EE0), Colors.white, Color(0xffEC1E79),
-    Color(0xff1E9EE0), Colors.white, Color(0xffEC1E79),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final isTitleColored = categoryInfo.color != Colors.white;
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: SafeArea(child: Column(children: [
@@ -969,20 +985,19 @@ class MathSubLevelScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
-                  color: categoryInfo.color,
-                  border: Border.all(color: Colors.grey.shade300),
+                  gradient: const LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   categoryInfo.title,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isTitleColored ? Colors.white : Colors.black87),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
                 ),
               ),
               ...List.generate(kColRowOptions.length, (i) {
                 final opt = kColRowOptions[i];
-                final color = _rowColors[i % _rowColors.length];
-                final isColored = color != Colors.white;
                 return GestureDetector(
                   onTap: () => Navigator.push(
                     context,
@@ -992,11 +1007,16 @@ class MathSubLevelScreen extends StatelessWidget {
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(color: color, border: Border.all(color: Colors.grey.shade300)),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xff10B981).withOpacity(.25), width: 1.4),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8, offset: const Offset(0, 2))],
+                    ),
                     alignment: Alignment.center,
                     child: Text(
                       opt.label,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isColored ? Colors.white : Colors.black87),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff059669)),
                     ),
                   ),
                 );
@@ -1008,6 +1028,7 @@ class MathSubLevelScreen extends StatelessWidget {
     );
   }
 }
+
 class MathPracticeScreen extends StatefulWidget {
   final MathCategoryInfo categoryInfo;
   final ColRowOption option;
@@ -1127,7 +1148,7 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.emoji_events, color: Color(0xffEC1E79), size: 48),
+          const Icon(Icons.emoji_events, color: Color(0xff10B981), size: 48),
           const SizedBox(height: 12),
           Text("Score: $_score / $_totalQuestions", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ]),
@@ -1137,16 +1158,14 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
               Navigator.pop(ctx);
               Navigator.pop(context);
             },
-            child: const Text("Done"),
+            child: const Text("Done", style: TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  // ── Back-press: warn, then submit whatever was attempted ──
   Future<bool> _onWillPop() async {
-    // Test fully done already handled via _finishAndShowSummary flow, this only fires mid-test
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1184,14 +1203,17 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: const Color(0xffF6F0F5),
+        backgroundColor: const Color(0xffF5F5F5),
         body: SafeArea(
           child: Column(children: [
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(color: const Color(0xffEC1E79), borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1247,7 +1269,6 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
                 ),
               ),
             ),
-            // overall test progress bar (how far into the 50)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: ClipRRect(
@@ -1271,30 +1292,24 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
                   return SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Column(children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(9, (i) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("${i + 1}", style: TextStyle(color: Colors.grey.shade300, fontSize: 13)),
-                        )),
-                      ),
-                      const SizedBox(height: 20),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        decoration: BoxDecoration(color: const Color(0xffEC1E79), borderRadius: BorderRadius.circular(24)),
+                        decoration: BoxDecoration(color: const Color(0xff10B981), borderRadius: BorderRadius.circular(24)),
                         child: Text("${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       ),
+                      const SizedBox(height: 4),
                       Container(
                         width: 210,
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         decoration: BoxDecoration(
-                          color: const Color(0xffFDF3D0),
+                          color: Colors.white,
                           borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 10, offset: const Offset(0, 3))],
                         ),
                         child: Column(
                           children: q.lines.map((l) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Text(l, style: const TextStyle(fontSize: 26, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600)),
+                            child: Text(l, style: const TextStyle(fontSize: 26, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600, color: Color(0xff1E1E1E))),
                           )).toList(),
                         ),
                       ),
@@ -1311,7 +1326,7 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: _isCorrect == null ? Colors.grey.shade300 : (_isCorrect! ? Colors.green : Colors.red),
+                                color: _isCorrect == null ? const Color(0xff10B981).withOpacity(.3) : (_isCorrect! ? Colors.green : Colors.red),
                                 width: 1.5,
                               ),
                             ),
@@ -1338,9 +1353,12 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
                               const SizedBox(width: 14),
                               Container(
                                 width: 130, height: 44,
-                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade300)),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff10B981),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
                                 alignment: Alignment.center,
-                                child: const Icon(Icons.check, color: Color(0xff10B981)),
+                                child: const Icon(Icons.check, color: Colors.white),
                               ),
                             ],
                           ),
@@ -1355,7 +1373,7 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
                                 : "Wrong — Answer: ${q.answer}"),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: _isCorrect! ? Colors.green : Colors.red,
+                              color: _isCorrect! ? const Color(0xff10B981) : Colors.red,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -2934,20 +2952,20 @@ class MathCategoryInfo {
 // Order & colors match the reference grid exactly (white/pink/blue pattern)
 const List<MathCategoryInfo> kMathCategories = [
   MathCategoryInfo("ADDITION", MathCategory.addition, Colors.white),
-  MathCategoryInfo("ADDITION/\nSUBTRACTION", MathCategory.addSub, Color(0xffEC1E79)),
+  MathCategoryInfo("ADDITION/\nSUBTRACTION", MathCategory.addSub, Color(0xff10B981)),
   MathCategoryInfo("MIX", MathCategory.mix, Colors.white),
-  MathCategoryInfo("Decimal\naddition", MathCategory.decimalAdd, Color(0xffEC1E79)),
-  MathCategoryInfo("Decimal\nSUBTRACTION", MathCategory.decimalSub, Color(0xff1E9EE0)),
+  MathCategoryInfo("Decimal\naddition", MathCategory.decimalAdd, Color(0xff10B981)),
+  MathCategoryInfo("Decimal\nSUBTRACTION", MathCategory.decimalSub, Color(0xff059669)),
   MathCategoryInfo("+/- Negative\nanswers", MathCategory.negativeAnswers, Colors.white),
-  MathCategoryInfo("MULTIPLICATION", MathCategory.multiplication, Color(0xff1E9EE0)),
+  MathCategoryInfo("MULTIPLICATION", MathCategory.multiplication, Color(0xff059669)),
   MathCategoryInfo("DECIMAL\nMULTIPLICATION", MathCategory.decimalMultiplication, Colors.white),
-  MathCategoryInfo("DIVISION", MathCategory.division, Color(0xffEC1E79)),
-  MathCategoryInfo("DECIMAL\nDIVISION", MathCategory.decimalDivision, Color(0xffEC1E79)),
-  MathCategoryInfo("SQUARE\nROOT", MathCategory.squareRoot, Color(0xff1E9EE0)),
+  MathCategoryInfo("DIVISION", MathCategory.division, Color(0xff10B981)),
+  MathCategoryInfo("DECIMAL\nDIVISION", MathCategory.decimalDivision, Color(0xff10B981)),
+  MathCategoryInfo("SQUARE\nROOT", MathCategory.squareRoot, Color(0xff059669)),
   MathCategoryInfo("SQUARE", MathCategory.square, Colors.white),
   MathCategoryInfo("CUBE ROOT", MathCategory.cubeRoot, Colors.white),
-  MathCategoryInfo("CUBE", MathCategory.cube, Color(0xffEC1E79)),
-  MathCategoryInfo("MIX ALL", MathCategory.mixAll, Color(0xff1E9EE0)),
+  MathCategoryInfo("CUBE", MathCategory.cube, Color(0xff10B981)),
+  MathCategoryInfo("MIX ALL", MathCategory.mixAll, Color(0xff059669)),
 ];
 
 class ColRowOption {
@@ -3110,11 +3128,16 @@ class _MathTestHistoryScreenState extends State<MathTestHistoryScreen> {
   }
 
   Future<void> _load() async {
-    final list = await MathTestHistoryStore.getAll();
-    if (mounted) setState(() {
-      _attempts = list;
-      _loading = false;
-    });
+    try {
+      final list = await MathTestHistoryStore.getAll();
+      if (mounted) setState(() {
+        _attempts = list;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint("Failed to load history: $e");
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _reattempt(MathTestAttempt a) {
