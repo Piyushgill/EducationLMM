@@ -675,9 +675,9 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                 //   ),
                 // ),
 
-                const SizedBox(height: 24),
-
-                EDUCATION VIDEOS PREVIEW
+                // const SizedBox(height: 24),
+                //
+                // EDUCATION VIDEOS PREVIEW
                 _sectionTitle("Education Videos"),
                 const SizedBox(height: 12),
                 ...[
