@@ -675,19 +675,19 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                 //   ),
                 // ),
 
-                //const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-                // EDUCATION VIDEOS PREVIEW
-                // _sectionTitle("Education Videos"),
-                // const SizedBox(height: 12),
-                // ...[
-                //   {'title': 'Abacus Basics - Level 1', 'duration': '15 min', 'color': const Color(0xff10B981)},
-                //   {'title': 'Speed Calculation Tips',  'duration': '22 min', 'color': const Color(0xff0EA5E9)},
-                //   {'title': 'Level 3 Techniques',      'duration': '18 min', 'color': const Color(0xffA020F0)},
-                //   {'title': 'Practice Methods',        'duration': '25 min', 'color': const Color(0xffFF6B00)},
-                // ].map((v) => _videoListCard(v['title'] as String, v['duration'] as String, v['color'] as Color)).toList(),
-                //
-                // const SizedBox(height: 24),
+                EDUCATION VIDEOS PREVIEW
+                _sectionTitle("Education Videos"),
+                const SizedBox(height: 12),
+                ...[
+                  {'title': 'Abacus Basics - Level 1', 'duration': '15 min', 'color': const Color(0xff10B981)},
+                  {'title': 'Speed Calculation Tips',  'duration': '22 min', 'color': const Color(0xff0EA5E9)},
+                  {'title': 'Level 3 Techniques',      'duration': '18 min', 'color': const Color(0xffA020F0)},
+                  {'title': 'Practice Methods',        'duration': '25 min', 'color': const Color(0xffFF6B00)},
+                ].map((v) => _videoListCard(v['title'] as String, v['duration'] as String, v['color'] as Color)).toList(),
+
+                const SizedBox(height: 24),
 
                 // FAQ
                 _sectionTitle("FAQ"),
