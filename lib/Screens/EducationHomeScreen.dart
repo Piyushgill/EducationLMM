@@ -68,9 +68,10 @@ class EducationLLMHomeScreen extends StatelessWidget {
                               const SizedBox(width: 10),
 
                               Image.asset(
-                                'assets/image/kofalt-global-title-logo.png',
-                                height: 40,
-                                fit: BoxFit.contain,
+                                'assets/image/kmain.png',
+                                height: 54,
+                                width: 145,        // 👈 jitna bada chahiye utna badha do
+                                fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
                               ),
                             ],
                           ),
@@ -80,7 +81,7 @@ class EducationLLMHomeScreen extends StatelessWidget {
                     const SizedBox(height: 28),
 
                     const Text(
-                      "Transform Education",
+                      "Transforming Education",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 25,
@@ -89,7 +90,7 @@ class EducationLLMHomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      "Join India's leading education platform",
+                      "Join India's Leading Education Platform",
                       style: TextStyle(
                         color: Colors.white.withOpacity(.9),
                         fontSize: 17,
@@ -195,7 +196,7 @@ class EducationLLMHomeScreen extends StatelessWidget {
                   title: "Student",
                   subtitle: "Teach Yourself",
                   gradient: const [Color(0xff22C55E), Color(0xff00B63E)],
-                  icon: Icons.person_outline_rounded,
+                  icon: Icons.person,
                 ),
               ),
 

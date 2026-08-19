@@ -103,7 +103,7 @@ class KycVerificationScreen extends StatefulWidget {
   const KycVerificationScreen({
     super.key,
     required this.role,
-    required this.formData,
+    required this.formData, Map<String, dynamic>? inialKycData,
   });
 
   @override
@@ -112,6 +112,7 @@ class KycVerificationScreen extends StatefulWidget {
 
 class _KycVerificationScreenState extends State<KycVerificationScreen> {
   int currentStep = 0;
+  Map<String, dynamic>? _savedAgreementData;
 
   List<KycStepConfig> get _steps => kRoleKycSteps[widget.role] ?? kRoleKycSteps["Distributor"]!;
   KycStepConfig get _currentStepConfig => _steps[currentStep];
@@ -777,7 +778,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
       child: GestureDetector(
-        onTap: () {
+        onTap: () async {
           if (!_validateStep()) return;
           if (!isLast) {
             setState(() => currentStep++);
@@ -797,16 +798,23 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
               "bank_ifsc": _ifscCtrl.text.trim(),
               "bank_name": _bankNameCtrl.text.trim(),
             };
-            Navigator.push(
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => AgreementSigningScreen(
                   role: widget.role,
                   formData: widget.formData,
                   kycData: kycData,
+                  initialAgreementData: _savedAgreementData,
                 ),
               ),
             );
+
+            if (result is Map<String, dynamic>) {
+              setState(() {
+                _savedAgreementData = result;
+              });
+            }
           }
         },
         child: Container(

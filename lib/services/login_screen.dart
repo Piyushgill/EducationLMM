@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:thenew/Screens/EducationHomeScreen.dart';
+import 'package:thenew/services/joinus.dart';
 import 'package:thenew/services/session_manager.dart';
 import 'package:thenew/services/kyc_status_screen.dart';
 import 'package:thenew/dashboards/distributor_dashboard.dart';
@@ -490,7 +491,14 @@ class _LoginScreenState extends State<LoginScreen>
                     // ── SIGN UP LINK ──
                     Center(
                       child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                         onTap: () {
+                    Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                    builder: (context) => const JoinUsScreen(),
+                    ),
+                    );
+                    },
                         child: RichText(
                           text: const TextSpan(
                             text: "Don't have an account? ",
@@ -498,6 +506,7 @@ class _LoginScreenState extends State<LoginScreen>
                             children: [
                               TextSpan(
                                 text: "Join Us",
+
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Color(0xff2563EB),

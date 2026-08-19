@@ -12,11 +12,11 @@ class CentreDetailsScreen extends StatefulWidget {
 
 class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
   bool _isLoading = false;
-  List<dynamic> _schools = [];
+  List<dynamic> _centers = [];
   int _totalStudents = 0;
   int _totalBatches = 0;
 
-  Future<void> _fetchSchools() async {
+  Future<void> _fetchcenters() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
@@ -24,7 +24,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
       if (session != null) {
         final franchiseId = session['id'];
         final response = await http.post(
-          Uri.parse("https://apps.kofalt.in/api/franchise/get_schools.php"),
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_centers.php"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({"franchise_id": franchiseId}),
         );
@@ -39,7 +39,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
               batches += (s['batches'] as int? ?? 0);
             }
             setState(() {
-              _schools = list;
+              _centers = list;
               _totalStudents = students;
               _totalBatches = batches;
             });
@@ -47,7 +47,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
         }
       }
     } catch (e) {
-      debugPrint("Error fetching schools: $e");
+      debugPrint("Error fetching centers: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -55,7 +55,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
     }
   }
 
-  Future<void> _addSchool({
+  Future<void> _addcenter({
     required String name,
     required String email,
     required String phone,
@@ -77,7 +77,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
       final franchiseId = session['id'];
 
       final response = await http.post(
-        Uri.parse("https://apps.kofalt.in/api/franchise/add_school.php"),
+        Uri.parse("https://apps.kofalt.in/api/franchise/add_center.php"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "franchise_id": franchiseId,
@@ -88,7 +88,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
           "principal_name": principal,
           "board_type": board,
           "reg_number": regNum,
-          "school_city": city,
+          "center_city": city,
         }),
       );
 
@@ -96,10 +96,10 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
 
       final data = jsonDecode(response.body);
       if (data['status'] == 'success') {
-        _showSnack("School registered successfully under you!", isError: false);
-        _fetchSchools();
+        _showSnack("center registered successfully under you!", isError: false);
+        _fetchcenters();
       } else {
-        _showSnack(data['message'] ?? "Failed to add school", isError: true);
+        _showSnack(data['message'] ?? "Failed to add center", isError: true);
       }
     } catch (e) {
       Navigator.pop(context); // Close loader
@@ -117,7 +117,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
     );
   }
 
-  void _showAddSchoolDialog() {
+  void _showAddcenterDialog() {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
@@ -131,19 +131,19 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Register New School", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Register New center", style: TextStyle(fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "School Name")),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "center Name")),
               TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email Address")),
               TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Phone Number")),
               TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Login Password")),
-              TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: "Principal Name")),
-              TextField(controller: boardCtrl, decoration: const InputDecoration(labelText: "Board Type (e.g. CBSE)")),
-              TextField(controller: regCtrl, decoration: const InputDecoration(labelText: "Registration Number")),
-              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: "School City")),
+              // TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: "Principal Name")),
+              // TextField(controller: boardCtrl, decoration: const InputDecoration(labelText: "Board Type (e.g. CBSE)")),
+              // TextField(controller: regCtrl, decoration: const InputDecoration(labelText: "Registration Number")),
+              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: "center City")),
             ],
           ),
         ),
@@ -160,7 +160,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
                 return;
               }
               Navigator.pop(ctx);
-              _addSchool(
+              _addcenter(
                 name: name,
                 email: email,
                 phone: phone,
@@ -172,7 +172,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff7C3AED)),
-            child: const Text("Add School", style: TextStyle(color: Colors.white)),
+            child: const Text("Add center", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -182,7 +182,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchSchools();
+    _fetchcenters();
   }
 
   @override
@@ -202,7 +202,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
             extra: [
               Row(
                 children: [
-                  _hStatWhite("Total", "${_schools.length}"),
+                  _hStatWhite("Total", "${_centers.length}"),
                   const SizedBox(width: 16),
                   _hStatWhite("Students", "$_totalStudents"),
                   const SizedBox(width: 16),
@@ -215,13 +215,13 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xff7C3AED)))
-                : _schools.isEmpty
-                    ? const Center(child: Text("No schools registered yet under your profile.", style: TextStyle(color: Colors.grey)))
+                : _centers.isEmpty
+                    ? const Center(child: Text("No centers registered yet under your profile.", style: TextStyle(color: Colors.grey)))
                     : ListView.builder(
                         padding: const EdgeInsets.all(18),
-                        itemCount: _schools.length,
+                        itemCount: _centers.length,
                         itemBuilder: (context, index) {
-                          final centre = _schools[index];
+                          final centre = _centers[index];
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 14),
@@ -269,7 +269,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
                                             ),
                                           ),
                                           Text(
-                                            centre['school_city'] ?? "No City Specified",
+                                            centre['center_city'] ?? "No City Specified",
                                             style: TextStyle(
                                               color: Colors.grey.shade600,
                                               fontSize: 12,
@@ -330,10 +330,10 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddSchoolDialog,
+        onPressed: _showAddcenterDialog,
         backgroundColor: const Color(0xff7C3AED),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Register School", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text("Register center", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }

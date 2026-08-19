@@ -10,6 +10,7 @@ import 'package:thenew/dashboardCardDetails/Centre_Details_Screen.dart';
 import 'package:thenew/dashboardCardDetails/Fee_Collection_Screen.dart';
 import 'package:thenew/dashboardCardDetails/FranchiseKitOrderScreen.dart';
 import 'package:thenew/dashboardCardDetails/Student_Enrollment_Screen.dart';
+import 'package:thenew/widgets/notification_bell.dart';
 
 // ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
 const String _kMyRole = "Franchise Partner";
@@ -44,7 +45,7 @@ class _FranchiseDashboardState extends State<FranchiseDashboard> {
 
   late final List<Widget> _pages = [
     _FranchiseHomeTab(scaffoldKey: _scaffoldKey),
-    _FranchiseSchoolsTab(),
+    _FranchisecentersTab(),
     _FranchiseOrdersTab(),
     _FranchiseProfileTab(),
   ];
@@ -71,7 +72,7 @@ class _FranchiseDashboardState extends State<FranchiseDashboard> {
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined),        activeIcon: Icon(Icons.home),        label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.school_outlined),       activeIcon: Icon(Icons.school),      label: "Schools"),
+          BottomNavigationBarItem(icon: Icon(Icons.school_rounded),       activeIcon: Icon(Icons.school_rounded),      label: "centers"),
           BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_outlined), activeIcon: Icon(Icons.shopping_bag),label: "Orders"),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline),        activeIcon: Icon(Icons.person),      label: "Profile"),
         ],
@@ -115,7 +116,7 @@ class _FranchiseDrawerState extends State<_FranchiseDrawer> {
       final userId = session['id'];
       try {
         final res = await http.post(
-          Uri.parse("https://apps.kofalt.in/api/franchise/get_schools.php"),
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_centers.php"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({"franchise_id": userId}),
         );
@@ -128,7 +129,7 @@ class _FranchiseDrawerState extends State<_FranchiseDrawer> {
           }
         }
       } catch (e) {
-        debugPrint("Error fetching drawer school count: $e");
+        debugPrint("Error fetching drawer center count: $e");
       }
     }
   }
@@ -137,7 +138,7 @@ class _FranchiseDrawerState extends State<_FranchiseDrawer> {
   Widget build(BuildContext context) {
     final items = [
       {'icon': Icons.home_rounded,           'label': 'Home',          'index': 0},
-      {'icon': Icons.school_rounded,          'label': 'Schools',       'index': 1},
+      {'icon': Icons.eighteen_mp_rounded,          'label': 'centers',       'index': 1},
       {'icon': Icons.shopping_bag_rounded,    'label': 'Orders',        'index': 2},
       {'icon': Icons.person_rounded,          'label': 'Profile',       'index': 3},
     ];
@@ -392,7 +393,7 @@ class _FranchiseHomeTab extends StatefulWidget {
 class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
   bool _isLoadingStats = false;
   int _networkSize = 0;
-  int _activeSchools = 0;
+  int _activecenters = 0;
   int _totalStudents = 0;
   double _totalCommission = 0.0;
   String _userName = "Franchise Partner";
@@ -425,7 +426,7 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
           if (data['status'] == 'success') {
             setState(() {
               _networkSize = data['network_size'] ?? 0;
-              _activeSchools = data['active_schools'] ?? 0;
+              _activecenters = data['active_centers'] ?? 0;
               _totalStudents = data['total_students'] ?? 0;
               _totalCommission = (data['total_commission'] ?? 0).toDouble();
             });
@@ -561,42 +562,15 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
                       const SizedBox(width: 8),
 
                       Image.asset(
-                        'assets/image/kofalt-global-title-logo.png',
-                        height: 40,
-                        fit: BoxFit.contain,
+                        'assets/image/kmain.png',
+                        height: 54,
+                        width: 145,
+                        fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
                       ),
 
                       const Spacer(),
 
-                      Stack(
-                        children: [
-                          Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.18),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.notifications_none_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            top: 10,
-                            child: Container(
-                              height: 10,
-                              width: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      const NotificationBell(role: "Franchise Partner"),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -868,20 +842,20 @@ void _confirmAndLogout(BuildContext context) {
     ),
   );
 }
-class _FranchiseSchoolsTab extends StatefulWidget {
-  const _FranchiseSchoolsTab();
+class _FranchisecentersTab extends StatefulWidget {
+  const _FranchisecentersTab();
 
   @override
-  State<_FranchiseSchoolsTab> createState() => _FranchiseSchoolsTabState();
+  State<_FranchisecentersTab> createState() => _FranchisecentersTabState();
 }
 
-class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
+class _FranchisecentersTabState extends State<_FranchisecentersTab> {
   String _selectedFilter = "All";
   final List<String> _filters = ["All", "Active", "Suspended"];
   bool _isLoading = false;
-  List<dynamic> _schools = [];
+  List<dynamic> _centers = [];
 
-  Future<void> _fetchSchools() async {
+  Future<void> _fetchcenters() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
@@ -889,7 +863,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
       if (session != null) {
         final franchiseId = session['id'];
         final response = await http.post(
-          Uri.parse("https://apps.kofalt.in/api/franchise/get_schools.php"),
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_centers.php"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({"franchise_id": franchiseId}),
         );
@@ -897,13 +871,13 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
           final data = jsonDecode(response.body);
           if (data['status'] == 'success') {
             setState(() {
-              _schools = data['data'] ?? [];
+              _centers = data['data'] ?? [];
             });
           }
         }
       }
     } catch (e) {
-      debugPrint("Error fetching schools: $e");
+      debugPrint("Error fetching centers: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -911,7 +885,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
     }
   }
 
-  Future<void> _addSchool({
+  Future<void> _addcenter({
     required String name,
     required String email,
     required String phone,
@@ -933,7 +907,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
       final franchiseId = session['id'];
 
       final response = await http.post(
-        Uri.parse("https://apps.kofalt.in/api/franchise/add_school.php"),
+        Uri.parse("https://apps.kofalt.in/api/franchise/add_center.php"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "franchise_id": franchiseId,
@@ -944,7 +918,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
           "principal_name": principal,
           "board_type": board,
           "reg_number": regNum,
-          "school_city": city,
+          "center_city": city,
         }),
       );
 
@@ -953,12 +927,12 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
       final data = jsonDecode(response.body);
       if (data['status'] == 'success') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("School registered successfully under you!")),
+          const SnackBar(content: Text("center registered successfully under you!")),
         );
-        _fetchSchools();
+        _fetchcenters();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? "Failed to add school"), backgroundColor: Colors.red),
+          SnackBar(content: Text(data['message'] ?? "Failed to add center"), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -969,7 +943,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
     }
   }
 
-  void _showAddSchoolSheet(BuildContext context) {
+  void _showAddcenterSheet(BuildContext context) {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
@@ -983,19 +957,19 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Register New School", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Register New center", style: TextStyle(fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "School Name")),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "center Name")),
               TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email Address")),
               TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Phone Number")),
               TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Login Password")),
               TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: "Principal Name")),
               TextField(controller: boardCtrl, decoration: const InputDecoration(labelText: "Board Type (e.g. CBSE)")),
               TextField(controller: regCtrl, decoration: const InputDecoration(labelText: "Registration Number")),
-              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: "School City")),
+              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: "center City")),
             ],
           ),
         ),
@@ -1014,7 +988,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
                 return;
               }
               Navigator.pop(ctx);
-              _addSchool(
+              _addcenter(
                 name: name,
                 email: email,
                 phone: phone,
@@ -1026,7 +1000,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff7C3AED)),
-            child: const Text("Add School", style: TextStyle(color: Colors.white)),
+            child: const Text("Add center", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1034,25 +1008,25 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
   }
 
   List<dynamic> get _filtered {
-    if (_selectedFilter == "All") return _schools;
-    return _schools.where((s) => s['status'] == _selectedFilter).toList();
+    if (_selectedFilter == "All") return _centers;
+    return _centers.where((s) => s['status'] == _selectedFilter).toList();
   }
 
   @override
   void initState() {
     super.initState();
-    _fetchSchools();
+    _fetchcenters();
   }
 
   @override
   Widget build(BuildContext context) {
     int totalStudents = 0;
     int totalBatches = 0;
-    for (final s in _schools) {
+    for (final s in _centers) {
       totalStudents += (s['students'] as int? ?? 0);
       totalBatches += (s['batches'] as int? ?? 0);
     }
-    int activeCount = _schools.where((s) => s['status'] == 'Active').length;
+    int activeCount = _centers.where((s) => s['status'] == 'Active').length;
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -1076,7 +1050,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Schools", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                  const Text("centers", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text("Manage your franchise centres", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 14)),
                   const SizedBox(height: 18),
@@ -1105,7 +1079,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
                 child: TextField(
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: "Search schools...",
+                    hintText: "Search centers...",
                     hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                     prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
                     contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -1154,9 +1128,9 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade300),
+                    Icon(Icons.school_rounded, size: 64, color: Colors.grey.shade300),
                     const SizedBox(height: 12),
-                    Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                    Text("No centers found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
                   ],
                 ),
               )
@@ -1165,7 +1139,7 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
                 itemCount: _filtered.length,
                 itemBuilder: (context, index) {
                   final s = _filtered[index];
-                  return _SchoolCard(school: s, onRefresh: _fetchSchools);
+                  return _centerCard(center: s, onRefresh: _fetchcenters);
                 },
               ),
             ),
@@ -1173,10 +1147,10 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddSchoolSheet(context),
+        onPressed: () => _showAddcenterSheet(context),
         backgroundColor: const Color(0xff7C3AED),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Add School", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        label: const Text("Add center", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -1198,21 +1172,21 @@ class _FranchiseSchoolsTabState extends State<_FranchiseSchoolsTab> {
   );
 }
 
-class _SchoolCard extends StatelessWidget {
-  final Map<String, dynamic> school;
+class _centerCard extends StatelessWidget {
+  final Map<String, dynamic> center;
   final VoidCallback onRefresh;
-  const _SchoolCard({required this.school, required this.onRefresh});
+  const _centerCard({required this.center, required this.onRefresh});
 
   Color get _statusColor {
-    return school['status'] == 'Active' ? const Color(0xff16C74A) : Colors.red;
+    return center['status'] == 'Active' ? const Color(0xff16C74A) : Colors.red;
   }
 
   @override
   Widget build(BuildContext context) {
-    final initials = school['name'] != null && school['name'].toString().isNotEmpty ? school['name'][0].toUpperCase() : "?";
+    final initials = center['name'] != null && center['name'].toString().isNotEmpty ? center['name'][0].toUpperCase() : "?";
 
     return GestureDetector(
-      onTap: () => _showSchoolDetail(context),
+      onTap: () => _showcenterDetail(context),
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(16),
@@ -1239,13 +1213,13 @@ class _SchoolCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(school['name'] as String? ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
+                      Text(center['name'] as String? ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xff1E1E1E))),
                       const SizedBox(height: 3),
                       Row(
                         children: [
                           Icon(Icons.location_on_outlined, size: 13, color: Colors.grey.shade500),
                           const SizedBox(width: 3),
-                          Text(school['school_city'] as String? ?? "No City Specified", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                          Text(center['center_city'] as String? ?? "No City Specified", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                         ],
                       ),
                     ],
@@ -1258,7 +1232,7 @@ class _SchoolCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    school['status'] as String? ?? "Active",
+                    center['status'] as String? ?? "Active",
                     style: TextStyle(color: _statusColor, fontWeight: FontWeight.w700, fontSize: 11),
                   ),
                 ),
@@ -1269,11 +1243,11 @@ class _SchoolCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _statChip(Icons.people_alt_outlined, "${school['students']} Students", const Color(0xff7C3AED)),
+                _statChip(Icons.people_alt_outlined, "${center['students']} Students", const Color(0xff7C3AED)),
                 const SizedBox(width: 12),
-                _statChip(Icons.layers_outlined, "${school['batches']} Batches", const Color(0xff2563EB)),
+                _statChip(Icons.layers_outlined, "${center['batches']} Batches", const Color(0xff2563EB)),
                 const Spacer(),
-                _statChip(Icons.currency_rupee, "₹${(school['students'] ?? 0) * 150}", const Color(0xff16C74A)),
+                _statChip(Icons.currency_rupee, "₹${(center['students'] ?? 0) * 150}", const Color(0xff16C74A)),
               ],
             ),
             const SizedBox(height: 10),
@@ -1281,11 +1255,11 @@ class _SchoolCard extends StatelessWidget {
               children: [
                 Icon(Icons.person_outline, size: 13, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
-                Text(school['principal_name'] as String? ?? "No Principal Specified", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(center['principal_name'] as String? ?? "No Principal Specified", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 const Spacer(),
                 Icon(Icons.badge_outlined, size: 12, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
-                Text("Reg: ${school['reg_number'] ?? 'N/A'}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                Text("Reg: ${center['reg_number'] ?? 'N/A'}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
               ],
             ),
           ],
@@ -1302,19 +1276,19 @@ class _SchoolCard extends StatelessWidget {
     ],
   );
 
-  void _showSchoolDetail(BuildContext context) {
+  void _showcenterDetail(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SchoolDetailSheet(school: school),
+      builder: (_) => _centerDetailSheet(center: center),
     );
   }
 }
 
-class _SchoolDetailSheet extends StatelessWidget {
-  final Map<String, dynamic> school;
-  const _SchoolDetailSheet({required this.school});
+class _centerDetailSheet extends StatelessWidget {
+  final Map<String, dynamic> center;
+  const _centerDetailSheet({required this.center});
 
   @override
   Widget build(BuildContext context) {
@@ -1345,7 +1319,7 @@ class _SchoolDetailSheet extends StatelessWidget {
                   radius: 30,
                   backgroundColor: const Color(0xff7C3AED).withOpacity(.12),
                   child: Text(
-                    school['name'] != null && school['name'].toString().isNotEmpty ? school['name'][0].toUpperCase() : "?",
+                    center['name'] != null && center['name'].toString().isNotEmpty ? center['name'][0].toUpperCase() : "?",
                     style: const TextStyle(color: Color(0xff7C3AED), fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1354,8 +1328,8 @@ class _SchoolDetailSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(school['name'] ?? "", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
-                      Text("Registered School Details", style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                      Text(center['name'] ?? "", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+                      Text("Registered center Details", style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -1364,15 +1338,15 @@ class _SchoolDetailSheet extends StatelessWidget {
             const Divider(height: 40),
             const Text("Contact Information", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
             const SizedBox(height: 12),
-            _infoDetailRow("Email", school['email'] ?? "N/A", Icons.email_outlined),
-            _infoDetailRow("Phone", school['phone'] ?? "N/A", Icons.phone_outlined),
+            _infoDetailRow("Email", center['email'] ?? "N/A", Icons.email_outlined),
+            _infoDetailRow("Phone", center['phone'] ?? "N/A", Icons.phone_outlined),
             const Divider(height: 32),
             const Text("Registration & Board details", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
             const SizedBox(height: 12),
-            _infoDetailRow("Principal Name", school['principal_name'] ?? "N/A", Icons.person_outline),
-            _infoDetailRow("Board Type", school['board_type'] ?? "N/A", Icons.domain_outlined),
-            _infoDetailRow("Registration No.", school['reg_number'] ?? "N/A", Icons.badge_outlined),
-            _infoDetailRow("City Location", school['school_city'] ?? "N/A", Icons.location_on_outlined),
+            _infoDetailRow("Principal Name", center['principal_name'] ?? "N/A", Icons.person_outline),
+            _infoDetailRow("Board Type", center['board_type'] ?? "N/A", Icons.domain_outlined),
+            _infoDetailRow("Registration No.", center['reg_number'] ?? "N/A", Icons.badge_outlined),
+            _infoDetailRow("City Location", center['center_city'] ?? "N/A", Icons.location_on_outlined),
             const SizedBox(height: 24),
           ],
         ),
@@ -1811,22 +1785,18 @@ class _FranchiseProfileTab extends StatefulWidget {
 }
 
 class _FranchiseProfileTabState extends State<_FranchiseProfileTab> {
+  bool _isLoading = true;
+
+  String _id = "";
   String _name = "Franchise Partner";
   String _email = "";
   String _phone = "";
+  String _role = "Franchise Partner";
   String _kycStatus = "Pending";
 
-  Future<void> _loadProfile() async {
-    final session = await SessionManager.getSession();
-    if (session != null) {
-      setState(() {
-        _name = session['name'] ?? "Franchise Partner";
-        _email = session['email'] ?? "";
-        _phone = session['phone'] ?? "";
-        _kycStatus = session['kyc_status'] ?? "Pending";
-      });
-    }
-  }
+  int _centres = 0;
+  int _students = 0;
+  int _batches = 0;
 
   @override
   void initState() {
@@ -1834,124 +1804,934 @@ class _FranchiseProfileTabState extends State<_FranchiseProfileTab> {
     _loadProfile();
   }
 
+  Future<void> _loadProfile() async {
+    if (!mounted) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final session = await SessionManager.getSession();
+
+      if (session != null) {
+        setState(() {
+          _id = session['id']?.toString() ?? "";
+          _name = session['name']?.toString().trim().isNotEmpty == true
+              ? session['name'].toString()
+              : "Franchise Partner";
+
+          _email = session['email']?.toString() ?? "";
+          _phone = session['phone']?.toString() ?? "";
+          _role = session['role']?.toString() ?? "Franchise Partner";
+          _kycStatus = session['kyc_status']?.toString() ?? "Pending";
+        });
+
+        await _loadFranchiseStats(session['id']);
+      }
+    } catch (e) {
+      debugPrint("Profile loading error: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadFranchiseStats(dynamic userId) async {
+    if (userId == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse(
+          "https://apps.kofalt.in/api/get_user_network.php",
+        ),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "user_id": userId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['status'] == 'success' && mounted) {
+          setState(() {
+            _centres = int.tryParse(
+              data['network_size']?.toString() ?? "0",
+            ) ??
+                0;
+
+            _students = int.tryParse(
+              data['total_students']?.toString() ?? "0",
+            ) ??
+                0;
+
+            // If API doesn't provide batches, estimate them.
+            _batches = int.tryParse(
+              data['total_batches']?.toString() ?? "0",
+            ) ??
+                (_students ~/ 15 + 1);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Franchise stats error: $e");
+    }
+  }
+
+  Color get _kycColor {
+    switch (_kycStatus.toLowerCase()) {
+      case "approved":
+        return const Color(0xff16A34A);
+
+      case "rejected":
+        return const Color(0xffDC2626);
+
+      case "pending":
+      default:
+        return const Color(0xffD97706);
+    }
+  }
+
+  IconData get _kycIcon {
+    switch (_kycStatus.toLowerCase()) {
+      case "approved":
+        return Icons.verified_rounded;
+
+      case "rejected":
+        return Icons.cancel_rounded;
+
+      case "pending":
+      default:
+        return Icons.pending_rounded;
+    }
+  }
+
+  String get _initial {
+    if (_name.trim().isEmpty) return "F";
+
+    return _name
+        .trim()
+        .substring(0, 1)
+        .toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    Color statusColor = Colors.orange;
-    if (_kycStatus == 'Approved') statusColor = Colors.green;
-    if (_kycStatus == 'Rejected') statusColor = Colors.red;
-
     return Scaffold(
-      backgroundColor: const Color(0xffF5F5F5),
+      backgroundColor: const Color(0xffF5F5F7),
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 28),
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-                gradient: LinearGradient(colors: [Color(0xff7C3AED), Color(0xffDB2777)]),
+        child: _isLoading
+            ? const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xff7C3AED),
+          ),
+        )
+            : RefreshIndicator(
+          color: const Color(0xff7C3AED),
+          onRefresh: _loadProfile,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: _buildProfileHeader(),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Profile", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Colors.white.withOpacity(.2),
-                        child: Text(
-                          _name.isNotEmpty ? _name[0].toUpperCase() : "?",
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  18,
+                  18,
+                  18,
+                  30,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildSectionTitle(
+                      "Personal Information",
+                      Icons.person_outline_rounded,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildInfoCard(
+                      children: [
+                        _profileInfoRow(
+                          icon: Icons.person_outline_rounded,
+                          label: "Full Name",
+                          value: _name,
+                        ),
+
+                        _profileDivider(),
+
+                        _profileInfoRow(
+                          icon: Icons.email_outlined,
+                          label: "Email Address",
+                          value: _email.isNotEmpty
+                              ? _email
+                              : "Not available",
+                        ),
+
+                        _profileDivider(),
+
+                        _profileInfoRow(
+                          icon: Icons.phone_outlined,
+                          label: "Phone Number",
+                          value: _phone.isNotEmpty
+                              ? _phone
+                              : "Not available",
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle(
+                      "Account Information",
+                      Icons.manage_accounts_outlined,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildInfoCard(
+                      children: [
+                        _profileInfoRow(
+                          icon: Icons.badge_outlined,
+                          label: "Franchise ID",
+                          value: _id.isNotEmpty
+                              ? "#$_id"
+                              : "Not available",
+                        ),
+
+                        _profileDivider(),
+
+                        _profileInfoRow(
+                          icon: Icons.admin_panel_settings_outlined,
+                          label: "Account Role",
+                          value: _role,
+                        ),
+
+                        _profileDivider(),
+
+                        _buildKycRow(),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle(
+                      "Franchise Overview",
+                      Icons.business_outlined,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildOverviewCard(),
+
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle(
+                      "Account Actions",
+                      Icons.settings_outlined,
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildActionCard(),
+
+                    const SizedBox(height: 20),
+
+                    Center(
+                      child: Text(
+                        "Kofalt Global • Franchise Partner",
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 2),
-                            Text(_email, style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // PROFILE HEADER
+  // ============================================================
+
+  Widget _buildProfileHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        22,
+        24,
+        22,
+        28,
+      ),
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+        gradient: LinearGradient(
+          colors: [
+            Color(0xff7C3AED),
+            Color(0xffDB2777),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Row(
+          //   children: [
+          //     // const Text(
+          //     //   "My Profile",
+          //     //   style: TextStyle(
+          //     //     color: Colors.white,
+          //     //     fontSize: 26,
+          //     //     fontWeight: FontWeight.bold,
+          //     //   ),
+          //     // ),
+          //     //
+          //     // const Spacer(),
+          //
+          //     GestureDetector(
+          //       onTap: _loadProfile,
+          //       child: Container(
+          //         height: 42,
+          //         width: 42,
+          //         decoration: BoxDecoration(
+          //           color: Colors.white.withOpacity(.16),
+          //           borderRadius: BorderRadius.circular(13),
+          //         ),
+          //         child: const Icon(
+          //           Icons.refresh_rounded,
+          //           color: Colors.white,
+          //           size: 22,
+          //         ),
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          //
+          // const SizedBox(height: 25),
+
+          Row(
+            children: [
+              Container(
+                height: 78,
+                width: 78,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(.35),
+                    width: 2,
                   ),
-                ],
+                ),
+                child: Center(
+                  child: Text(
+                    _initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
+
+              const SizedBox(width: 16),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Text(
+                      _email.isNotEmpty
+                          ? _email
+                          : "No email available",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(.82),
+                        fontSize: 12,
+                      ),
+                    ),
+
+                    const SizedBox(height: 9),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.16),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _profileRow("Phone Number", _phone, Icons.phone_outlined),
-                          const Divider(height: 24),
-                          _profileRow("Account Role", "Franchise Partner", Icons.badge_outlined),
-                          const Divider(height: 24),
-                          Row(
-                            children: [
-                              const Icon(Icons.verified_user_outlined, color: Colors.grey, size: 20),
-                              const SizedBox(width: 12),
-                              const Text("KYC Status", style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(color: statusColor.withOpacity(.1), borderRadius: BorderRadius.circular(10)),
-                                child: Text(_kycStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                            ],
+                          const Icon(
+                            Icons.storefront_outlined,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            _role,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 22),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(.12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _kycIcon,
+                  color: Colors.white,
+                  size: 19,
+                ),
+
+                const SizedBox(width: 9),
+
+                const Text(
+                  "KYC Verification",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
                   ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => _confirmAndLogout(context),
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    label: const Text("Logout from Account", style: TextStyle(fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+
+                const Spacer(),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _kycStatus,
+                    style: TextStyle(
+                      color: _kycColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget _buildSectionTitle(
+      String title,
+      IconData icon,
+      ) {
+    return Row(
+      children: [
+        Container(
+          height: 32,
+          width: 32,
+          decoration: BoxDecoration(
+            color: const Color(0xff7C3AED).withOpacity(.09),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(
+            icon,
+            color: const Color(0xff7C3AED),
+            size: 18,
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xff1E1E1E),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // GENERIC CARD
+  // ============================================================
+
+  Widget _buildInfoCard({
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+
+  // ============================================================
+  // PROFILE INFO ROW
+  // ============================================================
+
+  Widget _profileInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 14,
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xff7C3AED).withOpacity(.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xff7C3AED),
+              size: 20,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  value.isNotEmpty ? value : "Not available",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xff1E1E1E),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileDivider() {
+    return Divider(
+      height: 1,
+      color: Colors.grey.shade100,
+    );
+  }
+
+  // ============================================================
+  // KYC ROW
+  // ============================================================
+
+  Widget _buildKycRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 14,
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: _kycColor.withOpacity(.09),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              _kycIcon,
+              color: _kycColor,
+              size: 20,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          const Expanded(
+            child: Text(
+              "KYC Verification",
+              style: TextStyle(
+                color: Color(0xff1E1E1E),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 11,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: _kycColor.withOpacity(.09),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _kycStatus,
+              style: TextStyle(
+                color: _kycColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // FRANCHISE OVERVIEW
+  // ============================================================
+
+  Widget _buildOverviewCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _overviewItem(
+              icon: Icons.store_mall_directory_outlined,
+              label: "Centres",
+              value: "$_centres",
+              color: const Color(0xff7C3AED),
+            ),
+          ),
+
+          _overviewDivider(),
+
+          Expanded(
+            child: _overviewItem(
+              icon: Icons.people_alt_outlined,
+              label: "Students",
+              value: "$_students",
+              color: const Color(0xffDB2777),
+            ),
+          ),
+
+          _overviewDivider(),
+
+          Expanded(
+            child: _overviewItem(
+              icon: Icons.groups_2_outlined,
+              label: "Batches",
+              value: "$_batches",
+              color: const Color(0xff2563EB),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overviewItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Container(
+          height: 42,
+          width: 42,
+          decoration: BoxDecoration(
+            color: color.withOpacity(.09),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 21,
+          ),
+        ),
+
+        const SizedBox(height: 9),
+
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xff1E1E1E),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 2),
+
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _overviewDivider() {
+    return Container(
+      height: 60,
+      width: 1,
+      color: Colors.grey.shade200,
+    );
+  }
+
+  // ============================================================
+  // ACTION CARD
+  // ============================================================
+
+  Widget _buildActionCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _actionTile(
+            icon: Icons.edit_outlined,
+            title: "Edit Profile",
+            subtitle: "Update your personal information",
+            color: const Color(0xff7C3AED),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    "Edit Profile feature coming soon.",
+                  ),
+                ),
+              );
+            },
+          ),
+
+          Divider(
+            height: 1,
+            indent: 68,
+            color: Colors.grey.shade100,
+          ),
+
+          _actionTile(
+            icon: Icons.lock_outline_rounded,
+            title: "Change Password",
+            subtitle: "Update your account password",
+            color: const Color(0xff2563EB),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    "Change Password feature coming soon.",
+                  ),
+                ),
+              );
+            },
+          ),
+
+          Divider(
+            height: 1,
+            indent: 68,
+            color: Colors.grey.shade100,
+          ),
+
+          _actionTile(
+            icon: Icons.logout_rounded,
+            title: "Logout",
+            subtitle: "Sign out from your account",
+            color: Colors.red,
+            onTap: () => _confirmAndLogout(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              height: 42,
+              width: 42,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.09),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 20,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color == Colors.red
+                          ? Colors.red.shade700
+                          : const Color(0xff1E1E1E),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: 3),
+
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 11,
                     ),
                   ),
                 ],
               ),
+            ),
+
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey.shade400,
             ),
           ],
         ),
       ),
     );
   }
-
-  Widget _profileRow(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey, size: 20),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 2),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          ],
-        ),
-      ],
-    );
-  }
 }
+
 //  FRANCHISE DASHBOARD CARD
 // ============================================================
 

@@ -6,6 +6,7 @@ import 'package:thenew/services/login_screen.dart';
 import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/ourprogramsmain.dart';
 import 'package:thenew/Screens/profilescreen.dart';
+import 'package:thenew/widgets/notification_bell.dart';
 
 // ── Agent Theme Colors ──
 class _AgentTheme {
@@ -30,7 +31,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
     const _AgentPlaceOrderTab(),
     const _AgentOrdersTab(),
     const _AgentWalletTab(),
-    const Profilescreen(),
+    const AgentProfileScreen(),
   ];
 
   @override
@@ -234,6 +235,8 @@ class _AgentHomeTabState extends State<_AgentHomeTab> {
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
+      width: 280,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(28),
@@ -243,85 +246,141 @@ class _AgentHomeTabState extends State<_AgentHomeTab> {
       child: SafeArea(
         child: Column(
           children: [
-            //================ HEADER =================//
+            // ================= HEADER =================
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    _AgentTheme.primary,
-                    _AgentTheme.primaryDark,
-                  ],
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_AgentTheme.primary, _AgentTheme.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(22),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const CircleAvatar(
-                    radius: 36,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 42,
-                      color: _AgentTheme.primary,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        height: 78,
+                        width: 78,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.18),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withOpacity(.35), width: 2),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _agentName.isNotEmpty ? _agentName[0].toUpperCase() : "A",
+                            style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _agentName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              _agentEmail.isEmpty ? "Agent Account" : _agentEmail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.white.withOpacity(.82), fontSize: 12),
+                            ),
+                            const SizedBox(height: 9),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(.16),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                "AGENT",
+                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _agentName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _agentEmail.isEmpty ? "Agent Account" : _agentEmail,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.85),
-                      fontSize: 12,
+                    child: Row(
+                      children: [
+                        Expanded(child: _drawerStatMini("Kits", "$_totalKits")),
+                        Container(height: 26, width: 1, color: Colors.white24),
+                        Expanded(child: _drawerStatMini("Sales", "₹${_totalSales.toStringAsFixed(0)}")),
+                        Container(height: 26, width: 1, color: Colors.white24),
+                        Expanded(child: _drawerStatMini("Wallet", "₹${_walletBalance.toStringAsFixed(0)}")),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            //================ ITEMS =================//
+
+            //================ MENU ITEMS =================//
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                 children: [
-                  ListTile(
-                    leading: const Icon(Icons.home_outlined, color: _AgentTheme.primary),
-                    title: const Text("Education Home Screen", style: TextStyle(fontWeight: FontWeight.w600)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 6),
+                    child: Text("MAIN MENU",
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade400, letterSpacing: 1.2)),
+                  ),
+                  _drawerAgentTile(
+                    icon: Icons.home_outlined,
+                    label: "Education Home Screen",
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()));
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.menu_book_outlined, color: _AgentTheme.primary),
-                    title: const Text("Our Programs", style: TextStyle(fontWeight: FontWeight.w600)),
+                  _drawerAgentTile(
+                    icon: Icons.menu_book_outlined,
+                    label: "Our Programs",
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => ourprogramsmainScreen()));
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.person_outline, color: _AgentTheme.primary),
-                    title: const Text("My Profile Card", style: TextStyle(fontWeight: FontWeight.w600)),
+                  _drawerAgentTile(
+                    icon: Icons.person_outline,
+                    label: "My Profile Card",
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const Profilescreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AgentProfileScreen()));
                     },
                   ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.logout_rounded, color: Colors.red),
-                    title: const Text("Logout", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Divider(),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 6),
+                    child: Text("ACCOUNT",
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade400, letterSpacing: 1.2)),
+                  ),
+                  _drawerAgentTile(
+                    icon: Icons.logout_rounded,
+                    label: "Logout",
+                    color: Colors.red,
                     onTap: () {
                       Navigator.pop(context);
                       _confirmAndLogout(context);
@@ -330,12 +389,50 @@ class _AgentHomeTabState extends State<_AgentHomeTab> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Center(
+                child: Text("Kofalt Global • Version 1.0.0",
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _drawerStatMini(String label, String value) => Column(
+    children: [
+      Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+      const SizedBox(height: 2),
+      Text(label, style: TextStyle(color: Colors.white.withOpacity(.75), fontSize: 10)),
+    ],
+  );
+
+  Widget _drawerAgentTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    final c = color ?? Colors.grey.shade700;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: c),
+            const SizedBox(width: 14),
+            Text(label, style: TextStyle(color: c, fontWeight: FontWeight.w600, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -383,40 +480,13 @@ class _AgentHomeTabState extends State<_AgentHomeTab> {
                       ),
                       const SizedBox(width: 6),
                       Image.asset(
-                        'assets/image/kofalt-global-title-logo.png',
-                        height: 38,
-                        fit: BoxFit.contain,
+                        'assets/image/kmain.png',
+                        height: 54,
+                        width: 145,        // 👈 jitna bada chahiye utna badha do
+                        fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
                       ),
                       const Spacer(),
-                      Stack(
-                        children: [
-                          Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.18),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.notifications_none_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            top: 10,
-                            child: Container(
-                              height: 10,
-                              width: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      const NotificationBell(role: "Agent"),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -1274,6 +1344,727 @@ class _AgentWalletTabState extends State<_AgentWalletTab> {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+}
+class AgentProfileScreen extends StatefulWidget {
+  const AgentProfileScreen({super.key});
+
+  @override
+  State<AgentProfileScreen> createState() => _AgentProfileScreenState();
+}
+
+class _AgentProfileScreenState extends State<AgentProfileScreen> {
+  static const Color primary = Color(0xffF97316);
+  static const Color primaryDark = Color(0xffEA580C);
+
+  String name = "Agent";
+  String email = "";
+  String phone = "";
+  String role = "Agent";
+  String kycStatus = "Pending";
+
+  double totalSales = 0;
+  int totalKits = 0;
+  double walletBalance = 0;
+
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadProfile();
+  }
+
+  Future<void> loadProfile() async {
+    try {
+      final session = await SessionManager.getSession();
+
+      if (session == null) return;
+
+      setState(() {
+        name = session['name']?.toString() ?? "Agent";
+        email = session['email']?.toString() ?? "";
+        phone = session['phone']?.toString() ?? "";
+        role = session['role']?.toString() ?? "Agent";
+        kycStatus = session['kyc_status']?.toString() ?? "Pending";
+      });
+
+      final agentId = session['id'];
+
+      // Sales
+      final salesResponse = await http.post(
+        Uri.parse(
+          "https://apps.kofalt.in/api/distributor/get_agent_sales.php",
+        ),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "agent_id": agentId,
+        }),
+      );
+
+      if (salesResponse.statusCode == 200) {
+        final data = jsonDecode(salesResponse.body);
+
+        if (data['status'] == 'success') {
+          totalSales =
+              double.tryParse(
+                data['total_sales'].toString(),
+              ) ??
+                  0;
+
+          totalKits =
+              int.tryParse(
+                data['total_kits'].toString(),
+              ) ??
+                  0;
+        }
+      }
+
+      // Wallet
+      final walletResponse = await http.post(
+        Uri.parse(
+          "https://apps.kofalt.in/api/get_wallet_details.php",
+        ),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "user_id": agentId,
+        }),
+      );
+
+      if (walletResponse.statusCode == 200) {
+        final data = jsonDecode(walletResponse.body);
+
+        if (data['status'] == 'success') {
+          walletBalance =
+              double.tryParse(
+                data['balance'].toString(),
+              ) ??
+                  0;
+        }
+      }
+    } catch (e) {
+      debugPrint("Agent profile error: $e");
+    }
+
+    if (mounted) {
+      setState(() {
+        loading = false;
+      });
+    }
+  }
+
+  Color get kycColor {
+    switch (kycStatus.toLowerCase()) {
+      case "approved":
+        return Colors.green;
+
+      case "rejected":
+        return Colors.red;
+
+      default:
+        return Colors.orange;
+    }
+  }
+
+  IconData get kycIcon {
+    switch (kycStatus.toLowerCase()) {
+      case "approved":
+        return Icons.verified_rounded;
+
+      case "rejected":
+        return Icons.cancel_rounded;
+
+      default:
+        return Icons.pending_rounded;
+    }
+  }
+
+  Future<void> logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            "Logout",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            "Are you sure you want to logout?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                "Logout",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    await SessionManager.clearSession();
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+          (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.isNotEmpty
+        ? name.trim()[0].toUpperCase()
+        : "A";
+
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F7FA),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: primary,
+          onRefresh: loadProfile,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                // HEADER
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(
+                    20,
+                    18,
+                    20,
+                    34,
+                  ),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        primary,
+                        primaryDark,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
+                        children: [
+                          _headerButton(
+                            Icons.arrow_back_ios_new_rounded,
+                                () => Navigator.pop(context),
+                          ),
+                          const Text(
+                            "Profile",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          _headerButton(
+                            Icons.settings_outlined,
+                                () {},
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // AVATAR
+                      Container(
+                        width: 92,
+                        height: 92,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 3,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            initial,
+                            style: const TextStyle(
+                              color: primary,
+                              fontSize: 38,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      Text(
+                        email.isEmpty
+                            ? "Email not available"
+                            : email,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 13,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius:
+                          BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          role,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // STATS
+                Transform.translate(
+                  offset: const Offset(0, -22),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 18,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius:
+                        BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withOpacity(.07),
+                            blurRadius: 14,
+                            offset:
+                            const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          _stat(
+                            Icons.trending_up_rounded,
+                            "Sales",
+                            "₹${totalSales.toStringAsFixed(0)}",
+                          ),
+                          _divider(),
+                          _stat(
+                            Icons.shopping_bag_outlined,
+                            "Kits",
+                            "$totalKits",
+                          ),
+                          _divider(),
+                          _stat(
+                            Icons.account_balance_wallet_outlined,
+                            "Wallet",
+                            "₹${walletBalance.toStringAsFixed(0)}",
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    18,
+                    0,
+                    18,
+                    30,
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                    children: [
+                      _title("PERSONAL INFORMATION"),
+
+                      _info(
+                        Icons.person_outline_rounded,
+                        "Full Name",
+                        name,
+                      ),
+
+                      _info(
+                        Icons.email_outlined,
+                        "Email Address",
+                        email,
+                      ),
+
+                      _info(
+                        Icons.phone_outlined,
+                        "Phone Number",
+                        phone,
+                      ),
+
+                      _info(
+                        Icons.person_pin_rounded,
+                        "Account Role",
+                        role,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _title("ACCOUNT STATUS"),
+
+                      _status(),
+
+                      const SizedBox(height: 20),
+
+                      _title("ACCOUNT"),
+
+                      _action(
+                        Icons.lock_outline_rounded,
+                        "Change Password",
+                      ),
+
+                      _action(
+                        Icons.notifications_none_rounded,
+                        "Notifications",
+                      ),
+
+                      _action(
+                        Icons.help_outline_rounded,
+                        "Help & Support",
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      _logoutButton(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _headerButton(
+      IconData icon,
+      VoidCallback onTap,
+      ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.white24,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: Colors.white,
+          size: 19,
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(
+      IconData icon,
+      String title,
+      String value,
+      ) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: primary,
+            size: 21,
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      width: 1,
+      height: 42,
+      color: Colors.grey.shade200,
+    );
+  }
+
+  Widget _title(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: 12,
+      ),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: Colors.grey.shade500,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _info(
+      IconData icon,
+      String title,
+      String value,
+      ) {
+    return Container(
+      margin: const EdgeInsets.only(
+        bottom: 10,
+      ),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.shade100,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: primary.withOpacity(.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value.isEmpty
+                      ? "Not available"
+                      : value,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _status() {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: kycColor.withOpacity(.10),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              kycIcon,
+              color: kycColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              "KYC Verification",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            kycStatus,
+            style: TextStyle(
+              color: kycColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _action(
+      IconData icon,
+      String title,
+      ) {
+    return Container(
+      margin: const EdgeInsets.only(
+        bottom: 10,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: primary.withOpacity(.10),
+            borderRadius:
+            BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            color: primary,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios_rounded,
+          size: 13,
+          color: Colors.grey.shade400,
+        ),
+        onTap: () {},
+      ),
+    );
+  }
+
+  Widget _logoutButton() {
+    return InkWell(
+      onTap: logout,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          vertical: 15,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xffFEF2F2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xffFECACA),
+          ),
+        ),
+        child: const Row(
+          mainAxisAlignment:
+          MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.logout_rounded,
+              color: Colors.red,
+              size: 20,
+            ),
+            SizedBox(width: 8),
+            Text(
+              "Logout",
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

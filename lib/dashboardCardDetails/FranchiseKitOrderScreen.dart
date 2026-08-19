@@ -318,60 +318,128 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
   // ----------------------------------------------------------
   void _changeMainQty(int delta) {
     setState(() {
-      _mainKitQty = (_mainKitQty + delta).clamp(0, 99);
+      final newQty = _mainKitQty + delta;
+
+      _mainKitQty = newQty < 0 ? 0 : newQty;
+
       _mainQtyController.text = _mainKitQty.toString();
     });
   }
 
   void _setMainQtyFromText(String value) {
-    final parsed = int.tryParse(value);
-    if (parsed == null) return;
-    setState(() {
-      _mainKitQty = parsed.clamp(0, 99);
-    });
-    if (_mainQtyController.text != _mainKitQty.toString()) {
-      _mainQtyController.text = _mainKitQty.toString();
+    if (value.trim().isEmpty) {
+      setState(() {
+        _mainKitQty = 0;
+      });
+      return;
     }
+
+    final parsed = int.tryParse(value);
+
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+
+    setState(() {
+      _mainKitQty = parsed;
+    });
   }
 
   void _changeLevelQty(int level, int delta) {
     setState(() {
-      _levelQty[level] = (_levelQty[level]! + delta).clamp(0, 99);
-      _levelQtyControllers[level]!.text = _levelQty[level].toString();
+      final current = _levelQty[level] ?? 0;
+      final newQty = current + delta;
+
+      _levelQty[level] = newQty < 0 ? 0 : newQty;
+
+      _levelQtyControllers[level]!.text =
+          _levelQty[level].toString();
     });
   }
 
   void _setLevelQtyFromText(int level, String value) {
-    final parsed = int.tryParse(value);
-    if (parsed == null) return;
-    setState(() {
-      _levelQty[level] = parsed.clamp(0, 99);
-    });
-    if (_levelQtyControllers[level]!.text != _levelQty[level].toString()) {
-      _levelQtyControllers[level]!.text = _levelQty[level].toString();
+    if (value.trim().isEmpty) {
+      setState(() {
+        _levelQty[level] = 0;
+      });
+      return;
     }
+
+    final parsed = int.tryParse(value);
+
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+
+    setState(() {
+      _levelQty[level] = parsed;
+    });
   }
 
   // ----------------------------------------------------------
   //  ORDER SUMMARY SHEET
   // ----------------------------------------------------------
   void _openOrderSummary() {
+    // First check student/member
     if (_selectedPerson == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Pehle select karein ki kis student/member ke liye order kar rahe hain")),
+        const SnackBar(
+          content: Text(
+            "Pehle select karein ki kis student/member ke liye order kar rahe hain",
+          ),
+          backgroundColor: Colors.orange,
+        ),
       );
+
       _openPersonSelector();
       return;
     }
 
-    final items = <Map<String, dynamic>>[];
-    if (_mainKitQty > 0) {
-      items.add({'name': 'New Kit (Main)', 'qty': _mainKitQty, 'price': _mainKitPrice});
+    // Check quantity
+    if (_totalItems <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please kam se kam 1 kit select karein",
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
-    for (final l in _levelQty.keys) {
-      if (_levelQty[l]! > 0) {
-        items.add({'name': 'Level $l Kit', 'qty': _levelQty[l], 'price': _levelKitPrices[l] ?? 0});
+
+    final items = <Map<String, dynamic>>[];
+
+    // Main kit
+    if (_mainKitQty > 0) {
+      items.add({
+        'name': 'New Kit (Main)',
+        'qty': _mainKitQty,
+        'price': _mainKitPrice,
+      });
+    }
+
+    // Level kits
+    for (final level in _levelQty.keys) {
+      final qty = _levelQty[level] ?? 0;
+
+      if (qty > 0) {
+        items.add({
+          'name': 'Level $level Kit',
+          'qty': qty,
+          'price': _levelKitPrices[level] ?? 0.0,
+        });
       }
+    }
+
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No kits selected"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
 
     showModalBottomSheet(
@@ -380,67 +448,132 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.6,
+          initialChildSize: 0.60,
           minChildSize: 0.35,
-          maxChildSize: 0.85,
+          maxChildSize: 0.90,
           expand: false,
           builder: (_, scrollController) {
             return Container(
-              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+              ),
               child: Column(
                 children: [
                   const SizedBox(height: 14),
-                  Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+
+                  // Handle
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+
                   const SizedBox(height: 16),
+
+                  // Header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Order Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text("$_totalItems items", style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                        const Text(
+                          "Order Summary",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          "$_totalItems items",
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
+
+                  const SizedBox(height: 10),
+
+                  // Course + Person
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                    ),
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xffFF6B00).withOpacity(.1),
-                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xffFF6B00)
+                                .withOpacity(.1),
+                            borderRadius:
+                            BorderRadius.circular(10),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(_courseIcons[_selectedCourse] ?? Icons.school_outlined, size: 14, color: const Color(0xffFF6B00)),
+                              Icon(
+                                _courseIcons[_selectedCourse] ??
+                                    Icons.school_outlined,
+                                size: 14,
+                                color: const Color(0xffFF6B00),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 _selectedCourse,
-                                style: const TextStyle(color: Color(0xffFF6B00), fontSize: 12, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  color: Color(0xffFF6B00),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
                         ),
+
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xff16C74A).withOpacity(.1),
-                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xff16C74A)
+                                .withOpacity(.1),
+                            borderRadius:
+                            BorderRadius.circular(10),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.person_outline, size: 14, color: Color(0xff16C74A)),
+                              const Icon(
+                                Icons.person_outline,
+                                size: 14,
+                                color: Color(0xff16C74A),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 "For: ${_selectedPerson!['name'] ?? ''}",
-                                style: const TextStyle(color: Color(0xff16C74A), fontSize: 12, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  color: Color(0xff16C74A),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -448,55 +581,144 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 8),
+
+                  // Items
                   Expanded(
                     child: ListView.separated(
                       controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                      ),
                       itemCount: items.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200),
+                      separatorBuilder: (_, __) =>
+                          Divider(
+                            height: 1,
+                            color: Colors.grey.shade200,
+                          ),
                       itemBuilder: (_, i) {
-                        final it = items[i];
-                        final subtotal = (it['qty'] as int) * (it['price'] as double);
+                        final item = items[i];
+
+                        final int qty =
+                        (item['qty'] as num).toInt();
+
+                        final double price =
+                        (item['price'] as num).toDouble();
+
+                        final double subtotal =
+                            qty * price;
+
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Row(children: [
-                            Container(
-                              height: 38, width: 38,
-                              decoration: BoxDecoration(color: const Color(0xffFF6B00).withOpacity(.1), borderRadius: BorderRadius.circular(12)),
-                              child: const Icon(Icons.inventory_2_outlined, color: Color(0xffFF6B00), size: 19),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(it['name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                  Text("x${it['qty']} • ${_formatAmount(it['price'])} each",
-                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                                ],
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                height: 42,
+                                width: 42,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffFF6B00)
+                                      .withOpacity(.1),
+                                  borderRadius:
+                                  BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: Color(0xffFF6B00),
+                                  size: 20,
+                                ),
                               ),
-                            ),
-                            Text(_formatAmount(subtotal), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ]),
+
+                              const SizedBox(width: 12),
+
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item['name'].toString(),
+                                      style: const TextStyle(
+                                        fontWeight:
+                                        FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      "Qty: $qty • ${_formatAmount(price)} each",
+                                      style: TextStyle(
+                                        color:
+                                        Colors.grey.shade500,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Text(
+                                _formatAmount(subtotal),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
                         );
                       },
                     ),
                   ),
+
+                  // Total
                   Container(
-                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-                    decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade200))),
+                    padding: const EdgeInsets.fromLTRB(
+                      24,
+                      14,
+                      24,
+                      8,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.grey.shade200,
+                        ),
+                      ),
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Total Amount", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text(_formatAmount(_totalAmount),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xffFF6B00))),
+                        const Text(
+                          "Total Amount",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          _formatAmount(_totalAmount),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color(0xffFF6B00),
+                          ),
+                        ),
                       ],
                     ),
                   ),
+
+                  // Confirm
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    padding: const EdgeInsets.fromLTRB(
+                      24,
+                      8,
+                      24,
+                      24,
+                    ),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -505,12 +727,27 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
                           _placeOrder();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xffFF6B00),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          backgroundColor:
+                          const Color(0xffFF6B00),
+                          padding:
+                          const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
+                          shape:
+                          RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                          ),
                           elevation: 0,
                         ),
-                        child: const Text("Confirm Order", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+                        child: const Text(
+                          "Confirm Order",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1212,9 +1449,11 @@ class _FranchiseKitOrderScreenState extends State<FranchiseKitOrderScreen> {
                 _stepBtn(Icons.remove, color, onRemove),
                 // ---- editable quantity input ----
                 SizedBox(
-                  width: 34,
-                  height: 26,
+                  width: 52,
+                  height: 32,
                   child: TextField(
+                    maxLines: 1,
+                    textInputAction: TextInputAction.done,
                     controller: controller,
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,

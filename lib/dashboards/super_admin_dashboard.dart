@@ -442,22 +442,23 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               ),
               const SizedBox(width: 12),
               Image.asset(
-                'assets/image/kofalt-global-title-logo.png',
-                height: 38,
-                fit: BoxFit.contain,
+                'assets/image/kmain.png',
+                height: 54,
+                width: 145,        // 👈 jitna bada chahiye utna badha do
+                fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
               ),
               Spacer(),
-              Stack(
-                children: [
-                  Container(
-                    height: 48,
-                    width: 48,
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)),
-                    child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
-                  ),
-                  Positioned(right: 10, top: 10, child: Container(height: 10, width: 10, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
-                ],
-              ),
+              // Stack(
+              //   children: [
+              //     Container(
+              //       height: 48,
+              //       width: 48,
+              //       decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(16)),
+              //       child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
+              //     ),
+              //     Positioned(right: 10, top: 10, child: Container(height: 10, width: 10, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
+              //   ],
+              // ),
             ],
           ),
           const SizedBox(height: 20),

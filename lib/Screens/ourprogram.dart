@@ -139,7 +139,7 @@ class _ourprogramsScreenState extends State<ourprogramsScreen> {
                 levels: "8",
                 duration: "4 Years",
                 color1: Color(0xff2563EB),
-                color2: Color(0xffE5E7EB),
+                color2: Color(0xff1D4ED8),
                 icon: Icons.calculate_rounded,
                 benefits: [
                   "Improves concentration",
@@ -156,8 +156,8 @@ class _ourprogramsScreenState extends State<ourprogramsScreen> {
                 subtitle: "Develop exceptional mental math abilities",
                 levels: "8",
                 duration: "4 Years",
-                color1: Color(0xff343EB),
-                color2: Color(0xffE5E7EB),
+                color1: Color(0xffF59E0B),
+                color2: Color(0xffD97706),
                 icon: Icons.plus_one,
                 benefits: [
                   "Improves concentration",
@@ -190,8 +190,8 @@ class _ourprogramsScreenState extends State<ourprogramsScreen> {
                 subtitle: "Build strong reading foundation",
                 levels: "5",
                 duration: "1.5 Years",
-                color1: Color(0xff16A34A),
-                color2: Color(0xff059669),
+                color1: Color(0xffDB2777),
+                color2: Color(0xff9333EA),
                 icon: Icons.mic_none_rounded,
                 benefits: [
                   "Improves reading skills",

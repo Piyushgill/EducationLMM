@@ -13,7 +13,7 @@ class StudentEnrollmentScreen extends StatefulWidget {
 class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
   bool _isLoading = false;
   List<dynamic> _students = [];
-  List<dynamic> _schools = [];
+  List<dynamic> _centers = [];
 
   @override
   void initState() {
@@ -22,17 +22,17 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
   }
 
   Future<void> _fetchInitialData() async {
-    await _fetchSchools();
+    await _fetchcenters();
     await _fetchStudents();
   }
 
-  Future<void> _fetchSchools() async {
+  Future<void> _fetchcenters() async {
     try {
       final session = await SessionManager.getSession();
       if (session != null) {
         final franchiseId = session['id'];
         final response = await http.post(
-          Uri.parse("https://apps.kofalt.in/api/franchise/get_schools.php"),
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_centers.php"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({"franchise_id": franchiseId}),
         );
@@ -41,14 +41,14 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
           if (data['status'] == 'success') {
             if (mounted) {
               setState(() {
-                _schools = data['data'] ?? [];
+                _centers = data['data'] ?? [];
               });
             }
           }
         }
       }
     } catch (e) {
-      debugPrint("Error fetching schools: $e");
+      debugPrint("Error fetching centers: $e");
     }
   }
 
@@ -85,7 +85,7 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
   }
 
   Future<void> _enrollStudent({
-    required int schoolId,
+    required int centerId,
     required String name,
     required String email,
     required String phone,
@@ -102,7 +102,7 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
         Uri.parse("https://apps.kofalt.in/api/franchise/add_student.php"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "school_id": schoolId,
+          "center_id": centerId,
           "name": name,
           "email": email,
           "phone": phone,
@@ -137,8 +137,8 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
   }
 
   void _openEnrollmentForm() {
-    if (_schools.isEmpty) {
-      _showSnack("Please register at least one School under Center Details first!", isError: true);
+    if (_centers.isEmpty) {
+      _showSnack("Please register at least one center under Center Details first!", isError: true);
       return;
     }
 
@@ -146,7 +146,7 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final passCtrl = TextEditingController();
-    int? selectedSchoolId = _schools[0]['id'];
+    int? selectedcenterId = _centers[0]['id'];
 
     showModalBottomSheet(
       context: context,
@@ -177,9 +177,9 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<int>(
-                      value: selectedSchoolId,
-                      decoration: const InputDecoration(labelText: "Assign to School Center"),
-                      items: _schools.map<DropdownMenuItem<int>>((s) {
+                      value: selectedcenterId,
+                      decoration: const InputDecoration(labelText: "Assign to center Center"),
+                      items: _centers.map<DropdownMenuItem<int>>((s) {
                         return DropdownMenuItem<int>(
                           value: s['id'] as int,
                           child: Text(s['name'] as String),
@@ -188,7 +188,7 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
                       onChanged: (val) {
                         if (val != null) {
                           setModalState(() {
-                            selectedSchoolId = val;
+                            selectedcenterId = val;
                           });
                         }
                       },
@@ -227,14 +227,14 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
                           final phone = phoneCtrl.text.trim();
                           final password = passCtrl.text.trim();
 
-                          if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || selectedSchoolId == null) {
+                          if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || selectedcenterId == null) {
                             _showSnack("Please fill out all fields", isError: true);
                             return;
                           }
 
                           Navigator.pop(context);
                           _enrollStudent(
-                            schoolId: selectedSchoolId!,
+                            centerId: selectedcenterId!,
                             name: name,
                             email: email,
                             phone: phone,
@@ -393,7 +393,7 @@ class _StudentEnrollmentScreenState extends State<StudentEnrollmentScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(student['name'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                      Text("Center: ${student['school_name'] ?? 'Direct'}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                      Text("Center: ${student['center_name'] ?? 'Direct'}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                                       Text("Phone: ${student['phone'] ?? ''}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
                                     ],
                                   ),

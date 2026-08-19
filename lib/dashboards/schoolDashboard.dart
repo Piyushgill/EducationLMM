@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:thenew/services/login_screen.dart';
 import 'package:thenew/dashboards/super_admin_dashboard.dart';
+import 'package:thenew/widgets/notification_bell.dart';
 
 // ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
 const String _kMyRole = "School";
@@ -67,27 +68,69 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
   }
 
   late final List<Widget> _pages = [
-    _SchoolHomeTab(onMenuTap: _openDrawer),
+    // 0 - Home
+    _SchoolHomeTab(
+      onMenuTap: _openDrawer,
+    ),
+
+    // 1 - Training Schedule
+    const TrainingScheduleScreen(),
+
+    // 2 - Kit Ordering
+    const SchoolKitOrderScreen(),
+
+    // 3 - Profile
     const _SchoolProfileScreen(),
   ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
+
       drawer: _buildDrawer(context),
+
       body: _pages[_currentIndex],
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+
         type: BottomNavigationBarType.fixed,
+
         selectedItemColor: const Color(0xff0EA5E9),
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.white,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+        ),
+
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined),  activeIcon: Icon(Icons.home),    label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: "Profile"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today_outlined),
+            activeIcon: Icon(Icons.calendar_today),
+            label: "Training",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.inventory_2_outlined),
+            activeIcon: Icon(Icons.inventory_2),
+            label: "Kit Ordering",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: "Profile",
+          ),
         ],
       ),
     );
@@ -98,42 +141,102 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
   // ----------------------------------------------------------
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
+      width: 280,
       backgroundColor: Colors.white,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // DRAWER HEADER
+            // HEADER
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
               decoration: const BoxDecoration(
-                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff0EA5E9), Color(0xff0284C7)]),
-              ),
-              child: Row(children: [
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      _schoolName,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(_schoolEmail.isNotEmpty ? _schoolEmail : "School Account", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 12)),
-                  ]),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.fromRGBO(51, 104, 160, 1),
+                    Color.fromRGBO(2, 132, 199, 1),
+                  ],
                 ),
-              ]),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 78,
+                        width: 78,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.18),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withOpacity(.35), width: 2),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _schoolName.isNotEmpty ? _schoolName[0].toUpperCase() : "S",
+                            style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _schoolName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              _schoolEmail.isNotEmpty ? _schoolEmail : "School Account",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.white.withOpacity(.82), fontSize: 12),
+                            ),
+                            const SizedBox(height: 9),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(.16),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                "SCHOOL",
+                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
+
+            Padding(
+              padding: const EdgeInsets.only(left: 20, bottom: 6, top: 4),
+              child: Text("MAIN MENU",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade400, letterSpacing: 1.2)),
+            ),
 
             _drawerItem(icon: Icons.home_outlined,         label: "Home",     selected: _currentIndex == 0, onTap: () => _goToTab(0)),
             _drawerItem(icon: Icons.groups_outlined,       label: "Students", onTap: () => _openScreen(const SchoolStudentDataScreen())),
             _drawerItem(icon: Icons.shopping_bag_outlined, label: "Orders",   onTap: () => _openScreen(const SchoolKitOrderScreen())),
             _drawerItem(icon: Icons.person_outline,        label: "Profile",  selected: _currentIndex == 1, onTap: () => _goToTab(1)),
 
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8), child: Divider()),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+              child: Text("ACCOUNT",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade400, letterSpacing: 1.2)),
+            ),
 
             _drawerItem(icon: Icons.notifications_none_rounded, label: "Notifications",   onTap: () => Navigator.pop(context)),
             _drawerItem(icon: Icons.help_outline_rounded,        label: "Help & Support",  onTap: () => Navigator.pop(context)),
@@ -147,7 +250,7 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
               label: "Logout",
               color: Colors.red,
               onTap: () {
-                Navigator.pop(context); // drawer close
+                Navigator.pop(context);
                 _confirmAndLogout(context);
               },
             ),
@@ -167,7 +270,7 @@ class _SchoolDashboardState extends State<SchoolDashboard> {
   }) {
     final c = color ?? (selected ? const Color(0xff0EA5E9) : Colors.grey.shade700);
     return Material(
-      color: selected ? const Color(0xff0EA5E9).withOpacity(.08) : Colors.transparent,
+      color: selected ? const Color(0xffb74093).withOpacity(.08) : Colors.transparent,
       child: ListTile(
         leading: Icon(icon, color: c, size: 22),
         title: Text(label, style: TextStyle(color: c, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, fontSize: 14)),
@@ -372,8 +475,14 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
             padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 28),
             decoration: const BoxDecoration(
               borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff0EA5E9), Color(0xff0284C7)]),
-            ),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.fromRGBO(51, 104, 160, 1),
+                  Color.fromRGBO(2, 132, 199, 1),
+                ],
+              ),            ),
             child: Column(children: [
               Row(
                 children: [
@@ -397,42 +506,15 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                   const SizedBox(width: 12),
 
                   Image.asset(
-                    'assets/image/kofalt-global-title-logo.png',
-                    height: 38,
-                    fit: BoxFit.contain,
+                    'assets/image/kmain.png',
+                    height: 54,
+                    width: 145,        // 👈 jitna bada chahiye utna badha do
+                    fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
                   ),
 
                   const Spacer(),
 
-                  Stack(
-                    children: [
-                      Container(
-                        height: 48,
-                        width: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.18),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.notifications_none_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      Positioned(
-                        right: 10,
-                        top: 10,
-                        child: Container(
-                          height: 10,
-                          width: 10,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  const NotificationBell(role: "School"),
                 ],
               ),
               SizedBox(height: 20),
@@ -443,11 +525,11 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
               Row(children: [
                 _hStat("Programs",    "3"),
                 _vDivider(),
-                _hStat("Students",   "$_totalStudents"),
+                _hStat("Kit ordering",   "$_totalStudents"),
                 _vDivider(),
                 _hStat("Pending Fee", pendingFee),
                 _vDivider(),
-                _hStat("Circulars",  "2 New"),
+                _hStat("Students",   "$_totalStudents"),
               ]),
             ]),
           ),
@@ -616,18 +698,32 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
 //  PROFILE TAB
 // ============================================================
 
+// ============================================================
+// SCHOOL PROFILE SCREEN
+// Franchise-style profile UI
+// School theme preserved
+// ============================================================
+
 class _SchoolProfileScreen extends StatefulWidget {
   const _SchoolProfileScreen();
 
   @override
-  State<_SchoolProfileScreen> createState() => _SchoolProfileScreenState();
+  State<_SchoolProfileScreen> createState() =>
+      _SchoolProfileScreenState();
 }
 
-class _SchoolProfileScreenState extends State<_SchoolProfileScreen> {
-  String _schoolName = "School Name";
+class _SchoolProfileScreenState
+    extends State<_SchoolProfileScreen> {
+
+  String _schoolName = "";
   String _schoolEmail = "";
   String _schoolPhone = "";
+  String _schoolRole = "";
+  String _kycStatus = "";
+
   int _studentsCount = 0;
+
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -635,171 +731,1118 @@ class _SchoolProfileScreenState extends State<_SchoolProfileScreen> {
     _loadProfileData();
   }
 
+  // ==========================================================
+  // LOAD PROFILE
+  // ==========================================================
+
   Future<void> _loadProfileData() async {
-    final session = await SessionManager.getSession();
-    if (session != null) {
+
+    if (mounted) {
       setState(() {
-        _schoolName = session['name'] ?? "School Name";
-        _schoolEmail = session['email'] ?? "";
-        _schoolPhone = session['phone'] ?? "";
+        _isLoading = true;
       });
+    }
+
+    try {
+
+      final session =
+      await SessionManager.getSession();
+
+      if (session == null) {
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+
+          _schoolName =
+              (session['name'] ?? "").toString();
+
+          _schoolEmail =
+              (session['email'] ?? "").toString();
+
+          _schoolPhone =
+              (session['phone'] ?? "").toString();
+
+          _schoolRole =
+              (session['role'] ?? "School").toString();
+
+          _kycStatus =
+              (session['kyc_status'] ??
+                  session['kycStatus'] ??
+                  "")
+                  .toString();
+        });
+      }
+
       final userId = session['id'];
+
+      if (userId == null) {
+        return;
+      }
+
       try {
+
         final response = await http.post(
-          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"user_id": userId}),
+          Uri.parse(
+            "https://apps.kofalt.in/api/get_user_network.php",
+          ),
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: jsonEncode({
+            "user_id": userId,
+          }),
         );
+
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+
+          final data =
+          jsonDecode(response.body);
+
           if (data['status'] == 'success') {
-            setState(() {
-              _studentsCount = data['total_students'] ?? 0;
-            });
+
+            if (mounted) {
+              setState(() {
+
+                _studentsCount =
+                    int.tryParse(
+                      data['total_students']
+                          .toString(),
+                    ) ??
+                        0;
+              });
+            }
           }
         }
+
       } catch (e) {
-        debugPrint("Error loading profile stats: $e");
+
+        debugPrint(
+          "Profile stats error: $e",
+        );
+      }
+
+    } catch (e) {
+
+      debugPrint(
+        "Profile loading error: $e",
+      );
+
+    } finally {
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
+  // ==========================================================
+  // BUILD
+  // ==========================================================
+
   @override
   Widget build(BuildContext context) {
+
+    final avatarLetter =
+    _schoolName.trim().isNotEmpty
+        ? _schoolName
+        .trim()
+        .substring(0, 1)
+        .toUpperCase()
+        : "S";
+
     return Scaffold(
-      backgroundColor: const Color(0xffF5F5F5),
+      backgroundColor:
+      const Color(0xffF5F5F5),
+
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(children: [
-            // HEADER
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff6366F1), Color(0xff4338CA)]),
-              ),
-              child: Column(children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text("Profile", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                  Container(height: 40, width: 40, decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.edit_outlined, color: Colors.white, size: 20)),
-                ]),
-                const SizedBox(height: 24),
+        child: RefreshIndicator(
+          color:
+          const Color(0xff0EA5E9),
+
+          onRefresh:
+          _loadProfileData,
+
+          child: SingleChildScrollView(
+            physics:
+            const AlwaysScrollableScrollPhysics(),
+
+            child: Column(
+              children: [
+
+                // ==================================================
+                // HERO HEADER
+                // ==================================================
+
                 Container(
-                  height: 84, width: 84,
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(.18), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(.4), width: 2)),
-                  child: Center(
-                    child: Text(
-                      _schoolName.isNotEmpty ? _schoolName[0].toUpperCase() : "S",
-                      style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold),
+                  width: double.infinity,
+
+                  padding:
+                  const EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    34,
+                  ),
+
+                  decoration:
+                  const BoxDecoration(
+                    gradient:
+                    LinearGradient(
+                      begin:
+                      Alignment.topLeft,
+                      end:
+                      Alignment.bottomRight,
+
+                      colors: [
+                        Color(0xff0EA5E9),
+                        Color(0xff0284C7),
+                      ],
+                    ),
+
+                    borderRadius:
+                    BorderRadius.only(
+                      bottomLeft:
+                      Radius.circular(30),
+                      bottomRight:
+                      Radius.circular(30),
+                    ),
+                  ),
+
+                  child: Column(
+                    children: [
+
+                      // Top row
+                      Row(
+                        mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
+
+                        children: [
+
+                          // Back / home
+                          InkWell(
+                            borderRadius:
+                            BorderRadius.circular(
+                              13,
+                            ),
+
+                            onTap: () {
+
+                              if (Navigator.canPop(
+                                context,
+                              )) {
+                                Navigator.pop(
+                                  context,
+                                );
+                              }
+                            },
+
+                            child: Container(
+                              height: 42,
+                              width: 42,
+
+                              decoration:
+                              BoxDecoration(
+                                color: Colors.white
+                                    .withOpacity(.16),
+                                borderRadius:
+                                BorderRadius.circular(
+                                  13,
+                                ),
+                              ),
+
+                              child:
+                              const Icon(
+                                Icons.arrow_back_ios_new,
+                                color:
+                                Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+
+                          const Text(
+                            "Profile",
+                            style:
+                            TextStyle(
+                              color:
+                              Colors.white,
+                              fontSize: 20,
+                              fontWeight:
+                              FontWeight.bold,
+                            ),
+                          ),
+
+                          // Edit
+                          InkWell(
+                            borderRadius:
+                            BorderRadius.circular(
+                              13,
+                            ),
+
+                            onTap: () {
+                              // Existing edit functionality
+                              // yahan connect kar sakte ho.
+                            },
+
+                            child: Container(
+                              height: 42,
+                              width: 42,
+
+                              decoration:
+                              BoxDecoration(
+                                color: Colors.white
+                                    .withOpacity(.16),
+                                borderRadius:
+                                BorderRadius.circular(
+                                  13,
+                                ),
+                              ),
+
+                              child:
+                              const Icon(
+                                Icons.edit_outlined,
+                                color:
+                                Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 25),
+
+                      // Avatar
+                      Container(
+                        height: 92,
+                        width: 92,
+
+                        decoration:
+                        BoxDecoration(
+                          color: Colors.white,
+                          shape:
+                          BoxShape.circle,
+
+                          border: Border.all(
+                            color: Colors.white
+                                .withOpacity(.65),
+                            width: 3,
+                          ),
+
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black
+                                  .withOpacity(.12),
+                              blurRadius: 15,
+                              offset:
+                              const Offset(
+                                0,
+                                7,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        child: Center(
+                          child: Text(
+                            avatarLetter,
+
+                            style:
+                            const TextStyle(
+                              color:
+                              Color(0xff0EA5E9),
+                              fontSize: 38,
+                              fontWeight:
+                              FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      Text(
+                        _schoolName.isNotEmpty
+                            ? _schoolName
+                            : "School",
+
+                        textAlign:
+                        TextAlign.center,
+
+                        maxLines: 2,
+
+                        overflow:
+                        TextOverflow.ellipsis,
+
+                        style:
+                        const TextStyle(
+                          color:
+                          Colors.white,
+                          fontSize: 19,
+                          fontWeight:
+                          FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      Text(
+                        _schoolRole.isNotEmpty
+                            ? _schoolRole
+                            : "School Admin",
+
+                        style:
+                        TextStyle(
+                          color:
+                          Colors.white
+                              .withOpacity(.85),
+                          fontSize: 13,
+                        ),
+                      ),
+
+                      if (_kycStatus.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+
+                        _profileStatusBadge(
+                          _kycStatus,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ==================================================
+                // OVERVIEW CARD
+                // ==================================================
+
+                Transform.translate(
+                  offset:
+                  const Offset(0, -22),
+
+                  child: Padding(
+                    padding:
+                    const EdgeInsets.symmetric(
+                      horizontal: 18,
+                    ),
+
+                    child: Container(
+                      width: double.infinity,
+
+                      padding:
+                      const EdgeInsets.symmetric(
+                        vertical: 18,
+                      ),
+
+                      decoration:
+                      BoxDecoration(
+                        color:
+                        Colors.white,
+
+                        borderRadius:
+                        BorderRadius.circular(
+                          20,
+                        ),
+
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withOpacity(.07),
+                            blurRadius: 14,
+                            offset:
+                            const Offset(
+                              0,
+                              5,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      child: Row(
+                        children: [
+
+                          _profileStat(
+                            icon:
+                            Icons.groups_rounded,
+                            label:
+                            "Students",
+                            value:
+                            "$_studentsCount",
+                          ),
+
+                          _profileDivider(),
+
+                          _profileStat(
+                            icon:
+                            Icons.verified_user_outlined,
+                            label:
+                            "KYC",
+                            value:
+                            _kycStatus.isNotEmpty
+                                ? _kycStatus
+                                : "Pending",
+                          ),
+
+                          _profileDivider(),
+
+                          _profileStat(
+                            icon:
+                            Icons.school_rounded,
+                            label:
+                            "Role",
+                            value:
+                            "School",
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Text(_schoolName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text("School Admin", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
-              ]),
-            ),
 
-            // FLOATING STAT CARD
-            Transform.translate(
-              offset: const Offset(0, -24),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 12, offset: const Offset(0, 4))]),
-                  child: Row(children: [
-                    _pStat("Programs", "3"),
-                    _pVDivider(),
-                    _pStat("Students", "$_studentsCount"),
-                    _pVDivider(),
-                    _pStat("Since", "2026"),
-                  ]),
-                ),
-              ),
-            ),
+                // ==================================================
+                // INFORMATION
+                // ==================================================
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _pSectionTitle("Contact Information"),
-                const SizedBox(height: 12),
-                _pInfoTile(Icons.call_outlined, "Phone", _schoolPhone.isNotEmpty ? _schoolPhone : "+91 98765 43210"),
-                const SizedBox(height: 10),
-                _pInfoTile(Icons.email_outlined, "Email", _schoolEmail.isNotEmpty ? _schoolEmail : "school@sunrise.edu"),
-                const SizedBox(height: 10),
-                _pInfoTile(Icons.location_on_outlined, "Address", "India"),
+                Padding(
+                  padding:
+                  const EdgeInsets.fromLTRB(
+                    18,
+                    0,
+                    18,
+                    30,
+                  ),
 
-                const SizedBox(height: 24),
-                _pSectionTitle("Account"),
-                const SizedBox(height: 12),
-                _pMenuTile(Icons.lock_outline_rounded, "Change Password", const Color(0xff0EA5E9)),
-                _pMenuTile(Icons.account_balance_outlined, "Bank Details", const Color(0xffA020F0)),
-                _pMenuTile(Icons.description_outlined, "Documents", const Color(0xffFF6B00)),
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment.start,
 
-                const SizedBox(height: 24),
-                _pSectionTitle("Preferences"),
-                const SizedBox(height: 12),
-                _pMenuTile(Icons.notifications_none_rounded, "Notification Settings", const Color(0xff2563EB)),
-                _pMenuTile(Icons.help_outline_rounded, "Help & Support", const Color(0xff16C74A)),
-                _pMenuTile(Icons.info_outline_rounded, "About App", const Color(0xff64748B)),
+                    children: [
 
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () => _confirmAndLogout(context),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(color: Colors.red.withOpacity(.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.withOpacity(.2))),
-                    child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.logout_rounded, color: Colors.red, size: 20),
-                      SizedBox(width: 8),
-                      Text("Logout", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600, fontSize: 14)),
-                    ]),
+                      _profileSectionTitle(
+                        "CONTACT INFORMATION",
+                      ),
+
+                      const SizedBox(
+                        height: 12,
+                      ),
+
+                      _profileInfoCard(
+                        icon:
+                        Icons.email_outlined,
+                        title:
+                        "Email",
+                        value:
+                        _schoolEmail,
+                      ),
+
+                      const SizedBox(
+                        height: 10,
+                      ),
+
+                      _profileInfoCard(
+                        icon:
+                        Icons.phone_outlined,
+                        title:
+                        "Phone",
+                        value:
+                        _schoolPhone,
+                      ),
+
+                      const SizedBox(
+                        height: 10,
+                      ),
+
+                      _profileInfoCard(
+                        icon:
+                        Icons.badge_outlined,
+                        title:
+                        "Account Type",
+                        value:
+                        _schoolRole.isNotEmpty
+                            ? _schoolRole
+                            : "School",
+                      ),
+
+                      const SizedBox(
+                        height: 24,
+                      ),
+
+                      _profileSectionTitle(
+                        "ACCOUNT",
+                      ),
+
+                      const SizedBox(
+                        height: 12,
+                      ),
+
+                      _profileActionCard(
+                        icon:
+                        Icons.lock_outline_rounded,
+                        title:
+                        "Change Password",
+                        color:
+                        const Color(0xff0EA5E9),
+                        onTap: () {
+                          // Existing change password
+                          // screen yahan connect karo.
+                        },
+                      ),
+
+                      _profileActionCard(
+                        icon:
+                        Icons.account_balance_outlined,
+                        title:
+                        "Bank Details",
+                        color:
+                        const Color(0xffA020F0),
+                        onTap: () {
+                          // Existing bank details
+                          // screen yahan connect karo.
+                        },
+                      ),
+
+                      _profileActionCard(
+                        icon:
+                        Icons.description_outlined,
+                        title:
+                        "Documents",
+                        color:
+                        const Color(0xffFF6B00),
+                        onTap: () {
+                          // Existing documents
+                          // screen yahan connect karo.
+                        },
+                      ),
+
+                      const SizedBox(
+                        height: 24,
+                      ),
+
+                      _profileSectionTitle(
+                        "PREFERENCES",
+                      ),
+
+                      const SizedBox(
+                        height: 12,
+                      ),
+
+                      _profileActionCard(
+                        icon:
+                        Icons.notifications_none_rounded,
+                        title:
+                        "Notification Settings",
+                        color:
+                        const Color(0xff2563EB),
+                        onTap: () {},
+                      ),
+
+                      _profileActionCard(
+                        icon:
+                        Icons.help_outline_rounded,
+                        title:
+                        "Help & Support",
+                        color:
+                        const Color(0xff16C74A),
+                        onTap: () {},
+                      ),
+
+                      _profileActionCard(
+                        icon:
+                        Icons.info_outline_rounded,
+                        title:
+                        "About App",
+                        color:
+                        const Color(0xff64748B),
+                        onTap: () {},
+                      ),
+
+                      const SizedBox(
+                        height: 20,
+                      ),
+
+                      // ==================================================
+                      // LOGOUT
+                      // ==================================================
+
+                      InkWell(
+                        borderRadius:
+                        BorderRadius.circular(
+                          16,
+                        ),
+
+                        onTap: () {
+                          _confirmAndLogout(
+                            context,
+                          );
+                        },
+
+                        child: Container(
+                          width:
+                          double.infinity,
+
+                          padding:
+                          const EdgeInsets.symmetric(
+                            vertical: 14,
+                          ),
+
+                          decoration:
+                          BoxDecoration(
+                            color:
+                            Colors.red
+                                .withOpacity(.07),
+
+                            borderRadius:
+                            BorderRadius.circular(
+                              16,
+                            ),
+
+                            border:
+                            Border.all(
+                              color:
+                              Colors.red
+                                  .withOpacity(.18),
+                            ),
+                          ),
+
+                          child: Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.center,
+
+                            children: [
+
+                              const Icon(
+                                Icons.logout_rounded,
+                                color:
+                                Colors.red,
+                                size: 20,
+                              ),
+
+                              const SizedBox(
+                                width: 8,
+                              ),
+
+                              const Text(
+                                "Logout",
+                                style:
+                                TextStyle(
+                                  color:
+                                  Colors.red,
+                                  fontWeight:
+                                  FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 20,
+                      ),
+
+                      Center(
+                        child: Text(
+                          "Kofalt Global",
+                          style:
+                          TextStyle(
+                            color:
+                            Colors.grey.shade400,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ]),
+              ],
             ),
-          ]),
+          ),
         ),
       ),
     );
   }
 
-  Widget _pStat(String label, String value) => Expanded(child: Column(children: [
-    Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xff1E1E1E))),
-    const SizedBox(height: 2),
-    Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-  ]));
-  Widget _pVDivider() => Container(height: 32, width: 1, color: Colors.grey.shade200);
-  Widget _pSectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
+  // ============================================================
+  // STATUS BADGE
+  // ============================================================
 
-  Widget _pInfoTile(IconData icon, String label, String value) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
-    child: Row(children: [
-      Container(height: 38, width: 38, decoration: BoxDecoration(color: const Color(0xff6366F1).withOpacity(.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: const Color(0xff6366F1), size: 19)),
-      const SizedBox(width: 12),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-      ]),
-    ]),
-  );
+  Widget _profileStatusBadge(
+      String status,
+      ) {
+    final normalized =
+    status.toLowerCase();
 
-  Widget _pMenuTile(IconData icon, String label, Color color) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
-    child: ListTile(
-      leading: Container(height: 38, width: 38, decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 19)),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
-      onTap: () {},
-    ),
-  );
+    final bool approved =
+        normalized == "approved";
+
+    final bool rejected =
+        normalized == "rejected";
+
+    final Color color =
+    approved
+        ? const Color(0xff16A34A)
+        : rejected
+        ? const Color(0xffDC2626)
+        : const Color(0xffF59E0B);
+
+    return Container(
+      padding:
+      const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 5,
+      ),
+
+      decoration:
+      BoxDecoration(
+        color:
+        Colors.white.withOpacity(.18),
+        borderRadius:
+        BorderRadius.circular(20),
+      ),
+
+      child: Row(
+        mainAxisSize:
+        MainAxisSize.min,
+
+        children: [
+
+          Container(
+            height: 7,
+            width: 7,
+
+            decoration:
+            BoxDecoration(
+              color: color,
+              shape:
+              BoxShape.circle,
+            ),
+          ),
+
+          const SizedBox(
+            width: 6,
+          ),
+
+          Text(
+            "KYC ${status.toUpperCase()}",
+            style:
+            const TextStyle(
+              color:
+              Colors.white,
+              fontSize: 9.5,
+              fontWeight:
+              FontWeight.w700,
+              letterSpacing: .4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // PROFILE STAT
+  // ============================================================
+
+  Widget _profileStat({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+
+          Icon(
+            icon,
+            color:
+            const Color(0xff0EA5E9),
+            size: 20,
+          ),
+
+          const SizedBox(
+            height: 5,
+          ),
+
+          Text(
+            value,
+
+            maxLines: 1,
+            overflow:
+            TextOverflow.ellipsis,
+
+            style:
+            const TextStyle(
+              color:
+              Color(0xff1E293B),
+              fontSize: 15,
+              fontWeight:
+              FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(
+            height: 2,
+          ),
+
+          Text(
+            label,
+
+            style:
+            TextStyle(
+              color:
+              Colors.grey.shade500,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileDivider() {
+    return Container(
+      height: 38,
+      width: 1,
+      color:
+      Colors.grey.shade200,
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget _profileSectionTitle(
+      String title,
+      ) {
+    return Text(
+      title,
+
+      style:
+      TextStyle(
+        color:
+        Colors.grey.shade500,
+        fontSize: 10.5,
+        fontWeight:
+        FontWeight.w700,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
+
+  // ============================================================
+  // INFO CARD
+  // ============================================================
+
+  Widget _profileInfoCard({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      width: double.infinity,
+
+      padding:
+      const EdgeInsets.all(14),
+
+      decoration:
+      BoxDecoration(
+        color:
+        Colors.white,
+
+        borderRadius:
+        BorderRadius.circular(16),
+
+        border:
+        Border.all(
+          color:
+          Colors.grey.shade100,
+        ),
+
+        boxShadow: [
+          BoxShadow(
+            color:
+            Colors.black.withOpacity(.035),
+            blurRadius: 8,
+            offset:
+            const Offset(0, 3),
+          ),
+        ],
+      ),
+
+      child: Row(
+        children: [
+
+          Container(
+            height: 42,
+            width: 42,
+
+            decoration:
+            BoxDecoration(
+              color:
+              const Color(0xff0EA5E9)
+                  .withOpacity(.10),
+
+              borderRadius:
+              BorderRadius.circular(12),
+            ),
+
+            child: Icon(
+              icon,
+              color:
+              const Color(0xff0EA5E9),
+              size: 20,
+            ),
+          ),
+
+          const SizedBox(
+            width: 12,
+          ),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+
+              children: [
+
+                Text(
+                  title,
+
+                  style:
+                  TextStyle(
+                    color:
+                    Colors.grey.shade500,
+                    fontSize: 10.5,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 3,
+                ),
+
+                Text(
+                  value.isNotEmpty
+                      ? value
+                      : "Not available",
+
+                  maxLines: 2,
+                  overflow:
+                  TextOverflow.ellipsis,
+
+                  style:
+                  const TextStyle(
+                    color:
+                    Color(0xff1E293B),
+                    fontSize: 13,
+                    fontWeight:
+                    FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTION CARD
+  // ============================================================
+
+  Widget _profileActionCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin:
+      const EdgeInsets.only(
+        bottom: 10,
+      ),
+
+      decoration:
+      BoxDecoration(
+        color:
+        Colors.white,
+
+        borderRadius:
+        BorderRadius.circular(16),
+
+        border:
+        Border.all(
+          color:
+          Colors.grey.shade100,
+        ),
+
+        boxShadow: [
+          BoxShadow(
+            color:
+            Colors.black.withOpacity(.035),
+            blurRadius: 8,
+            offset:
+            const Offset(0, 3),
+          ),
+        ],
+      ),
+
+      child: ListTile(
+        contentPadding:
+        const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 2,
+        ),
+
+        leading: Container(
+          height: 40,
+          width: 40,
+
+          decoration:
+          BoxDecoration(
+            color:
+            color.withOpacity(.10),
+            borderRadius:
+            BorderRadius.circular(12),
+          ),
+
+          child: Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+        ),
+
+        title: Text(
+          title,
+          style:
+          const TextStyle(
+            color:
+            Color(0xff1E293B),
+            fontSize: 13,
+            fontWeight:
+            FontWeight.w600,
+          ),
+        ),
+
+        trailing: Icon(
+          Icons.arrow_forward_ios_rounded,
+          size: 13,
+          color:
+          Colors.grey.shade400,
+        ),
+
+        onTap: onTap,
+      ),
+    );
+  }
 }
 
 // ============================================================
@@ -854,86 +1897,279 @@ Widget _sDetailHeader({required String title, required String subtitle, required
   );
 }
 
+// ============================================================
 // 1. PROGRAMS RUNNING
-class ProgramsRunningScreen extends StatelessWidget {
+// Ab yeh Kit Ordering se derive hota hai — jo kit/course order
+// hua wahi program is school ke liye "Active" maana jaata hai.
+// ============================================================
+class ProgramsRunningScreen extends StatefulWidget {
   const ProgramsRunningScreen({super.key});
+
+  @override
+  State<ProgramsRunningScreen> createState() => _ProgramsRunningScreenState();
+}
+
+class _ProgramsRunningScreenState extends State<ProgramsRunningScreen> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _programs = [];
+
+  final Map<String, IconData> _icons = const {
+    'Vedic Math': Icons.plus_one,
+    'Phonics': Icons.mic_none_rounded,
+    'English': Icons.menu_book_outlined,
+    'Abacus': Icons.calculate_rounded,
+  };
+
+  final List<Color> _palette = const [
+    Color(0xff0EA5E9),
+    Color(0xffA020F0),
+    Color(0xff16C74A),
+    Color(0xffFF6B00),
+    Color(0xff2563EB),
+    Color(0xffFF1493),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgramsFromOrders();
+  }
+
+  // Fetches this school's kit-order history, grouped by program name.
+  // TODO (backend): create this endpoint —
+  // POST https://apps.kofalt.in/api/get_kit_orders.php
+  // body: { "buyer_id": <school id> }
+  // expected response:
+  // { "status": "success",
+  //   "data": [ { "program": "Abacus", "total_quantity": 50 }, ... ] }
+  Future<void> _loadProgramsFromOrders() async {
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      final buyerId = session?['id'];
+      if (buyerId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/get_kit_orders.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"buyer_id": buyerId}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final rows = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() {
+              _programs = rows.map<Map<String, dynamic>>((r) {
+                return {
+                  'name': (r['program'] ?? '').toString(),
+                  'students': int.tryParse(r['total_quantity'].toString()) ?? 0,
+                };
+              }).toList();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading programs from orders: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final programs = [
-      {'name': 'Abacus',      'students': 50, 'levels': '8', 'icon': Icons.calculate_rounded,  'color': const Color(0xff0EA5E9)},
-      {'name': 'Vedic Maths', 'students': 40, 'levels': '8', 'icon': Icons.plus_one,           'color': const Color(0xffA020F0)},
-      {'name': 'Phonics',     'students': 30, 'levels': '5', 'icon': Icons.mic_none_rounded,   'color': const Color(0xff16C74A)},
-    ];
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(children: [
-        _sDetailHeader(title: "Programs Running", subtitle: "${programs.length} active programs", colors: const [Color(0xff0EA5E9), Color(0xff0284C7)], onBack: () => Navigator.pop(context)),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(18),
-          itemCount: programs.length,
-          itemBuilder: (_, i) {
-            final p = programs[i];
-            final color = p['color'] as Color;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)]),
-              child: Row(children: [
-                Container(height: 52, width: 52, decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(16)), child: Icon(p['icon'] as IconData, color: color, size: 28)),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(p['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text("${p['levels']} Levels • ${p['students']} Students", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                ])),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: const Color(0xff16C74A).withOpacity(.1), borderRadius: BorderRadius.circular(20)), child: const Text("Active", style: TextStyle(color: Color(0xff16C74A), fontSize: 12, fontWeight: FontWeight.w600))),
-              ]),
-            );
-          },
-        )),
+        _sDetailHeader(
+          title: "Programs Running",
+          subtitle: _isLoading ? "Loading…" : "${_programs.length} active programs",
+          colors: const [Color(0xff0EA5E9), Color(0xff0284C7)],
+          onBack: () => Navigator.pop(context),
+        ),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xff0EA5E9)))
+              : _programs.isEmpty
+              ? _emptyProgramsState(context)
+              : ListView.builder(
+            padding: const EdgeInsets.all(18),
+            itemCount: _programs.length,
+            itemBuilder: (_, i) {
+              final p = _programs[i];
+              final color = _palette[i % _palette.length];
+              final icon = _icons[p['name']] ?? Icons.inventory_2_outlined;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)]),
+                child: Row(children: [
+                  Container(height: 52, width: 52, decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(16)), child: Icon(icon, color: color, size: 28)),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text("${p['students']} Kits Ordered", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  ])),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: const Color(0xff16C74A).withOpacity(.1), borderRadius: BorderRadius.circular(20)), child: const Text("Active", style: TextStyle(color: Color(0xff16C74A), fontSize: 12, fontWeight: FontWeight.w600))),
+                ]),
+              );
+            },
+          ),
+        ),
       ]),
+    );
+  }
+
+  Widget _emptyProgramsState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey.shade300),
+            const SizedBox(height: 14),
+            Text("No programs running yet", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+            const SizedBox(height: 6),
+            Text("Order a kit to activate a program for your school", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SchoolKitOrderScreen())),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff0EA5E9), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text("Go to Kit Ordering", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
+// ============================================================
 // 2. STUDENT DATA
-class SchoolStudentDataScreen extends StatelessWidget {
+// FAB ab "Add Student" hai — class select karke uski strength
+// mein students add karo (existing strength ke upar add hota hai).
+// ============================================================
+class SchoolStudentDataScreen extends StatefulWidget {
   const SchoolStudentDataScreen({super.key});
 
-  // This data will come from API dynamically
-  final List<Map<String, dynamic>> classes = const [
-    {
-      "class_name": "Nursery",
-      "strength": 28,
-    },
-    {
-      "class_name": "LKG",
-      "strength": 32,
-    },
-    {
-      "class_name": "UKG",
-      "strength": 30,
-    },
-    {
-      "class_name": "Class 1",
-      "strength": 36,
-    },
-    {
-      "class_name": "Class 2",
-      "strength": 34,
-    },
-    {
-      "class_name": "Class 3",
-      "strength": 31,
-    },
+  @override
+  State<SchoolStudentDataScreen> createState() => _SchoolStudentDataScreenState();
+}
+
+class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
+  // TODO (backend): load real class list from API instead of this seed data,
+  // e.g. GET/POST https://apps.kofalt.in/api/get_school_classes.php
+  // body: { "school_id": <session id> }
+  final List<Map<String, dynamic>> _classes = [
+    {"class_name": "Nursery", "strength": 28},
+    {"class_name": "LKG", "strength": 32},
+    {"class_name": "UKG", "strength": 30},
+    {"class_name": "Class 1", "strength": 36},
+    {"class_name": "Class 2", "strength": 34},
+    {"class_name": "Class 3", "strength": 31},
   ];
+
+  int get _totalStudents => _classes.fold(0, (sum, c) => sum + (c["strength"] as int));
+
+  Future<void> _openAddStudentDialog() async {
+    String? selectedClass = _classes.isNotEmpty ? _classes.first["class_name"] as String : null;
+    final qtyController = TextEditingController(text: "1");
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              title: const Text("Add Student", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Select Class", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedClass,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: _classes
+                        .map((c) => DropdownMenuItem<String>(
+                      value: c["class_name"] as String,
+                      child: Text(c["class_name"] as String),
+                    ))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => selectedClass = v),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text("No. of Students to Add", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: "e.g. 1",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xffA020F0),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    final addQty = int.tryParse(qtyController.text.trim()) ?? 0;
+                    if (selectedClass == null || addQty <= 0) return;
+                    _addStudentsToClass(selectedClass!, addQty);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text("Add", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _addStudentsToClass(String className, int qty) {
+    setState(() {
+      final idx = _classes.indexWhere((c) => c["class_name"] == className);
+      if (idx != -1) {
+        _classes[idx]["strength"] = (_classes[idx]["strength"] as int) + qty;
+      }
+    });
+
+    // TODO (backend): persist this, e.g.
+    // POST https://apps.kofalt.in/api/add_students.php
+    // body: { "school_id": <session id>, "class_name": className, "quantity": qty }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("$qty student(s) added to $className")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final int totalStudents = classes.fold(
-      0,
-          (sum, item) => sum + (item["strength"] as int),
-    );
+    final int totalStudents = _totalStudents;
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -990,7 +2226,7 @@ class SchoolStudentDataScreen extends StatelessWidget {
                 const SizedBox(height: 6),
 
                 Text(
-                  "Total Classes : ${classes.length}",
+                  "Total Classes : ${_classes.length}",
                   style: const TextStyle(
                     color: Colors.white70,
                   ),
@@ -1002,7 +2238,7 @@ class SchoolStudentDataScreen extends StatelessWidget {
                   children: [
                     _statCard(
                       "Classes",
-                      "${classes.length}",
+                      "${_classes.length}",
                     ),
                     const SizedBox(width: 18),
                     _statCard(
@@ -1019,9 +2255,9 @@ class SchoolStudentDataScreen extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(18),
-              itemCount: classes.length,
+              itemCount: _classes.length,
               itemBuilder: (context, index) {
-                final data = classes[index];
+                final data = _classes[index];
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
@@ -1107,16 +2343,14 @@ class SchoolStudentDataScreen extends StatelessWidget {
       ),
 
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // Add Class
-        },
+        onPressed: _openAddStudentDialog,
         backgroundColor: const Color(0xffA020F0),
         icon: const Icon(
-          Icons.add,
+          Icons.person_add_alt_1_rounded,
           color: Colors.white,
         ),
         label: const Text(
-          "Add Class",
+          "Add Student",
           style: TextStyle(color: Colors.white),
         ),
       ),
@@ -1146,52 +2380,166 @@ class SchoolStudentDataScreen extends StatelessWidget {
   }
 }
 
-// 3. PENDING PAYMENTS
-class PendingPaymentsScreen extends StatelessWidget {
+// ============================================================
+// 3. PENDING PAYMENTS — dynamic, loaded from backend
+// ============================================================
+class PendingPaymentsScreen extends StatefulWidget {
   const PendingPaymentsScreen({super.key});
-  final List<Map<String, dynamic>> payments = const [
-    {'student': 'Anjali Mehta', 'amount': '₹2,500', 'due': '15 Feb 2025', 'status': 'Overdue'},
-    {'student': 'Rahul Kumar',  'amount': '₹2,000', 'due': '20 Feb 2025', 'status': 'Due Soon'},
-    {'student': 'Pooja Sharma', 'amount': '₹3,000', 'due': '25 Feb 2025', 'status': 'Pending'},
-    {'student': 'Meena Gupta',  'amount': '₹1,500', 'due': '28 Feb 2025', 'status': 'Pending'},
-  ];
+
+  @override
+  State<PendingPaymentsScreen> createState() => _PendingPaymentsScreenState();
+}
+
+class _PendingPaymentsScreenState extends State<PendingPaymentsScreen> {
+  bool _isLoading = true;
+  String? _error;
+  List<Map<String, dynamic>> _payments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPendingPayments();
+  }
+
+  // TODO (backend): create this endpoint —
+  // POST https://apps.kofalt.in/api/get_pending_payments.php
+  // body: { "school_id": <session id> }
+  // expected response:
+  // { "status": "success",
+  //   "data": [ { "student": "Anjali Mehta", "amount": "2500", "due": "15 Feb 2026", "status": "Overdue" }, ... ] }
+  Future<void> _fetchPendingPayments() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final session = await SessionManager.getSession();
+      final schoolId = session?['id'];
+      if (schoolId == null) {
+        setState(() {
+          _isLoading = false;
+          _error = "Session not found. Please log in again.";
+        });
+        return;
+      }
+
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/get_pending_payments.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"school_id": schoolId}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final rows = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() {
+              _payments = rows.map<Map<String, dynamic>>((r) {
+                final rawAmount = (r['amount'] ?? '0').toString();
+                final numericAmount = double.tryParse(rawAmount.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
+                return {
+                  'student': (r['student'] ?? '').toString(),
+                  'amount': "₹${numericAmount.toStringAsFixed(0)}",
+                  'due': (r['due'] ?? '').toString(),
+                  'status': (r['status'] ?? 'Pending').toString(),
+                };
+              }).toList();
+            });
+          }
+        } else {
+          setState(() => _error = data['message']?.toString() ?? "Could not load payments.");
+        }
+      } else {
+        setState(() => _error = "Could not reach server (${res.statusCode}).");
+      }
+    } catch (e) {
+      debugPrint("Error fetching pending payments: $e");
+      if (mounted) setState(() => _error = "Network error. Pull to refresh and try again.");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Color _c(String s) {
     if (s == 'Overdue') return Colors.red;
     if (s == 'Due Soon') return const Color(0xffFF6B00);
     return const Color(0xffFFB800);
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(children: [
-        _sDetailHeader(title: "Pending Payments", subtitle: "${payments.length} pending dues", colors: const [Color(0xffFF6B00), Color(0xffFF9500)], onBack: () => Navigator.pop(context)),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(18),
-          itemCount: payments.length,
-          itemBuilder: (_, i) {
-            final p = payments[i];
-            final c = _c(p['status']!);
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-              child: Row(children: [
-                Container(height: 46, width: 46, decoration: BoxDecoration(color: c.withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: Icon(Icons.payments_outlined, color: c, size: 24)),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(p['student']!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text("Due: ${p['due']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                ])),
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(p['amount']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 4),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: c.withOpacity(.1), borderRadius: BorderRadius.circular(10)), child: Text(p['status']!, style: TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.w600))),
-                ]),
-              ]),
-            );
-          },
-        )),
+        _sDetailHeader(
+          title: "Pending Payments",
+          subtitle: _isLoading ? "Loading…" : "${_payments.length} pending dues",
+          colors: const [Color(0xffFF6B00), Color(0xffFF9500)],
+          onBack: () => Navigator.pop(context),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            color: const Color(0xffFF6B00),
+            onRefresh: _fetchPendingPayments,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xffFF6B00)))
+                : _error != null
+                ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                Icon(Icons.wifi_off_rounded, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 12),
+                Center(child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
+                const SizedBox(height: 12),
+                Center(
+                  child: TextButton(
+                    onPressed: _fetchPendingPayments,
+                    child: const Text("Retry"),
+                  ),
+                ),
+              ],
+            )
+                : _payments.isEmpty
+                ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                Icon(Icons.check_circle_outline_rounded, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 12),
+                Center(child: Text("No pending payments 🎉", style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
+              ],
+            )
+                : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(18),
+              itemCount: _payments.length,
+              itemBuilder: (_, i) {
+                final p = _payments[i];
+                final c = _c(p['status']!);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+                  child: Row(children: [
+                    Container(height: 46, width: 46, decoration: BoxDecoration(color: c.withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: Icon(Icons.payments_outlined, color: c, size: 24)),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(p['student']!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      Text("Due: ${p['due']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    ])),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(p['amount']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const SizedBox(height: 4),
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: c.withOpacity(.1), borderRadius: BorderRadius.circular(10)), child: Text(p['status']!, style: TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.w600))),
+                    ]),
+                  ]),
+                );
+              },
+            ),
+          ),
+        ),
       ]),
     );
   }
@@ -1219,14 +2567,45 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
           _levelQty.values.fold<int>(0, (a, b) => a + b) +
           _courseQty.values.fold<int>(0, (a, b) => a + b);
 
-  void _changeMainQty(int delta) => setState(() => _mainKitQty = (_mainKitQty + delta).clamp(0, 99));
-  void _changeLevelQty(int level, int delta) => setState(() => _levelQty[level] = (_levelQty[level]! + delta).clamp(0, 99));
-  void _changeCourseQty(String course, int delta) =>
-      setState(() => _courseQty[course] = (_courseQty[course]! + delta).clamp(0, 99));
+  int _safeQty(int value) {
+    return value < 0 ? 0 : value;
+  }
 
-  void _setMainQty(int value) => setState(() => _mainKitQty = value.clamp(0, 99));
-  void _setLevelQty(int level, int value) => setState(() => _levelQty[level] = value.clamp(0, 99));
-  void _setCourseQty(String course, int value) => setState(() => _courseQty[course] = value.clamp(0, 99));
+  void _changeMainQty(int delta) {
+    setState(() {
+      _mainKitQty = _safeQty(_mainKitQty + delta);
+    });
+  }
+
+  void _changeLevelQty(int level, int delta) {
+    setState(() {
+      _levelQty[level] = _safeQty(_levelQty[level]! + delta);
+    });
+  }
+
+  void _changeCourseQty(String course, int delta) {
+    setState(() {
+      _courseQty[course] = _safeQty(_courseQty[course]! + delta);
+    });
+  }
+
+  void _setMainQty(int value) {
+    setState(() {
+      _mainKitQty = _safeQty(value);
+    });
+  }
+
+  void _setLevelQty(int level, int value) {
+    setState(() {
+      _levelQty[level] = _safeQty(value);
+    });
+  }
+
+  void _setCourseQty(String course, int value) {
+    setState(() {
+      _courseQty[course] = _safeQty(value);
+    });
+  }
 
   // NEW: dialog to type quantity directly instead of only using +/- steppers
   Future<void> _editQtyDialog({
@@ -1248,10 +2627,15 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
             autofocus: true,
             decoration: InputDecoration(
               hintText: "Enter quantity",
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: color, width: 1.5),
+                borderSide: BorderSide(
+                  color: color,
+                  width: 1.5,
+                ),
               ),
             ),
           ),
@@ -1266,9 +2650,12 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
-                final parsed = int.tryParse(controller.text.trim()) ?? currentQty;
-                onConfirm(parsed.clamp(0, 99));
-                Navigator.pop(ctx);
+                final parsed = int.tryParse(controller.text.trim());
+
+                if (parsed != null && parsed >= 0) {
+                  onConfirm(parsed);
+                  Navigator.pop(ctx);
+                }
               },
               child: const Text("OK", style: TextStyle(color: Colors.white)),
             ),
@@ -1710,49 +3097,324 @@ class _SchoolKitOrderScreenState extends State<SchoolKitOrderScreen> {
     ),
   );
 }
+
+// ============================================================
 // 5. TRAINING SCHEDULE
-class TrainingScheduleScreen extends StatelessWidget {
+// School sirf "Request Training" bhej sakta hai — topic + preferred
+// date + notes. Request Admin ke pass jaati hai; Admin apni marzi
+// se schedule/approve/reject karega.
+// ============================================================
+class TrainingScheduleScreen extends StatefulWidget {
   const TrainingScheduleScreen({super.key});
-  final List<Map<String, String>> schedule = const [
-    {'title': 'Abacus Training',     'days': 'Monday & Wednesday', 'time': '10:00 AM'},
-    {'title': 'Vedic Maths',         'days': 'Tuesday & Thursday', 'time': '11:30 AM'},
-    {'title': 'Phonics Workshop',    'days': 'Friday',              'time': '9:00 AM'},
-    {'title': 'English Speaking',    'days': 'Saturday',            'time': '10:30 AM'},
-  ];
+
+  @override
+  State<TrainingScheduleScreen> createState() => _TrainingScheduleScreenState();
+}
+
+class _TrainingScheduleScreenState extends State<TrainingScheduleScreen> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _schedule = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSchedule();
+  }
+
+  // Shows admin-scheduled trainings + this school's own pending requests.
+  // TODO (backend): create this endpoint —
+  // POST https://apps.kofalt.in/api/get_training_schedule.php
+  // body: { "school_id": <session id> }
+  // expected response:
+  // { "status": "success",
+  //   "data": [ { "topic": "Abacus", "date": "15 Mar 2026", "time": "10:00 AM", "status": "Scheduled" }, ... ] }
+  Future<void> _fetchSchedule() async {
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      final schoolId = session?['id'];
+      if (schoolId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/get_training_schedule.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"school_id": schoolId}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          if (mounted) {
+            setState(() {
+              _schedule = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching training schedule: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _openRequestTrainingDialog() async {
+    final topicController = TextEditingController();
+    final notesController = TextEditingController();
+    DateTime? preferredDate;
+    TimeOfDay? preferredTime;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              title: const Text("Request Training", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Topic / Program", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: topicController,
+                      decoration: InputDecoration(
+                        hintText: "e.g. Abacus, Vedic Maths",
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text("Preferred Date & Time", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: DateTime.now().add(const Duration(days: 3)),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (picked != null) setDialogState(() => preferredDate = picked);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+                              child: Row(children: [
+                                Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade600),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    preferredDate == null
+                                        ? "Date"
+                                        : "${preferredDate!.day}/${preferredDate!.month}/${preferredDate!.year}",
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: preferredDate == null ? Colors.grey.shade500 : Colors.black87, fontSize: 13),
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: ctx,
+                                initialTime: preferredTime ?? const TimeOfDay(hour: 10, minute: 0),
+                              );
+                              if (picked != null) setDialogState(() => preferredTime = picked);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+                              child: Row(children: [
+                                Icon(Icons.access_time_rounded, size: 16, color: Colors.grey.shade600),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    preferredTime == null ? "Time" : preferredTime!.format(ctx),
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: preferredTime == null ? Colors.grey.shade500 : Colors.black87, fontSize: 13),
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text("Notes (optional)", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: "Anything admin should know",
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff2563EB), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  onPressed: () async {
+                    if (topicController.text.trim().isEmpty) return;
+                    Navigator.pop(ctx);
+                    await _submitTrainingRequest(
+                      topic: topicController.text.trim(),
+                      date: preferredDate,
+                      time: preferredTime,
+                      notes: notesController.text.trim(),
+                    );
+                  },
+                  child: const Text("Send Request", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // TODO (backend): create this endpoint — it should insert a "Pending"
+  // request that shows up in the Admin dashboard so Admin can approve and
+  // set a final date/time (however admin wants to give the training).
+  // POST https://apps.kofalt.in/api/request_training.php
+  // body: { "school_id": <session id>, "topic": topic, "preferred_date": date, "notes": notes }
+  Future<void> _submitTrainingRequest({required String topic, DateTime? date, TimeOfDay? time, String? notes}) async {
+    try {
+      final session = await SessionManager.getSession();
+      final schoolId = session?['id'];
+      if (schoolId == null) return;
+
+      // Format time as "HH:mm" (24-hr) for the backend; keep null if not picked.
+      final formattedTime = time == null
+          ? null
+          : "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/request_training.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "school_id": schoolId,
+          "topic": topic,
+          "preferred_date": date?.toIso8601String(),
+          "preferred_time": formattedTime,
+          "notes": notes,
+        }),
+      );
+
+      final data = res.statusCode == 200 ? jsonDecode(res.body) : null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+            data != null && data['status'] == 'success'
+                ? "Training request sent to Admin"
+                : "Could not send request. Try again.",
+          )),
+        );
+      }
+      _fetchSchedule(); // refresh to show the new "Pending" entry
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Network error: $e")),
+        );
+      }
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'scheduled':
+        return const Color(0xff16C74A);
+      case 'rejected':
+        return Colors.red;
+      default:
+        return const Color(0xffFFB800); // Pending
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
       body: Column(children: [
-        _sDetailHeader(title: "Training Schedule", subtitle: "Day & time schedule", colors: const [Color(0xff2563EB), Color(0xff1D4ED8)], onBack: () => Navigator.pop(context)),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(18),
-          itemCount: schedule.length,
-          itemBuilder: (_, i) {
-            final s = schedule[i];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)]),
-              child: Row(children: [
-                Container(height: 48, width: 48, decoration: BoxDecoration(color: const Color(0xff2563EB).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.calendar_today_outlined, color: Color(0xff2563EB), size: 24)),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(s['title']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 4),
-                  Text(s['days']!, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                ])),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xff2563EB).withOpacity(.1), borderRadius: BorderRadius.circular(12)), child: Text(s['time']!, style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.w600, fontSize: 13))),
-              ]),
-            );
-          },
-        )),
+        _sDetailHeader(title: "Training Schedule", subtitle: "Request training from Admin", colors: const [Color(0xff2563EB), Color(0xff1D4ED8)], onBack: () => Navigator.pop(context)),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xff2563EB)))
+              : _schedule.isEmpty
+              ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.calendar_today_outlined, size: 54, color: Colors.grey.shade300),
+                  const SizedBox(height: 14),
+                  Text("No training scheduled yet", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                  const SizedBox(height: 6),
+                  Text("Tap \"Request Training\" below and Admin will schedule it for you", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                ],
+              ),
+            ),
+          )
+              : ListView.builder(
+            padding: const EdgeInsets.all(18),
+            itemCount: _schedule.length,
+            itemBuilder: (_, i) {
+              final s = _schedule[i];
+              final status = (s['status'] ?? 'Pending').toString();
+              final color = _statusColor(status);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10)]),
+                child: Row(children: [
+                  Container(height: 48, width: 48, decoration: BoxDecoration(color: const Color(0xff2563EB).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.calendar_today_outlined, color: Color(0xff2563EB), size: 24)),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(s['topic'] ?? s['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 4),
+                    Text(
+                      s['date'] != null ? "${s['date']}${s['time'] != null ? ' • ${s['time']}' : ''}" : "Date to be confirmed by Admin",
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                  ])),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(12)),
+                    child: Text(status, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+                  ),
+                ]),
+              );
+            },
+          ),
+        ),
       ]),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: _openRequestTrainingDialog,
         backgroundColor: const Color(0xff2563EB),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Add Schedule", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        label: const Text("Request Training", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -1797,6 +3459,140 @@ class _CircularsScreenState extends State<CircularsScreen> {
     _fetchCirculars();
   }
 
+  void _openDetail(Map<String, dynamic> c) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(.5),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xffFF1493), Color(0xffC71585)],
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      height: 42,
+                      width: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.2),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: const Icon(Icons.announcement_rounded,
+                          color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        c['title'] ?? "",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(ctx),
+                      child: Container(
+                        height: 30,
+                        width: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Body
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c['message'] ?? "",
+                      style: TextStyle(
+                        color: Colors.grey.shade800,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule_rounded,
+                            size: 15, color: Colors.grey.shade400),
+                        const SizedBox(width: 6),
+                        Text(
+                          c['created_at'] ?? "",
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Close button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xffFF1493),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      "Close",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1813,20 +3609,29 @@ class _CircularsScreenState extends State<CircularsScreen> {
             itemCount: _circulars.length,
             itemBuilder: (_, i) {
               final c = _circulars[i];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-                child: Row(children: [
-                  Container(height: 46, width: 46, decoration: BoxDecoration(color: const Color(0xffFF1493).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.announcement_outlined, color: Color(0xffFF1493), size: 24)),
-                  const SizedBox(width: 14),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(c['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    Text(c['message'] ?? "", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Text(c['created_at'] ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                  ])),
-                ]),
+              return GestureDetector(
+                onTap: () => _openDetail(c),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+                  child: Row(children: [
+                    Container(height: 46, width: 46, decoration: BoxDecoration(color: const Color(0xffFF1493).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.announcement_outlined, color: Color(0xffFF1493), size: 24)),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(c['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      Text(
+                        c['message'] ?? "",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(c['created_at'] ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                    ])),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade300),
+                  ]),
+                ),
               );
             },
           ),
