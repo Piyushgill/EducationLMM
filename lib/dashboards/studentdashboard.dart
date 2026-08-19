@@ -10,6 +10,81 @@ import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/profilescreen.dart';
 
 import 'package:thenew/widgets/notification_bell.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class MathTestAttempt {
+  final String categoryTitle;
+  final MathCategory category;
+  final int columns;
+  final int rows;
+  final int score;
+  final int total;
+  final int answered;   // kitne questions attempt hue (submit ya timeout dono count)
+  final bool completed; // saare 50 poore hue ya beech mein exit kiya
+  final DateTime date;
+
+  MathTestAttempt({
+    required this.categoryTitle,
+    required this.category,
+    required this.columns,
+    required this.rows,
+    required this.score,
+    required this.total,
+    required this.answered,
+    required this.completed,
+    required this.date,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'categoryTitle': categoryTitle,
+    'category': category.index,
+    'columns': columns,
+    'rows': rows,
+    'score': score,
+    'total': total,
+    'answered': answered,
+    'completed': completed,
+    'date': date.toIso8601String(),
+  };
+
+  factory MathTestAttempt.fromJson(Map<String, dynamic> j) => MathTestAttempt(
+    categoryTitle: j['categoryTitle'],
+    category: MathCategory.values[j['category']],
+    columns: j['columns'],
+    rows: j['rows'],
+    score: j['score'],
+    total: j['total'],
+    answered: j['answered'] ?? j['total'],
+    completed: j['completed'] ?? true,
+    date: DateTime.parse(j['date']),
+  );
+}
+
+class MathTestHistoryStore {
+  static const _key = 'math_test_history';
+
+  static Future<List<MathTestAttempt>> getAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_key) ?? [];
+    final list = raw.map((s) => MathTestAttempt.fromJson(jsonDecode(s))).toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
+  }
+
+  static Future<void> add(MathTestAttempt attempt) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_key) ?? [];
+    raw.add(jsonEncode(attempt.toJson()));
+    await prefs.setStringList(_key, raw);
+  }
+}
+
+// helper to rebuild category/option objects from stored enum+numbers
+MathCategoryInfo categoryInfoFor(MathCategory c) =>
+    kMathCategories.firstWhere((e) => e.category == c);
+
+ColRowOption colRowFor(int columns, int rows) => ColRowOption(columns, rows);
 // ============================================================
 //  STUDENT DASHBOARD — Main Entry
 // ============================================================
@@ -471,30 +546,30 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
 
               const SizedBox(height: 16),
               // Progress card in header — now driven by real attempt data
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(.3))),
-                child: Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text("Current Level", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    Text("Level $_currentLevel - Abacus", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: _levelProgress,
-                        backgroundColor: const Color(0x4DFFFFFF),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                        minHeight: 8,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text("$progressPercent% Complete", style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                  ])),
-                  const SizedBox(width: 16),
-                  Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white.withOpacity(.2), shape: BoxShape.circle), child: const Icon(Icons.emoji_events_outlined, color: Colors.white, size: 30)),
-                ]),
-              ),
+              // Container(
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(.3))),
+              //   child: Row(children: [
+              //     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              //       const Text("Current Level", style: TextStyle(color: Colors.white70, fontSize: 12)),
+              //       Text("Level $_currentLevel - Abacus", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              //       const SizedBox(height: 8),
+              //       ClipRRect(
+              //         borderRadius: BorderRadius.circular(8),
+              //         child: LinearProgressIndicator(
+              //           value: _levelProgress,
+              //           backgroundColor: const Color(0x4DFFFFFF),
+              //           valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              //           minHeight: 8,
+              //         ),
+              //       ),
+              //       const SizedBox(height: 4),
+              //       Text("$progressPercent% Complete", style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              //     ])),
+              //     const SizedBox(width: 16),
+              //     Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white.withOpacity(.2), shape: BoxShape.circle), child: const Icon(Icons.emoji_events_outlined, color: Colors.white, size: 30)),
+              //   ]),
+              // ),
             ]),
           ),
 
@@ -515,9 +590,16 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                 ]),
 
                 const SizedBox(height: 24),
-
-                // PAST TEST RESULTS
-                _sectionTitle("My Test Results"),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MathTestHistoryScreen())),
+                    icon: const Icon(Icons.history_rounded, color: Color(0xff10B981), size: 18),
+                    label: const Text("View Test History", style: TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xff10B981)), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
@@ -548,30 +630,30 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                 const SizedBox(height: 24),
 
                 // QUICK START PRACTICE
-                _sectionTitle("Quick Start Practice"),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PracticeTestScreen(level: _currentLevel))),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(children: [
-                      const Icon(Icons.play_circle_fill, color: Colors.white, size: 44),
-                      const SizedBox(width: 16),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text("Continue Level $_currentLevel", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text("50 Questions • Abacus", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
-                      ])),
-                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
-                    ]),
-                  ),
-                ),
+                // _sectionTitle("Quick Start Practice"),
+                // const SizedBox(height: 12),
+                // GestureDetector(
+                //   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PracticeTestScreen(level: _currentLevel))),
+                //   child: Container(
+                //     padding: const EdgeInsets.all(18),
+                //     decoration: BoxDecoration(
+                //       gradient: const LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
+                //       borderRadius: BorderRadius.circular(20),
+                //     ),
+                //     child: Row(children: [
+                //       const Icon(Icons.play_circle_fill, color: Colors.white, size: 44),
+                //       const SizedBox(width: 16),
+                //       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                //         Text("Continue Level $_currentLevel", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                //         const SizedBox(height: 4),
+                //         Text("50 Questions • Abacus", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
+                //       ])),
+                //       const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
+                //     ]),
+                //   ),
+                // ),
 
-                const SizedBox(height: 24),
+                //const SizedBox(height: 24),
 
                 // EDUCATION VIDEOS PREVIEW
                 _sectionTitle("Education Videos"),
@@ -773,11 +855,27 @@ class _PracticeTab extends StatelessWidget {
             borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
             gradient: LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text("Practice Tests", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            const Text("Choose a category to begin practice", style: TextStyle(color: Colors.white70, fontSize: 13)),
-          ]),
+          child:
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                  Text("Practice Tests", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
+                  Text("Choose a category to begin practice", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                ]),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MathTestHistoryScreen())),
+                child: Container(
+                  height: 44, width: 44,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(.18), borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.history_rounded, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
         Expanded(
           child: GridView.builder(
@@ -929,6 +1027,8 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
   final _ansCtrl = TextEditingController();
   bool? _isCorrect;
   int _score = 0;
+  int _answeredCount = 0;
+  bool _historySaved = false;
 
   Timer? _timer;
   int _secondsLeft = _secondsPerQuestion;
@@ -956,9 +1056,7 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
     _secondsLeft = _secondsPerQuestion;
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
-      setState(() {
-        _secondsLeft--;
-      });
+      setState(() => _secondsLeft--);
       if (_secondsLeft <= 0) {
         t.cancel();
         _onTimeUp();
@@ -967,16 +1065,15 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
   }
 
   void _onTimeUp() {
-    if (_isCorrect != null) return; // already answered
-    final q = _questions[_currentIndex];
+    if (_isCorrect != null) return;
     setState(() {
-      _isCorrect = false; // time out = counted wrong
+      _isCorrect = false;
+      _answeredCount++;
     });
-    // Small delay so user sees "Time's up" state, then unlocks the Next button (already shown)
   }
 
   void _checkAnswer() {
-    if (_isCorrect != null) return; // prevent double-submit
+    if (_isCorrect != null) return;
     final entered = _ansCtrl.text.trim();
     if (entered.isEmpty) return;
     _timer?.cancel();
@@ -986,6 +1083,7 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
         : entered == q.answer;
     setState(() {
       _isCorrect = correct;
+      _answeredCount++;
       if (correct) _score++;
     });
   }
@@ -1001,11 +1099,29 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
       _pageCtrl.animateToPage(_currentIndex, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       _startTimer();
     } else {
-      _showSummary();
+      _finishAndShowSummary();
     }
   }
 
-  void _showSummary() {
+  Future<void> _saveHistory({required bool completed}) async {
+    if (_historySaved) return;
+    _historySaved = true;
+    await MathTestHistoryStore.add(MathTestAttempt(
+      categoryTitle: widget.categoryInfo.title.replaceAll('\n', ' '),
+      category: widget.categoryInfo.category,
+      columns: widget.option.columns,
+      rows: widget.option.rows,
+      score: _score,
+      total: _totalQuestions,
+      answered: _answeredCount,
+      completed: completed,
+      date: DateTime.now(),
+    ));
+  }
+
+  Future<void> _finishAndShowSummary() async {
+    await _saveHistory(completed: true);
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1028,6 +1144,35 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
     );
   }
 
+  // ── Back-press: warn, then submit whatever was attempted ──
+  Future<bool> _onWillPop() async {
+    // Test fully done already handled via _finishAndShowSummary flow, this only fires mid-test
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text("Exit Test?"),
+        content: Text(
+          "You've attempted $_answeredCount of $_totalQuestions questions "
+              "(Score: $_score). If you exit now, only what you've attempted will be submitted.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Stay")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Exit & Submit", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await _saveHistory(completed: false);
+      return true;
+    }
+    return false;
+  }
+
   Color get _timerColor {
     if (_secondsLeft <= 5) return Colors.red;
     if (_secondsLeft <= 10) return Colors.orange;
@@ -1036,192 +1181,206 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xffF6F0F5),
-      body: SafeArea(
-        child: Column(children: [
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(color: const Color(0xffEC1E79), borderRadius: BorderRadius.circular(6)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 12),
-                    child: Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 16),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    widget.option.label,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 28),
-              ],
-            ),
-          ),
-
-          // ── Progress + Timer Row ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("Question ${_currentIndex + 1} of $_totalQuestions",
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                Row(
-                  children: [
-                    Icon(Icons.timer_outlined, size: 16, color: _timerColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      "${_secondsLeft}s",
-                      style: TextStyle(color: _timerColor, fontWeight: FontWeight.bold, fontSize: 14),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: const Color(0xffF6F0F5),
+        body: SafeArea(
+          child: Column(children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(color: const Color(0xffEC1E79), borderRadius: BorderRadius.circular(6)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      if (await _onWillPop()) {
+                        if (mounted) Navigator.pop(context);
+                      }
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 12),
+                      child: Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 16),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // ── Timer progress bar ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: _secondsLeft / _secondsPerQuestion,
-                minHeight: 6,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(_timerColor),
+                  ),
+                  Expanded(
+                    child: Text(
+                      widget.option.label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 28),
+                ],
               ),
             ),
-          ),
 
-          Expanded(
-            child: PageView.builder(
-              controller: _pageCtrl,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _totalQuestions,
-              itemBuilder: (context, index) {
-                final q = _questions[index];
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(9, (i) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text("${i + 1}", style: TextStyle(color: Colors.grey.shade300, fontSize: 13)),
-                      )),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      decoration: BoxDecoration(color: const Color(0xffEC1E79), borderRadius: BorderRadius.circular(24)),
-                      child: Text("${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    ),
-                    Container(
-                      width: 210,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xffFDF3D0),
-                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
-                      ),
-                      child: Column(
-                        children: q.lines.map((l) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Text(l, style: const TextStyle(fontSize: 26, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600)),
-                        )).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("Ans.", style: TextStyle(fontSize: 20)),
-                        const SizedBox(width: 14),
-                        Container(
-                          width: 130,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: _isCorrect == null ? Colors.grey.shade300 : (_isCorrect! ? Colors.green : Colors.red),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: TextField(
-                            controller: _ansCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
-                            textAlign: TextAlign.center,
-                            enabled: _isCorrect == null,
-                            onSubmitted: (_) => _checkAnswer(),
-                            decoration: const InputDecoration(border: InputBorder.none),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    if (_isCorrect == null)
-                      GestureDetector(
-                        onTap: _checkAnswer,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text("Check answer", style: TextStyle(fontSize: 18)),
-                            const SizedBox(width: 14),
-                            Container(
-                              width: 130, height: 44,
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade300)),
-                              alignment: Alignment.center,
-                              child: const Icon(Icons.check, color: Color(0xff10B981)),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Column(children: [
-                        Text(
-                          _isCorrect!
-                              ? "Correct! 🎉"
-                              : (_ansCtrl.text.trim().isEmpty
-                              ? "⏱ Time's up! Answer: ${q.answer}"
-                              : "Wrong — Answer: ${q.answer}"),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _isCorrect! ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _next,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xff10B981),
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: Text(
-                            _currentIndex == _totalQuestions - 1 ? "Finish" : "Next Question",
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ]),
-                  ]),
-                );
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Question ${_currentIndex + 1} of $_totalQuestions",
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Row(
+                    children: [
+                      Icon(Icons.timer_outlined, size: 16, color: _timerColor),
+                      const SizedBox(width: 4),
+                      Text("${_secondsLeft}s", style: TextStyle(color: _timerColor, fontWeight: FontWeight.bold, fontSize: 14)),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ]),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: _secondsLeft / _secondsPerQuestion,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(_timerColor),
+                ),
+              ),
+            ),
+            // overall test progress bar (how far into the 50)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: (_currentIndex + 1) / _totalQuestions,
+                  minHeight: 4,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff10B981)),
+                ),
+              ),
+            ),
+
+            Expanded(
+              child: PageView.builder(
+                controller: _pageCtrl,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _totalQuestions,
+                itemBuilder: (context, index) {
+                  final q = _questions[index];
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(9, (i) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text("${i + 1}", style: TextStyle(color: Colors.grey.shade300, fontSize: 13)),
+                        )),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        decoration: BoxDecoration(color: const Color(0xffEC1E79), borderRadius: BorderRadius.circular(24)),
+                        child: Text("${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      ),
+                      Container(
+                        width: 210,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffFDF3D0),
+                          borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
+                        ),
+                        child: Column(
+                          children: q.lines.map((l) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Text(l, style: const TextStyle(fontSize: 26, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600)),
+                          )).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("Ans.", style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 14),
+                          Container(
+                            width: 130,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: _isCorrect == null ? Colors.grey.shade300 : (_isCorrect! ? Colors.green : Colors.red),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _ansCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+                              textAlign: TextAlign.center,
+                              enabled: _isCorrect == null,
+                              onSubmitted: (_) => _checkAnswer(),
+                              decoration: const InputDecoration(border: InputBorder.none),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+                      if (_isCorrect == null)
+                        GestureDetector(
+                          onTap: _checkAnswer,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("Check answer", style: TextStyle(fontSize: 18)),
+                              const SizedBox(width: 14),
+                              Container(
+                                width: 130, height: 44,
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade300)),
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.check, color: Color(0xff10B981)),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Column(children: [
+                          Text(
+                            _isCorrect!
+                                ? "Correct! 🎉"
+                                : (_ansCtrl.text.trim().isEmpty
+                                ? "⏱ Time's up! Answer: ${q.answer}"
+                                : "Wrong — Answer: ${q.answer}"),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _isCorrect! ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _next,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff10B981),
+                              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: Text(
+                              _currentIndex == _totalQuestions - 1 ? "Finish" : "Next Question",
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ]),
+                    ]),
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -2931,5 +3090,136 @@ class MathQuestionGenerator {
     final base = _randInt(columns > 2 ? 2 : columns).clamp(1, 99);
     final cb = base * base * base;
     return MathQuestion(lines: ["∛$cb"], answer: "$base");
+  }
+}
+class MathTestHistoryScreen extends StatefulWidget {
+  const MathTestHistoryScreen({super.key});
+
+  @override
+  State<MathTestHistoryScreen> createState() => _MathTestHistoryScreenState();
+}
+
+class _MathTestHistoryScreenState extends State<MathTestHistoryScreen> {
+  List<MathTestAttempt> _attempts = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final list = await MathTestHistoryStore.getAll();
+    if (mounted) setState(() {
+      _attempts = list;
+      _loading = false;
+    });
+  }
+
+  void _reattempt(MathTestAttempt a) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MathPracticeScreen(
+          categoryInfo: categoryInfoFor(a.category),
+          option: colRowFor(a.columns, a.rows),
+        ),
+      ),
+    ).then((_) => _load()); // refresh history when coming back
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(child: Column(children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 20),
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+            gradient: LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
+          ),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                height: 40, width: 40,
+                decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Text("Test History", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          ]),
+        ),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
+              : _attempts.isEmpty
+              ? Center(
+            child: Text("No tests attempted yet.", style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+          )
+              : ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _attempts.length,
+            itemBuilder: (context, i) {
+              final a = _attempts[i];
+              final pct = a.total == 0 ? 0.0 : a.score / a.total;
+              final dateStr = "${a.date.day}/${a.date.month}/${a.date.year} ${a.date.hour.toString().padLeft(2, '0')}:${a.date.minute.toString().padLeft(2, '0')}";
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(a.categoryTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                    if (!a.completed)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+                        child: const Text("Exited Early", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text("${a.columns} Column ${a.rows} Rows • $dateStr", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 8,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(pct >= 0.7 ? const Color(0xff10B981) : (pct >= 0.4 ? Colors.orange : Colors.red)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text("${a.score}/${a.total}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text("Attempted: ${a.answered}/${a.total} questions", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _reattempt(a),
+                      icon: const Icon(Icons.replay_rounded, size: 16, color: Color(0xff10B981)),
+                      label: const Text("Re-attempt (New Shuffled Questions)", style: TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.w600, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xff10B981)), padding: const EdgeInsets.symmetric(vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                ]),
+              );
+            },
+          ),
+        ),
+      ])),
+    );
   }
 }
