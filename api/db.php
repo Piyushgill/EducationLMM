@@ -37,6 +37,50 @@ try {
         $conn->exec("ALTER TABLE `users` ADD COLUMN `status` ENUM('Active', 'Suspended') NOT NULL DEFAULT 'Active'");
     }
 
+    // Ensure 'kyc_details' table exists with all columns
+    $conn->exec("CREATE TABLE IF NOT EXISTS `kyc_details` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `user_id` INT NOT NULL UNIQUE,
+        `school_name` VARCHAR(150) DEFAULT NULL,
+        `class_grade` VARCHAR(50) DEFAULT NULL,
+        `dob` DATE DEFAULT NULL,
+        `principal_name` VARCHAR(100) DEFAULT NULL,
+        `board_type` VARCHAR(100) DEFAULT NULL,
+        `reg_number` VARCHAR(100) DEFAULT NULL,
+        `school_city` VARCHAR(100) DEFAULT NULL,
+        `business_name` VARCHAR(150) DEFAULT NULL,
+        `gst_number` VARCHAR(50) DEFAULT NULL,
+        `city` VARCHAR(100) DEFAULT NULL,
+        `experience` VARCHAR(150) DEFAULT NULL,
+        `area` VARCHAR(150) DEFAULT NULL,
+        `aadhaar_number` VARCHAR(12) DEFAULT NULL,
+        `pan_number` VARCHAR(10) DEFAULT NULL,
+        `gst_number_doc` VARCHAR(15) DEFAULT NULL,
+        `school_reg_number` VARCHAR(100) DEFAULT NULL,
+        `aadhaar_front` VARCHAR(255) DEFAULT NULL,
+        `aadhaar_back` VARCHAR(255) DEFAULT NULL,
+        `pan_image` VARCHAR(255) DEFAULT NULL,
+        `gst_cert` VARCHAR(255) DEFAULT NULL,
+        `school_reg_cert` VARCHAR(255) DEFAULT NULL,
+        `selfie` VARCHAR(255) DEFAULT NULL,
+        `signature` VARCHAR(255) DEFAULT NULL,
+        `bank_account` VARCHAR(18) DEFAULT NULL,
+        `bank_ifsc` VARCHAR(11) DEFAULT NULL,
+        `bank_name` VARCHAR(100) DEFAULT NULL,
+        `rejection_reason` TEXT DEFAULT NULL,
+        `submitted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Check if 'rejection_reason' column exists in 'kyc_details' table (for older installs)
+    $kycTableCheck = $conn->query("SHOW TABLES LIKE 'kyc_details'")->fetch();
+    if ($kycTableCheck) {
+        $kycReasonCheck = $conn->query("SHOW COLUMNS FROM `kyc_details` LIKE 'rejection_reason'")->fetch();
+        if (!$kycReasonCheck) {
+            $conn->exec("ALTER TABLE `kyc_details` ADD COLUMN `rejection_reason` TEXT DEFAULT NULL");
+        }
+    }
+
     // Check bank detail columns in 'users' table
     $bankCols = [
         'bank_name' => "VARCHAR(150) DEFAULT NULL",
@@ -68,7 +112,9 @@ try {
         'school_address' => "TEXT DEFAULT NULL",
         'contact_person' => "VARCHAR(100) DEFAULT NULL",
         'mobile_number' => "VARCHAR(20) DEFAULT NULL",
-        'order_type' => "ENUM('MLM', 'Direct') NOT NULL DEFAULT 'Direct'"
+        'order_type' => "ENUM('MLM', 'Direct') NOT NULL DEFAULT 'Direct'",
+        'program' => "VARCHAR(100) DEFAULT NULL",
+        'selected_school_id' => "INT DEFAULT NULL"
     ];
     foreach ($cols as $colName => $colDef) {
         $check = $conn->query("SHOW COLUMNS FROM `kit_orders` LIKE '$colName'")->fetch();
@@ -105,11 +151,130 @@ try {
         `setting_value` VARCHAR(255) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    // Create 'circulars' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `circulars` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `title` VARCHAR(255) NOT NULL,
+        `message` TEXT NOT NULL,
+        `target_roles` VARCHAR(255) DEFAULT 'All',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'videos' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `videos` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `title` VARCHAR(255) NOT NULL,
+        `description` TEXT DEFAULT NULL,
+        `video_url` VARCHAR(255) NOT NULL,
+        `target_roles` VARCHAR(255) NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'testimonials' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `testimonials` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `name` VARCHAR(255) NOT NULL,
+        `role` VARCHAR(255) NOT NULL,
+        `message` TEXT NOT NULL,
+        `rating` INT NOT NULL DEFAULT 5,
+        `target_roles` VARCHAR(255) NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'faqs' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `faqs` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `question` TEXT NOT NULL,
+        `answer` TEXT NOT NULL,
+        `target_roles` VARCHAR(255) NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'student_fees' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `student_fees` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `student_id` INT NOT NULL,
+        `school_id` INT NOT NULL,
+        `amount` DECIMAL(10, 2) NOT NULL DEFAULT 2500.00,
+        `due_date` DATE NOT NULL,
+        `status` ENUM('Pending', 'Paid', 'Overdue') NOT NULL DEFAULT 'Pending',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+        FOREIGN KEY (`school_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'training_requests' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `training_requests` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `school_id` INT NOT NULL,
+        `topic` VARCHAR(255) NOT NULL,
+        `requested_date` DATE DEFAULT NULL,
+        `requested_time` VARCHAR(50) DEFAULT NULL,
+        `notes` TEXT DEFAULT NULL,
+        `scheduled_date` DATE DEFAULT NULL,
+        `scheduled_time` VARCHAR(50) DEFAULT NULL,
+        `meeting_info` VARCHAR(255) DEFAULT NULL,
+        `status` ENUM('Pending', 'Scheduled', 'Completed', 'Cancelled') NOT NULL DEFAULT 'Pending',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`school_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'commissions' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `commissions` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `recipient_id` INT NOT NULL,
+        `trigger_user_id` INT NOT NULL,
+        `order_id` INT NOT NULL,
+        `amount` DECIMAL(10, 2) NOT NULL,
+        `tier_level` INT NOT NULL DEFAULT 1,
+        `status` ENUM('Pending', 'Paid') NOT NULL DEFAULT 'Pending',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`recipient_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+        FOREIGN KEY (`trigger_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'kit_order_items' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `kit_order_items` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `order_id` INT NOT NULL,
+        `kit_id` INT NOT NULL,
+        `quantity` INT NOT NULL DEFAULT 1,
+        `price_at_purchase` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'practice_attempts' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `practice_attempts` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `student_id` INT NOT NULL,
+        `exam_id` INT DEFAULT NULL,
+        `score` INT NOT NULL DEFAULT 0,
+        `total` INT NOT NULL DEFAULT 0,
+        `attempted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'school_classes' table — stores each school's class names and strengths
+    $conn->exec("CREATE TABLE IF NOT EXISTS `school_classes` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `school_id` INT NOT NULL,
+        `class_name` VARCHAR(100) NOT NULL,
+        `strength` INT NOT NULL DEFAULT 0,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY `school_class_unique` (`school_id`, `class_name`),
+        FOREIGN KEY (`school_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Seed default school classes for existing schools (Nursery to Class 10) if none exist
+    // This runs per school on login; actual seeding done per-school by API
+
     // Seed default settings if not exists
     $chkSet = $conn->query("SELECT COUNT(*) FROM `commission_settings`")->fetchColumn();
     if ($chkSet == 0) {
         $conn->exec("INSERT INTO `commission_settings` (`setting_key`, `setting_value`) VALUES 
-            ('commission_type', 'global'),
+            ('commission_type', 'per_kit'),
+            ('per_kit_commission', '50'),
             ('global_percent', '5'),
             ('percent_Level 1', '5'),
             ('percent_Level 2', '6'),
@@ -120,6 +285,12 @@ try {
             ('percent_Level 7', '11'),
             ('percent_Level 8', '12')
         ");
+    } else {
+        // Ensure per_kit_commission setting exists in older installs
+        $chkPerKit = $conn->query("SELECT COUNT(*) FROM `commission_settings` WHERE setting_key='per_kit_commission'")->fetchColumn();
+        if ($chkPerKit == 0) {
+            $conn->exec("INSERT INTO `commission_settings` (setting_key, setting_value) VALUES ('per_kit_commission', '50')");
+        }
     }
 
 function creditWallet($conn, $userId, $amount, $desc, $refId = null) {

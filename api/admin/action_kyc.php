@@ -56,10 +56,10 @@ try {
     $stmt = $conn->prepare("UPDATE users SET kyc_status = ? WHERE id = ?");
     $stmt->execute([$action, $userId]);
 
-    // Update rejection reason in kyc_details table
+    // Update rejection reason in kyc_details table (create row if not yet exists)
     $rejectionReason = ($action === 'Rejected') ? $reason : null;
-    $stmt = $conn->prepare("UPDATE kyc_details SET rejection_reason = ? WHERE user_id = ?");
-    $stmt->execute([$rejectionReason, $userId]);
+    $stmt = $conn->prepare("INSERT INTO kyc_details (user_id, rejection_reason) VALUES (?, ?) ON DUPLICATE KEY UPDATE rejection_reason = ?");
+    $stmt->execute([$userId, $rejectionReason, $rejectionReason]);
 
     $conn->commit();
     log_debug("KYC successfully $action for User ID: $userId");

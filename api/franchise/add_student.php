@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $input = file_get_contents('php://input');
 $data = json_decode($input, true);
 
-$schoolId = isset($data['school_id']) ? (int)$data['school_id'] : 0;
+$schoolId = isset($data['school_id']) ? (int)$data['school_id'] : (isset($data['center_id']) ? (int)$data['center_id'] : 0);
 $name = isset($data['name']) ? trim($data['name']) : '';
 $email = isset($data['email']) ? trim($data['email']) : '';
 $phone = isset($data['phone']) ? trim($data['phone']) : '';
@@ -23,7 +23,7 @@ $password = isset($data['password']) ? trim($data['password']) : '';
 
 if (empty($schoolId) || empty($name) || empty($email) || empty($phone) || empty($password)) {
     http_response_code(400);
-    echo json_encode(["status" => "error", "message" => "All parameters (school_id, name, email, phone, password) are required."]);
+    echo json_encode(["status" => "error", "message" => "All parameters (school_id/center_id, name, email, phone, password) are required."]);
     exit();
 }
 
@@ -50,6 +50,10 @@ try {
     // Link under school
     $stmtRel = $conn->prepare("INSERT INTO user_relations (parent_id, child_id) VALUES (?, ?)");
     $stmtRel->execute([$schoolId, $studentId]);
+
+    // Insert default fee record
+    $stmtFee = $conn->prepare("INSERT INTO student_fees (student_id, school_id, amount, due_date, status) VALUES (?, ?, 2500.00, DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY), 'Pending')");
+    $stmtFee->execute([$studentId, $schoolId]);
 
     $conn->commit();
 

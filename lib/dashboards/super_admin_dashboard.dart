@@ -568,6 +568,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const MlmCommissionsScreen()));
               },
             ),
+            _drawerItem(
+              icon: Icons.calendar_today_outlined,
+              label: "Training Requests",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminTrainingRequestsScreen()));
+              },
+            ),
             const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8), child: Divider()),
             _drawerItem(
               icon: Icons.settings_outlined,
@@ -3313,8 +3321,10 @@ class _MlmCommissionsScreenState extends State<MlmCommissionsScreen> with Single
         if (data['status'] == 'success' && data['settings'] != null) {
           final s = data['settings'];
           setState(() {
-            _commType = s['commission_type'] ?? 'global';
-            if (s['global_percent'] != null) {
+            _commType = s['commission_type'] ?? 'per_kit';
+            if (s['per_kit_commission'] != null) {
+              _globalPercentCtrl.text = s['per_kit_commission'].toString();
+            } else if (s['global_percent'] != null) {
               _globalPercentCtrl.text = s['global_percent'].toString();
             }
             for (var l in [1,2,3,4,5,6,7,8]) {
@@ -3335,6 +3345,7 @@ class _MlmCommissionsScreenState extends State<MlmCommissionsScreen> with Single
     setState(() => _isLoading = true);
     final settingsMap = <String, String>{
       "commission_type": _commType,
+      "per_kit_commission": _globalPercentCtrl.text,
       "global_percent": _globalPercentCtrl.text,
     };
     for (var l in [1,2,3,4,5,6,7,8]) {
@@ -4539,6 +4550,205 @@ class _MlmTreeTrackerTileState extends State<_MlmTreeTrackerTile> {
             ),
           ),
           Text(phone, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// Admin Training Requests Screen
+// ──────────────────────────────────────────────
+class AdminTrainingRequestsScreen extends StatefulWidget {
+  const AdminTrainingRequestsScreen({super.key});
+  @override
+  State<AdminTrainingRequestsScreen> createState() => _AdminTrainingRequestsScreenState();
+}
+
+class _AdminTrainingRequestsScreenState extends State<AdminTrainingRequestsScreen> {
+  bool _isLoading = true;
+  List<dynamic> _requests = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRequests();
+  }
+
+  Future<void> _fetchRequests() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_training_requests.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success' && mounted) {
+          setState(() => _requests = data['data'] ?? []);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching training requests: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _scheduleTraining(int requestId, {required String date, required String time, required String meetingInfo}) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
+    try {
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/schedule_training.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"request_id": requestId, "scheduled_date": date, "scheduled_time": time, "meeting_info": meetingInfo}),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(res.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Training scheduled successfully!", false);
+        _fetchRequests();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Failed to schedule", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
+  void _showScheduleDialog(Map<String, dynamic> req) {
+    final dateCtrl = TextEditingController(text: req['requested_date'] ?? '');
+    final timeCtrl = TextEditingController(text: req['requested_time'] ?? '');
+    final meetingCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Schedule Training", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Topic: ${req['topic']}", style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text("School ID: ${req['school_id']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              const SizedBox(height: 16),
+              TextField(controller: dateCtrl, decoration: const InputDecoration(labelText: "Scheduled Date (YYYY-MM-DD)", prefixIcon: Icon(Icons.date_range))),
+              const SizedBox(height: 8),
+              TextField(controller: timeCtrl, decoration: const InputDecoration(labelText: "Scheduled Time (e.g. 10:00 AM)", prefixIcon: Icon(Icons.access_time))),
+              const SizedBox(height: 8),
+              TextField(controller: meetingCtrl, decoration: const InputDecoration(labelText: "Meeting Link / Venue Info", prefixIcon: Icon(Icons.link))),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _AdminTheme.primary, foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _scheduleTraining(
+                req['id'] as int,
+                date: dateCtrl.text.trim(),
+                time: timeCtrl.text.trim(),
+                meetingInfo: meetingCtrl.text.trim(),
+              );
+            },
+            child: const Text("Confirm"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Scheduled': return const Color(0xff16C74A);
+      case 'Completed': return Colors.blue;
+      case 'Cancelled': return Colors.red;
+      default: return const Color(0xffFF6B00);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: Column(
+        children: [
+          adminDetailHeader(context: context, title: "Training Requests", subtitle: "${_requests.length} requests from schools", icon: Icons.calendar_today_outlined),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: _AdminTheme.primary))
+                : _requests.isEmpty
+                    ? adminEmptyState(Icons.calendar_today_outlined, "No training requests yet.", subMessage: "Schools will submit their training requests here.")
+                    : RefreshIndicator(
+                        color: _AdminTheme.primary,
+                        onRefresh: _fetchRequests,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _requests.length,
+                          itemBuilder: (context, index) {
+                            final req = _requests[index];
+                            final status = req['status'] ?? 'Pending';
+                            final color = _statusColor(status);
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 1,
+                              color: Colors.white,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(req['topic'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(20)),
+                                          child: Text(status, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text("School ID: ${req['school_id']} • ${req['school_name'] ?? ''}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                    if ((req['notes'] ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text("Notes: ${req['notes']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                    ],
+                                    if ((req['requested_date'] ?? '').isNotEmpty)
+                                      Text("Preferred: ${req['requested_date']} ${req['requested_time'] ?? ''}".trim(), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                    if (status == 'Scheduled') ...[
+                                      const SizedBox(height: 4),
+                                      Text("Scheduled: ${req['scheduled_date']} ${req['scheduled_time'] ?? ''}".trim(), style: const TextStyle(color: Color(0xff16C74A), fontWeight: FontWeight.w600, fontSize: 13)),
+                                      if ((req['meeting_info'] ?? '').isNotEmpty)
+                                        Text("Meeting: ${req['meeting_info']}", style: const TextStyle(color: Color(0xff2563EB), fontSize: 12)),
+                                    ],
+                                    if (status == 'Pending') ...[
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => _showScheduleDialog(req),
+                                          icon: const Icon(Icons.calendar_month, size: 16),
+                                          label: const Text("Schedule Training"),
+                                          style: ElevatedButton.styleFrom(backgroundColor: _AdminTheme.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+          ),
         ],
       ),
     );

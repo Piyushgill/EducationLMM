@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:thenew/services/login_screen.dart';
 import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/widgets/notification_bell.dart';
+import 'package:thenew/widgets/dynamic_video_player.dart';
 
 // ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
 const String _kMyRole = "School";
@@ -343,6 +344,12 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
   int _networkSize = 0;
   int _activeSchools = 0;
   int _totalStudents = 0;
+  int _activePrograms = 0;
+  int _totalKitsOrdered = 0;
+  double _pendingFeeAmount = 0.0;
+  int _pendingFeeCount = 0;
+  int _trainingCount = 0;
+  int _circularsCount = 0;
   double _totalCommission = 0.0;
   String _userName = "School";
 
@@ -364,6 +371,8 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
           _userName = session['name'] ?? "School";
         });
         final userId = session['id'];
+
+        // 1. User Network
         final response = await http.post(
           Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
           headers: {"Content-Type": "application/json"},
@@ -372,12 +381,107 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['status'] == 'success') {
-            setState(() {
-              _networkSize = data['network_size'] ?? 0;
-              _activeSchools = data['active_schools'] ?? 0;
-              _totalStudents = data['total_students'] ?? 0;
-              _totalCommission = (data['total_commission'] ?? 0).toDouble();
-            });
+            if (mounted) {
+              setState(() {
+                _networkSize = data['network_size'] ?? 0;
+                _activeSchools = data['active_schools'] ?? 0;
+                _totalCommission = (data['total_commission'] ?? 0).toDouble();
+              });
+            }
+          }
+        }
+
+        // 2. Class Strength (Total Students)
+        final classRes = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/schools/get_class_strength.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"school_id": userId}),
+        );
+        if (classRes.statusCode == 200) {
+          final cdata = jsonDecode(classRes.body);
+          if (cdata['status'] == 'success') {
+            if (mounted) {
+              setState(() {
+                _totalStudents = cdata['total_students'] ?? 0;
+              });
+            }
+          }
+        }
+
+        // 3. Kit Orders (Programs Running & Total Kits)
+        final kitRes = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_kit_orders.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"buyer_id": userId}),
+        );
+        if (kitRes.statusCode == 200) {
+          final kdata = jsonDecode(kitRes.body);
+          if (kdata['status'] == 'success') {
+            final programsList = (kdata['data'] as List? ?? []);
+            int totalKits = 0;
+            for (var p in programsList) {
+              totalKits += (p['total_quantity'] as num? ?? 0).toInt();
+            }
+            if (mounted) {
+              setState(() {
+                _activePrograms = programsList.length;
+                _totalKitsOrdered = totalKits;
+              });
+            }
+          }
+        }
+
+        // 4. Pending Payments
+        final feeRes = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_pending_payments.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"school_id": userId}),
+        );
+        if (feeRes.statusCode == 200) {
+          final fdata = jsonDecode(feeRes.body);
+          if (fdata['status'] == 'success') {
+            final feeList = (fdata['data'] as List? ?? []);
+            double totalFee = 0.0;
+            for (var f in feeList) {
+              final raw = (f['amount'] ?? '0').toString().replaceAll(RegExp(r'[^0-9.]'), '');
+              totalFee += double.tryParse(raw) ?? 0.0;
+            }
+            if (mounted) {
+              setState(() {
+                _pendingFeeAmount = totalFee;
+                _pendingFeeCount = feeList.length;
+              });
+            }
+          }
+        }
+
+        // 5. Training Schedule Count
+        final trainRes = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_training_schedule.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"school_id": userId}),
+        );
+        if (trainRes.statusCode == 200) {
+          final tdata = jsonDecode(trainRes.body);
+          if (tdata['status'] == 'success') {
+            if (mounted) {
+              setState(() {
+                _trainingCount = (tdata['data'] as List? ?? []).length;
+              });
+            }
+          }
+        }
+
+        // 6. Circulars Count
+        final circRes = await http.get(Uri.parse("https://apps.kofalt.in/api/get_circulars.php?role=School"));
+        if (circRes.statusCode == 200) {
+          final cirData = jsonDecode(circRes.body);
+          if (cirData['status'] == 'success') {
+            if (mounted) {
+              setState(() {
+                _circularsCount = (cirData['circulars'] as List? ?? []).length;
+              });
+            }
           }
         }
       }
@@ -463,7 +567,9 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    final String pendingFee = "₹${(_totalCommission * 1.5).toStringAsFixed(0)}";
+    final String pendingFeeStr = _pendingFeeAmount > 0 
+        ? "₹${_pendingFeeAmount.toStringAsFixed(0)}" 
+        : (_pendingFeeCount > 0 ? "$_pendingFeeCount Dues" : "₹0");
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
@@ -508,8 +614,8 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                   Image.asset(
                     'assets/image/kmain.png',
                     height: 54,
-                    width: 145,        // 👈 jitna bada chahiye utna badha do
-                    fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
+                    width: 145,
+                    fit: BoxFit.fill,
                   ),
 
                   const Spacer(),
@@ -517,120 +623,128 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                   const NotificationBell(role: "School"),
                 ],
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Align(alignment: Alignment.centerLeft, child: Text(_userName, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold))),
               const SizedBox(height: 4),
               Align(alignment: Alignment.centerLeft, child: Text("School Account", style: TextStyle(color: Colors.white.withOpacity(.9), fontSize: 16))),
               const SizedBox(height: 16),
               Row(children: [
-                _hStat("Programs",    "3"),
+                _hStat("Programs", "$_activePrograms"),
                 _vDivider(),
-                _hStat("Kit ordering",   "$_totalStudents"),
+                _hStat("Kit ordering", "$_totalKitsOrdered"),
                 _vDivider(),
-                _hStat("Pending Fee", pendingFee),
+                _hStat("Pending Fee", pendingFeeStr),
                 _vDivider(),
-                _hStat("Students",   "$_totalStudents"),
+                _hStat("Students", "$_totalStudents"),
               ]),
             ]),
           ),
 
           // SCROLLABLE BODY
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(18),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await _loadStats();
+                await _fetchAdminContent();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(18),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                // DASHBOARD CARDS
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: .95,
-                  children: [
-                    SDashboardCard(title: "Programs Running", value: "3",     icon: Icons.menu_book_outlined,      iconColor: const Color(0xff0EA5E9), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProgramsRunningScreen()))),
-                    SDashboardCard(title: "Student Data",     value: "$_totalStudents",   icon: Icons.groups_outlined,         iconColor: const Color(0xffA020F0), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolStudentDataScreen()))),
-                    SDashboardCard(title: "Pending Payments", value: pendingFee,  icon: Icons.payments_outlined,       iconColor: const Color(0xffFF6B00), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PendingPaymentsScreen()))),
-                    SDashboardCard(title: "Kit Ordering",     value: "Order", icon: Icons.inventory_2_outlined,    iconColor: const Color(0xff16C74A), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolKitOrderScreen()))),
-                    SDashboardCard(title: "Training Schedule",value: "3",     icon: Icons.calendar_today_outlined, iconColor: const Color(0xff2563EB), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrainingScheduleScreen()))),
-                    SDashboardCard(title: "Circulars",        value: "2 New", icon: Icons.announcement_outlined,   iconColor: const Color(0xffFF1493), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CircularsScreen()))),
-                  ],
-                ),
+                  // DASHBOARD CARDS
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: .95,
+                    children: [
+                      SDashboardCard(title: "Programs Running", value: "$_activePrograms",     icon: Icons.menu_book_outlined,      iconColor: const Color(0xff0EA5E9), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProgramsRunningScreen()))),
+                      SDashboardCard(title: "Student Data",     value: "$_totalStudents",   icon: Icons.groups_outlined,         iconColor: const Color(0xffA020F0), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolStudentDataScreen()))),
+                      SDashboardCard(title: "Pending Payments", value: pendingFeeStr,  icon: Icons.payments_outlined,       iconColor: const Color(0xffFF6B00), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PendingPaymentsScreen()))),
+                      SDashboardCard(title: "Kit Ordering",     value: "$_totalKitsOrdered Kits", icon: Icons.inventory_2_outlined,    iconColor: const Color(0xff16C74A), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchoolKitOrderScreen()))),
+                      SDashboardCard(title: "Training Schedule",value: "$_trainingCount",     icon: Icons.calendar_today_outlined, iconColor: const Color(0xff2563EB), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrainingScheduleScreen()))),
+                      SDashboardCard(title: "Circulars",        value: "$_circularsCount New", icon: Icons.announcement_outlined,   iconColor: const Color(0xffFF1493), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CircularsScreen()))),
+                    ],
+                  ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // TRAINING VIDEOS (live, from Admin panel)
-                _sectionTitle("Training Videos"),
-                const SizedBox(height: 12),
-                _isLoadingVideos
-                    ? SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: const Color(0xff0EA5E9))))
-                    : _adminVideos.isEmpty
-                    ? _emptyBlock("No training videos yet")
-                    : SizedBox(
-                  height: 120,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: _adminVideos.map((v) {
-                      return _videoCard(
-                        v['title'] ?? "",
-                        (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
-                        const Color(0xff0EA5E9),
+                  // TRAINING VIDEOS (live, from Admin panel)
+                  _sectionTitle("Training Videos"),
+                  const SizedBox(height: 12),
+                  _isLoadingVideos
+                      ? SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: const Color(0xff0EA5E9))))
+                      : _adminVideos.isEmpty
+                      ? _emptyBlock("No training videos yet")
+                      : SizedBox(
+                    height: 120,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: _adminVideos.map((v) {
+                        return _videoCard(
+                          v['title'] ?? "",
+                          (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
+                          v['video_url'] ?? "",
+                          const Color(0xff0EA5E9),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // GALLERY
+                  _sectionTitle("Gallery"),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 90,
+                    child: ListView(scrollDirection: Axis.horizontal, children: List.generate(6, (i) => Container(
+                      width: 90, height: 90, margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(color: const Color(0xff0EA5E9).withOpacity(.1 + i * 0.04), borderRadius: BorderRadius.circular(14)),
+                      child: Icon(Icons.image_outlined, color: const Color(0xff0EA5E9).withOpacity(.6), size: 30),
+                    ))),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // TESTIMONIALS (live, from Admin panel)
+                  _sectionTitle("Testimonials"),
+                  const SizedBox(height: 12),
+                  _isLoadingTestimonials
+                      ? const Center(child: CircularProgressIndicator())
+                      : _adminTestimonials.isEmpty
+                      ? _emptyBlock("No testimonials yet")
+                      : Column(
+                    children: _adminTestimonials.map((t) {
+                      final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _testimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
                       );
                     }).toList(),
                   ),
-                ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // GALLERY
-                _sectionTitle("Gallery"),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 90,
-                  child: ListView(scrollDirection: Axis.horizontal, children: List.generate(6, (i) => Container(
-                    width: 90, height: 90, margin: const EdgeInsets.only(right: 10),
-                    decoration: BoxDecoration(color: const Color(0xff0EA5E9).withOpacity(.1 + i * 0.04), borderRadius: BorderRadius.circular(14)),
-                    child: Icon(Icons.image_outlined, color: const Color(0xff0EA5E9).withOpacity(.6), size: 30),
-                  ))),
-                ),
+                  // FAQ (live, from Admin panel)
+                  _sectionTitle("FAQ"),
+                  const SizedBox(height: 12),
+                  if (_isLoadingFaqs)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_adminFaqs.isEmpty)
+                    _emptyBlock("No FAQs yet")
+                  else
+                    ..._adminFaqs.map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
 
-                const SizedBox(height: 24),
-
-                // TESTIMONIALS (live, from Admin panel)
-                _sectionTitle("Testimonials"),
-                const SizedBox(height: 12),
-                _isLoadingTestimonials
-                    ? const Center(child: CircularProgressIndicator())
-                    : _adminTestimonials.isEmpty
-                    ? _emptyBlock("No testimonials yet")
-                    : Column(
-                  children: _adminTestimonials.map((t) {
-                    final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _testimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
-                    );
-                  }).toList(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // FAQ (live, from Admin panel)
-                _sectionTitle("FAQ"),
-                const SizedBox(height: 12),
-                if (_isLoadingFaqs)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_adminFaqs.isEmpty)
-                  _emptyBlock("No FAQs yet")
-                else
-                  ..._adminFaqs.map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
-
-                const SizedBox(height: 20),
-              ]),
+                  const SizedBox(height: 20),
+                ]),
+              ),
             ),
           ),
         ]),
@@ -652,18 +766,34 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
     child: Center(child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
   );
 
-  Widget _videoCard(String title, String duration, Color color) => Container(
-    width: 150, margin: const EdgeInsets.only(right: 12),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-    child: Row(children: [
-      Icon(Icons.play_circle_filled, color: color, size: 28),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-        Text(duration, style: TextStyle(color: Colors.grey.shade500, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-      ])),
-    ]),
+  Widget _videoCard(String title, String description, String videoUrl, Color color) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        DynamicVideoPlayerModal.show(
+          context,
+          title: title,
+          description: description,
+          videoUrl: videoUrl,
+          themeColor: color,
+        );
+      },
+      child: Container(
+        width: 160, margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+        child: Row(children: [
+          Icon(Icons.play_circle_filled, color: color, size: 30),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text("Watch Now", style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ])),
+        ]),
+      ),
+    ),
   );
 
   Widget _testimonialCard(String name, String text, int stars) => Container(
@@ -2064,19 +2194,50 @@ class SchoolStudentDataScreen extends StatefulWidget {
 }
 
 class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
-  // TODO (backend): load real class list from API instead of this seed data,
-  // e.g. GET/POST https://apps.kofalt.in/api/get_school_classes.php
-  // body: { "school_id": <session id> }
-  final List<Map<String, dynamic>> _classes = [
-    {"class_name": "Nursery", "strength": 28},
-    {"class_name": "LKG", "strength": 32},
-    {"class_name": "UKG", "strength": 30},
-    {"class_name": "Class 1", "strength": 36},
-    {"class_name": "Class 2", "strength": 34},
-    {"class_name": "Class 3", "strength": 31},
-  ];
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _classes = [];
 
-  int get _totalStudents => _classes.fold(0, (sum, c) => sum + (c["strength"] as int));
+  int get _totalStudents => _classes.fold(0, (sum, c) => sum + (int.tryParse(c["strength"]?.toString() ?? '0') ?? 0));
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClasses();
+  }
+
+  Future<void> _fetchClasses() async {
+    setState(() => _isLoading = true);
+    try {
+      final session = await SessionManager.getSession();
+      final schoolId = session?['id'];
+      if (schoolId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/schools/get_class_strength.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"school_id": schoolId}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final list = (data['classes'] as List? ?? []);
+          if (mounted) {
+            setState(() {
+              _classes = list.map((c) => Map<String, dynamic>.from(c)).toList();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching class strength: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _openAddStudentDialog() async {
     String? selectedClass = _classes.isNotEmpty ? _classes.first["class_name"] as String : null;
@@ -2089,7 +2250,7 @@ class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
           builder: (ctx, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              title: const Text("Add Student", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              title: const Text("Add Students to Class", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2105,8 +2266,8 @@ class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
                     ),
                     items: _classes
                         .map((c) => DropdownMenuItem<String>(
-                      value: c["class_name"] as String,
-                      child: Text(c["class_name"] as String),
+                      value: c["class_name"].toString(),
+                      child: Text(c["class_name"].toString()),
                     ))
                         .toList(),
                     onChanged: (v) => setDialogState(() => selectedClass = v),
@@ -2118,7 +2279,7 @@ class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
                     controller: qtyController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: "e.g. 1",
+                      hintText: "e.g. 5",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
@@ -2135,8 +2296,8 @@ class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
                   onPressed: () {
                     final addQty = int.tryParse(qtyController.text.trim()) ?? 0;
                     if (selectedClass == null || addQty <= 0) return;
-                    _addStudentsToClass(selectedClass!, addQty);
                     Navigator.pop(ctx);
+                    _addStudentsToClass(selectedClass!, addQty);
                   },
                   child: const Text("Add", style: TextStyle(color: Colors.white)),
                 ),
@@ -2148,22 +2309,38 @@ class _SchoolStudentDataScreenState extends State<SchoolStudentDataScreen> {
     );
   }
 
-  void _addStudentsToClass(String className, int qty) {
-    setState(() {
-      final idx = _classes.indexWhere((c) => c["class_name"] == className);
-      if (idx != -1) {
-        _classes[idx]["strength"] = (_classes[idx]["strength"] as int) + qty;
-      }
-    });
+  Future<void> _addStudentsToClass(String className, int qty) async {
+    try {
+      final session = await SessionManager.getSession();
+      final schoolId = session?['id'];
+      if (schoolId == null) return;
 
-    // TODO (backend): persist this, e.g.
-    // POST https://apps.kofalt.in/api/add_students.php
-    // body: { "school_id": <session id>, "class_name": className, "quantity": qty }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$qty student(s) added to $className")),
+      final res = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/schools/update_class_strength.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "school_id": schoolId,
+          "class_name": className,
+          "add_qty": qty
+        }),
       );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          _fetchClasses();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("+$qty student(s) added to $className successfully!"),
+                backgroundColor: const Color(0xffA020F0),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error updating class strength: $e");
     }
   }
 

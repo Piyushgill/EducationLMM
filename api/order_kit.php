@@ -27,6 +27,8 @@ if (!$data) {
 $buyerId = isset($data['buyer_id']) ? (int)$data['buyer_id'] : 0;
 $kitLevel = isset($data['level']) ? trim($data['level']) : 'Level 1';
 $quantity = isset($data['quantity']) ? (int)$data['quantity'] : 1;
+$program = isset($data['program']) ? trim($data['program']) : $kitLevel; // program name (e.g. 'Abacus')
+$selectedSchoolId = isset($data['selected_school_id']) ? (int)$data['selected_school_id'] : null;
 
 if (empty($buyerId) || empty($kitLevel) || $quantity <= 0) {
     http_response_code(400);
@@ -60,58 +62,19 @@ try {
 
     $totalAmount = $unitPrice * $quantity;
 
-    // 2. Create kit order
-    $stmtOrder = $conn->prepare("INSERT INTO kit_orders (buyer_id, total_amount, payment_status) VALUES (?, ?, 'Paid')");
-    $stmtOrder->execute([$buyerId, $totalAmount]);
+    // 2. Create kit order — store program name and selected_school_id
+    $stmtOrder = $conn->prepare("INSERT INTO kit_orders (buyer_id, total_amount, payment_status, program, selected_school_id) VALUES (?, ?, 'Paid', ?, ?)");
+    $stmtOrder->execute([$buyerId, $totalAmount, $program, $selectedSchoolId]);
     $orderId = (int)$conn->lastInsertId();
 
     // 3. Create kit order items
     $stmtItem = $conn->prepare("INSERT INTO kit_order_items (order_id, kit_id, quantity, price_at_purchase) VALUES (?, ?, ?, ?)");
     $stmtItem->execute([$orderId, $kitId, $quantity, $unitPrice]);
 
-    // 4. Calculate MLM 8-Tier Commissions
-    // Commission rates: Tier 1: 10%, Tier 2: 5%, Tiers 3-8: 2%
-    $rates = [
-        1 => 0.10,
-        2 => 0.05,
-        3 => 0.02,
-        4 => 0.02,
-        5 => 0.02,
-        6 => 0.02,
-        7 => 0.02,
-        8 => 0.02
-    ];
+    // 4. Use shared per-kit commission distributor from db.php
+    distributeCommission($conn, $orderId);
 
-    $currentChildId = $buyerId;
-    $logMsg = "MLM Commission payout for Order #$orderId (buyer: $buyerId): ";
-
-    for ($tier = 1; $tier <= 8; $tier++) {
-        // Find parent
-        $stmtParent = $conn->prepare("SELECT parent_id FROM user_relations WHERE child_id = ?");
-        $stmtParent->execute([$currentChildId]);
-        $relation = $stmtParent->fetch();
-
-        if (!$relation) {
-            // Reached root of the hierarchy
-            break;
-        }
-
-        $parentId = (int)$relation['parent_id'];
-        $commissionRate = $rates[$tier];
-        $commissionAmount = $totalAmount * $commissionRate;
-
-        // Insert commission row
-        $stmtComm = $conn->prepare("
-            INSERT INTO commissions (recipient_id, trigger_user_id, order_id, amount, tier_level, status) 
-            VALUES (?, ?, ?, ?, ?, 'Paid')
-        ");
-        $stmtComm->execute([$parentId, $buyerId, $orderId, $commissionAmount, $tier]);
-
-        $logMsg .= "[Tier $tier: Parent $parentId earned " . $commissionAmount . "] ";
-        $currentChildId = $parentId; // Move up the tree for next tier
-    }
-
-    log_debug($logMsg);
+    log_debug("Order #$orderId placed by buyer $buyerId — program: $program, qty: $quantity");
     $conn->commit();
 
     echo json_encode([

@@ -78,6 +78,8 @@ class AgreementSigningScreen extends StatefulWidget {
   final Map<String, String> formData;
   final Map<String, dynamic> kycData;
   final Map<String, dynamic>? initialAgreementData;
+  final bool isPostSignupKyc;
+  final int userId;
 
   const AgreementSigningScreen({
     super.key,
@@ -85,6 +87,8 @@ class AgreementSigningScreen extends StatefulWidget {
     required this.formData,
     required this.kycData,
     this.initialAgreementData,
+    this.isPostSignupKyc = false,
+    this.userId = 0,
   });
 
   @override
@@ -615,9 +619,15 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
     try {
       final sigFile = await _saveSignatureAsFile();
 
-      final url = Uri.parse("https://apps.kofalt.in/api/signup.php");
+      final url = widget.isPostSignupKyc
+          ? Uri.parse("https://apps.kofalt.in/api/submit_kyc.php")
+          : Uri.parse("https://apps.kofalt.in/api/signup.php");
 
       final Map<String, dynamic> requestBody = {};
+
+      if (widget.isPostSignupKyc) {
+        requestBody['user_id'] = widget.userId;
+      }
 
       // Add common form fields
       widget.formData.forEach((key, value) {
@@ -685,7 +695,31 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (responseData['status'] == 'success') {
-          // Success! Save session locally
+          if (widget.isPostSignupKyc) {
+            // Update session's KYC status to Pending
+            final session = await SessionManager.getSession();
+            if (session != null) {
+              await SessionManager.saveSession(
+                id: session['id'],
+                name: session['name'],
+                email: session['email'],
+                phone: session['phone'],
+                role: session['role'],
+                kycStatus: 'Pending',
+                isImpersonating: session['isImpersonating'] ?? false,
+              );
+            }
+            _AgreementDraftStore.clear(widget.role);
+            if (mounted) {
+              _showSnack("KYC Submitted Successfully!", isError: false);
+              // Pop back to profile screen and refresh
+              Navigator.pop(context, true); // Pop AgreementSigningScreen
+              Navigator.pop(context, true); // Pop KycVerificationScreen
+            }
+            return;
+          }
+
+          // Success! Save session locally (normal signup path)
           final user = responseData['user'];
           final int userId = user['id'] is int
               ? user['id']
@@ -700,9 +734,7 @@ class _AgreementSigningScreenState extends State<AgreementSigningScreen> {
             kycStatus: user['kyc_status'],
           );
 
-          // Registration succeeded — clear the saved draft for this role so
-          // a future signup attempt starts fresh instead of restoring old
-          // checkbox/signature data.
+          // Registration succeeded — clear the saved draft for this role
           _AgreementDraftStore.clear(widget.role);
 
           if (mounted) {

@@ -58,7 +58,7 @@ try {
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
     $stmtUser = $conn->prepare("
         INSERT INTO users (name, email, phone, password, role, kyc_status, status)
-        VALUES (?, ?, ?, ?, 'Agent', 'Approved', 'Active')
+        VALUES (?, ?, ?, ?, 'Agent', 'Pending', 'Active')
     ");
     $stmtUser->execute([$name, $email, $phone, $hashedPassword]);
     $newAgentId = (int)$conn->lastInsertId();

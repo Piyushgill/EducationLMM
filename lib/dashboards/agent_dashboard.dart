@@ -7,6 +7,7 @@ import 'package:thenew/Screens/EducationHomeScreen.dart';
 import 'package:thenew/Screens/ourprogramsmain.dart';
 import 'package:thenew/Screens/profilescreen.dart';
 import 'package:thenew/widgets/notification_bell.dart';
+import 'package:thenew/services/kycverificationscreen.dart';
 
 // ── Agent Theme Colors ──
 class _AgentTheme {
@@ -1359,6 +1360,7 @@ class _AgentProfileScreenState extends State<AgentProfileScreen> {
   static const Color primary = Color(0xffF97316);
   static const Color primaryDark = Color(0xffEA580C);
 
+  int userId = 0;
   String name = "Agent";
   String email = "";
   String phone = "";
@@ -1384,6 +1386,7 @@ class _AgentProfileScreenState extends State<AgentProfileScreen> {
       if (session == null) return;
 
       setState(() {
+        userId = int.tryParse(session['id']?.toString() ?? '') ?? 0;
         name = session['name']?.toString() ?? "Agent";
         email = session['email']?.toString() ?? "";
         phone = session['phone']?.toString() ?? "";
@@ -1945,43 +1948,68 @@ class _AgentProfileScreenState extends State<AgentProfileScreen> {
   }
 
   Widget _status() {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: kycColor.withOpacity(.10),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(
-              kycIcon,
-              color: kycColor,
+    return GestureDetector(
+      onTap: () {
+        if (kycStatus.toLowerCase() == 'approved') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Your KYC is already approved!"), backgroundColor: Colors.green),
+          );
+          return;
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => KycVerificationScreen(
+              role: 'Agent',
+              formData: const {},
+              isPostSignupKyc: true,
+              userId: userId,
             ),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              "KYC Verification",
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
+        ).then((value) {
+          if (value == true) {
+            loadProfile();
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: kycColor.withOpacity(.10),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                kycIcon,
+                color: kycColor,
               ),
             ),
-          ),
-          Text(
-            kycStatus,
-            style: TextStyle(
-              color: kycColor,
-              fontWeight: FontWeight.bold,
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "KYC Verification",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+            Text(
+              kycStatus,
+              style: TextStyle(
+                color: kycColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

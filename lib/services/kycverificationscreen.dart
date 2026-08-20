@@ -92,6 +92,23 @@ const Map<String, List<KycStepConfig>> kRoleKycSteps = {
       docs: [KycDocType.bank],
     ),
   ],
+  "Agent": [
+    KycStepConfig(
+      title: "Documents",
+      subtitle: "Aadhaar & PAN card",
+      docs: [KycDocType.aadhaar, KycDocType.pan],
+    ),
+    KycStepConfig(
+      title: "Selfie",
+      subtitle: "Take a live photo for verification",
+      docs: [KycDocType.selfie],
+    ),
+    KycStepConfig(
+      title: "Bank",
+      subtitle: "Your bank account details",
+      docs: [KycDocType.bank],
+    ),
+  ],
 };
 
 // ── Screen ───────────────────────────────────────────────────────────────────
@@ -99,11 +116,17 @@ const Map<String, List<KycStepConfig>> kRoleKycSteps = {
 class KycVerificationScreen extends StatefulWidget {
   final String role;
   final Map<String, String> formData;
+  final Map<String, dynamic>? inialKycData;
+  final bool isPostSignupKyc;
+  final int userId;
 
   const KycVerificationScreen({
     super.key,
     required this.role,
-    required this.formData, Map<String, dynamic>? inialKycData,
+    required this.formData,
+    this.inialKycData,
+    this.isPostSignupKyc = false,
+    this.userId = 0,
   });
 
   @override
@@ -806,6 +829,8 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                   formData: widget.formData,
                   kycData: kycData,
                   initialAgreementData: _savedAgreementData,
+                  isPostSignupKyc: widget.isPostSignupKyc,
+                  userId: widget.userId,
                 ),
               ),
             );
