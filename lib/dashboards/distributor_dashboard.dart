@@ -76,6 +76,7 @@ void _confirmAndLogout(BuildContext context) {
     ),
   );
 }
+
 // ─────────────────────────────────────────────────────────────
 //  ROOT SCAFFOLD
 // ─────────────────────────────────────────────────────────────
@@ -89,9 +90,10 @@ class DistributorDashboard extends StatefulWidget {
 
 class _DistributorDashboardState extends State<DistributorDashboard> {
   int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final List<Widget> _pages = [
-    const _HomeTab(),
+  late final List<Widget> _pages = [
+    _HomeTab(scaffoldKey: _scaffoldKey),
     const _DistributorAgentsTab(),
     const _DistributorAgentOrdersTab(),
     const _DistributorWalletTab(),
@@ -101,6 +103,14 @@ class _DistributorDashboardState extends State<DistributorDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: _DistributorDrawer(
+        currentIndex: _currentIndex,
+        onNavigate: (i) {
+          setState(() => _currentIndex = i);
+          Navigator.pop(context);
+        },
+      ),
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -142,12 +152,293 @@ class _DistributorDashboardState extends State<DistributorDashboard> {
   }
 }
 
+// ============================================================
+//  DISTRIBUTOR DRAWER  (franchise-style layout, distributor colors)
+// ============================================================
+
+class _DistributorDrawer extends StatefulWidget {
+  final int currentIndex;
+  final void Function(int) onNavigate;
+
+  const _DistributorDrawer({required this.currentIndex, required this.onNavigate});
+
+  @override
+  State<_DistributorDrawer> createState() => _DistributorDrawerState();
+}
+
+class _DistributorDrawerState extends State<_DistributorDrawer> {
+  String _name = "Distributor";
+  String _email = "";
+  int _networkSize = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDrawerData();
+  }
+
+  Future<void> _loadDrawerData() async {
+    final session = await SessionManager.getSession();
+    if (session != null) {
+      setState(() {
+        _name = session['name'] ?? "Distributor";
+        _email = session['email'] ?? "";
+      });
+      final userId = session['id'];
+      try {
+        final res = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          if (data['status'] == 'success') {
+            setState(() {
+              _networkSize = data['network_size'] ?? 0;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching drawer network size: $e");
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      {'icon': Icons.home_rounded,            'label': 'Home',         'index': 0},
+      {'icon': Icons.people_rounded,           'label': 'Agents',       'index': 1},
+      {'icon': Icons.receipt_long_rounded,     'label': 'Agent Orders', 'index': 2},
+      {'icon': Icons.wallet_rounded,           'label': 'Wallet',       'index': 3},
+      {'icon': Icons.person_rounded,           'label': 'Profile',      'index': 4},
+    ];
+
+    final extras = [
+      {'icon': Icons.menu_book_rounded,             'label': 'Programs'},
+      {'icon': Icons.cast_for_education_rounded,    'label': 'Education'},
+      {'icon': Icons.bar_chart_rounded,              'label': 'Reports'},
+      {'icon': Icons.support_agent_rounded,          'label': 'Support'},
+      {'icon': Icons.settings_outlined,              'label': 'Settings'},
+    ];
+
+    return Drawer(
+      width: 280,
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 52, bottom: 28),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xff2563EB), Color(0xffA020F0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: Colors.white.withOpacity(.2),
+                  child: Text(
+                    _name.isNotEmpty ? _name[0].toUpperCase() : "D",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 26,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  _name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _email.isNotEmpty ? _email : "distributor@example.com",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.8),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    "$_networkSize Network Active",
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Nav items
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Main nav
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20, bottom: 6, top: 4),
+                    child: Text(
+                      "MAIN MENU",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade400,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  ...items.map((item) {
+                    final isActive = widget.currentIndex == item['index'] as int;
+                    return _DistributorDrawerItem(
+                      icon: item['icon'] as IconData,
+                      label: item['label'] as String,
+                      isActive: isActive,
+                      onTap: () => widget.onNavigate(item['index'] as int),
+                    );
+                  }),
+
+                  const Divider(height: 28, indent: 20, endIndent: 20),
+
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20, bottom: 6),
+                    child: Text(
+                      "MANAGEMENT",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade400,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  ...extras.map((item) => _DistributorDrawerItem(
+                    icon: item['icon'] as IconData,
+                    label: item['label'] as String,
+                    isActive: false,
+                    onTap: () {
+                      Navigator.pop(context); // close drawer
+                      switch (item['label']) {
+                        case 'Programs':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ourprogramsmainScreen()),
+                          );
+                          break;
+                        case 'Education':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EducationLLMHomeScreen()),
+                          );
+                          break;
+                        default:
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("${item['label']} feature coming soon.")),
+                          );
+                      }
+                    },
+                  )),
+
+                  const Divider(height: 28, indent: 20, endIndent: 20),
+
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text('Logout', style: TextStyle(color: Colors.red)),
+                    onTap: () => _confirmAndLogout(context),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DistributorDrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _DistributorDrawerItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? const Color(0xff2563EB) : Colors.grey.shade700;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xff2563EB).withOpacity(.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+            if (isActive) ...[
+              const Spacer(),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xff2563EB),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 //  HOME TAB  (StatefulWidget so it can hold Future state)
 // ─────────────────────────────────────────────────────────────
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  final GlobalKey<ScaffoldState> scaffoldKey;
+  const _HomeTab({required this.scaffoldKey});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -282,7 +573,6 @@ class _HomeTabState extends State<_HomeTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
-      drawer: _buildDrawer(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -305,21 +595,19 @@ class _HomeTabState extends State<_HomeTab> {
                 children: [
                   Row(
                     children: [
-                      Builder(
-                        builder: (ctx) => GestureDetector(
-                          onTap: () => Scaffold.of(ctx).openDrawer(),
-                          child: Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.18),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.menu_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
+                      GestureDetector(
+                        onTap: () => widget.scaffoldKey.currentState?.openDrawer(),
+                        child: Container(
+                          height: 48,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(.18),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                            size: 28,
                           ),
                         ),
                       ),
@@ -411,8 +699,22 @@ class _HomeTabState extends State<_HomeTab> {
                                 MaterialPageRoute(builder: (_) => const CommissionScreen())
                             )
                         ),
-
-
+                        DashboardCard(title: "Visitors",
+                            value: "${_networkSize * 12 + 15}",
+                            icon: Icons.remove_red_eye_outlined,
+                            iconColor: const Color(0xff5B5BF6),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const VisitorsScreen())
+                            )
+                        ),
+                        DashboardCard(title: "Expected Commission",
+                            value: "${((_totalCommission / 25000) * 100).clamp(0, 100).toStringAsFixed(0)}%",
+                            icon: Icons.flag_outlined,
+                            iconColor: const Color(0xff16C74A),
+                            onTap: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const ExpectedCommissionScreen())
+                            )
+                        ),
                       ],
                     ),
 
@@ -562,497 +864,6 @@ class _HomeTabState extends State<_HomeTab> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
           child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildDrawer(BuildContext context) {
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.82,
-      backgroundColor: const Color(0xffF8FAFC),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // ================= HEADER =================
-            Container(
-              margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xff2563EB),
-                    Color(0xff7C3AED),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xff2563EB).withOpacity(.20),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.person_rounded,
-                          size: 34,
-                          color: Color(0xff2563EB),
-                        ),
-                      ),
-
-                      const SizedBox(width: 14),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _userName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-
-                            const SizedBox(height: 4),
-
-                            Text(
-                              _userEmail.isEmpty
-                                  ? "Distributor Account"
-                                  : _userEmail,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(.18),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                "DISTRIBUTOR",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: .5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Close button
-                      // InkWell(
-                      //   borderRadius: BorderRadius.circular(12),
-                      //   onTap: () => Navigator.pop(context),
-                      //   child: Container(
-                      //     padding: const EdgeInsets.all(7),
-                      //     decoration: BoxDecoration(
-                      //       color: Colors.white.withOpacity(.15),
-                      //       borderRadius: BorderRadius.circular(12),
-                      //     ),
-                      //     child: const Icon(
-                      //       Icons.close_rounded,
-                      //       color: Colors.white,
-                      //       size: 20,
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // ================= STATS =================
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _drawerStat(
-                      "Network",
-                      "$_networkSize",
-                      Icons.groups_rounded,
-                      const Color(0xff2563EB),
-                    ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: _drawerStat(
-                      "Schools",
-                      "$_activeSchools",
-                      Icons.school_rounded,
-                      const Color(0xff16A34A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ================= MENU =================
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
-                    child: Text(
-                      "MENU",
-                      style: TextStyle(
-                        color: Color(0xff94A3B8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-
-                  _drawerTile(
-                    Icons.dashboard_rounded,
-                    "Dashboard",
-                        () {
-                      Navigator.pop(context);
-                    },
-                    isActive: true,
-                  ),
-
-                  _drawerTile(
-                    Icons.menu_book_rounded,
-                    "Programs",
-                        () {
-                      Navigator.pop(context);
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ourprogramsmainScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _drawerTile(
-                    Icons.cast_for_education_rounded,
-                    "Education",
-                        () {
-                      Navigator.pop(context);
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const EducationLLMHomeScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _drawerTile(
-                    Icons.person_rounded,
-                    "My Profile",
-                        () {
-                      Navigator.pop(context);
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DistributorProfileScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  _drawerTile(
-                    Icons.settings_rounded,
-                    "Settings",
-                        () {
-                      Navigator.pop(context);
-
-                      // Yahan apni SettingsScreen add kar sakte ho.
-                      // Example:
-                      //
-                      // Navigator.push(
-                      //   context,
-                      //   MaterialPageRoute(
-                      //     builder: (_) => const SettingsScreen(),
-                      //   ),
-                      // );
-                    },
-                  ),
-
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 18, 12, 8),
-                    child: Text(
-                      "ACCOUNT",
-                      style: TextStyle(
-                        color: Color(0xff94A3B8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-
-                  // Logout
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        _confirmAndLogout(context);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 13,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xffFEF2F2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xffFECACA),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              height: 40,
-                              width: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xffFEE2E2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.logout_rounded,
-                                color: Color(0xffDC2626),
-                                size: 21,
-                              ),
-                            ),
-
-                            const SizedBox(width: 12),
-
-                            const Expanded(
-                              child: Text(
-                                "Logout",
-                                style: TextStyle(
-                                  color: Color(0xffDC2626),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-
-                            const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 14,
-                              color: Color(0xffEF4444),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Center(
-                    child: Text(
-                      "Kofalt Global • Version 1.0.0",
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-Widget _drawerTile(
-    IconData icon,
-    String title,
-    VoidCallback onTap, {
-      bool isActive = false,
-    }) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 4,
-      vertical: 3,
-    ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 11,
-          ),
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color(0xffEFF6FF)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                height: 42,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? const Color(0xff2563EB)
-                      : const Color(0xffF1F5F9),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  icon,
-                  color: isActive
-                      ? Colors.white
-                      : const Color(0xff475569),
-                  size: 21,
-                ),
-              ),
-
-              const SizedBox(width: 13),
-
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: isActive
-                        ? const Color(0xff2563EB)
-                        : const Color(0xff1E293B),
-                    fontSize: 14,
-                    fontWeight:
-                    isActive ? FontWeight.w700 : FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 13,
-                color: isActive
-                    ? const Color(0xff2563EB)
-                    : const Color(0xff94A3B8),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _drawerStat(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    ) {
-  return Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 12,
-      vertical: 12,
-    ),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
-        color: Colors.grey.shade200,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(.035),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Container(
-          height: 38,
-          width: 38,
-          decoration: BoxDecoration(
-            color: color.withOpacity(.10),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
-        ),
-
-        const SizedBox(width: 9),
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xff0F172A),
-                ),
-              ),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     ),
@@ -1408,7 +1219,7 @@ class _DistributorAgentsTabState extends State<_DistributorAgentsTab> {
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
                       Navigator.pop(ctx);
-                      
+
                       final session = await SessionManager.getSession();
                       if (session == null) return;
                       final distId = session['id'];
@@ -1600,7 +1411,7 @@ class _DistributorAgentsTabState extends State<_DistributorAgentsTab> {
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
               Navigator.pop(ctx);
-              
+
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -1749,85 +1560,85 @@ class _DistributorAgentsTabState extends State<_DistributorAgentsTab> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xff2563EB)))
             : _agents.isEmpty
-                ? const Center(child: Text("No agents recruited yet.", style: TextStyle(color: Colors.grey)))
-                : Column(
+            ? const Center(child: Text("No agents recruited yet.", style: TextStyle(color: Colors.grey)))
+            : Column(
+          children: [
+            // Linear Chain Hierarchy Tracker
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xffEFF6FF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xffDBEAFE)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("MLM Level Chain Overview:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff1E40AF))),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      // Linear Chain Hierarchy Tracker
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xffEFF6FF),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xffDBEAFE)),
+                      const Chip(label: Text("Distributor L1"), backgroundColor: Colors.white),
+                      for (var i = 0; i < _agents.length; i++) ...[
+                        const Icon(Icons.arrow_right_alt, color: Color(0xff2563EB)),
+                        Chip(
+                          label: Text("${_agents[i]['name'].toString().split(' ')[0]} L${i + 2}"),
+                          backgroundColor: Colors.white,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("MLM Level Chain Overview:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff1E40AF))),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              alignment: WrapAlignment.start,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                const Chip(label: Text("Distributor L1"), backgroundColor: Colors.white),
-                                for (var i = 0; i < _agents.length; i++) ...[
-                                  const Icon(Icons.arrow_right_alt, color: Color(0xff2563EB)),
-                                  Chip(
-                                    label: Text("${_agents[i]['name'].toString().split(' ')[0]} L${i + 2}"),
-                                    backgroundColor: Colors.white,
-                                  ),
-                                ]
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _agents.length,
-                          itemBuilder: (context, index) {
-                            final agent = _agents[index];
-                            final isSuspended = agent['status'] == 'Suspended';
-                            return Card(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 1,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: isSuspended ? Colors.red.shade50 : const Color(0xffEFF6FF),
-                                  child: Icon(Icons.person, color: isSuspended ? Colors.red : const Color(0xff2563EB)),
-                                ),
-                                title: Text(agent['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text("Level ${agent['level']} • Phone: ${agent['phone']}\nStatus: ${agent['status']}"),
-                                isThreeLine: true,
-                                trailing: PopupMenuButton<String>(
-                                  onSelected: (val) {
-                                    if (val == 'edit') _openEditAgent(agent);
-                                    if (val == 'reset') _openResetPassword(agent);
-                                    if (val == 'toggle') _toggleAgentStatus(agent);
-                                    if (val == 'sales') _viewAgentSales(agent);
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(value: 'sales', child: Text("View Performance")),
-                                    const PopupMenuItem(value: 'edit', child: Text("Edit Details")),
-                                    const PopupMenuItem(value: 'reset', child: Text("Reset Password")),
-                                    PopupMenuItem(
-                                      value: 'toggle',
-                                      child: Text(isSuspended ? "Activate Agent" : "Suspend Agent", style: TextStyle(color: isSuspended ? Colors.green : Colors.red)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                      ]
                     ],
                   ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _agents.length,
+                itemBuilder: (context, index) {
+                  final agent = _agents[index];
+                  final isSuspended = agent['status'] == 'Suspended';
+                  return Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 1,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: isSuspended ? Colors.red.shade50 : const Color(0xffEFF6FF),
+                        child: Icon(Icons.person, color: isSuspended ? Colors.red : const Color(0xff2563EB)),
+                      ),
+                      title: Text(agent['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("Level ${agent['level']} • Phone: ${agent['phone']}\nStatus: ${agent['status']}"),
+                      isThreeLine: true,
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (val) {
+                          if (val == 'edit') _openEditAgent(agent);
+                          if (val == 'reset') _openResetPassword(agent);
+                          if (val == 'toggle') _toggleAgentStatus(agent);
+                          if (val == 'sales') _viewAgentSales(agent);
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'sales', child: Text("View Performance")),
+                          const PopupMenuItem(value: 'edit', child: Text("Edit Details")),
+                          const PopupMenuItem(value: 'reset', child: Text("Reset Password")),
+                          PopupMenuItem(
+                            value: 'toggle',
+                            child: Text(isSuspended ? "Activate Agent" : "Suspend Agent", style: TextStyle(color: isSuspended ? Colors.green : Colors.red)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1928,76 +1739,76 @@ class _DistributorAgentOrdersTabState extends State<_DistributorAgentOrdersTab> 
               },
             ),
           ),
-          
+
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchAgentOrders,
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xff2563EB)))
                   : _filtered.isEmpty
-                      ? const Center(child: Text("No MLM orders found matching filter.", style: TextStyle(color: Colors.grey)))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final o = _filtered[index];
-                            final isPaid = o['payment_status'] == 'Paid';
-                            return Card(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 1,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text("Order #${o['id']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: isPaid ? Colors.green.shade50 : Colors.orange.shade50,
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            isPaid ? "Paid" : "Pending",
-                                            style: TextStyle(
-                                              color: isPaid ? Colors.green : Colors.orange,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(height: 20),
-                                    Text("Agent: ${o['buyer_name']}", style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xff2563EB))),
-                                    const SizedBox(height: 4),
-                                    Text("School: ${o['school_name']}", style: const TextStyle(fontWeight: FontWeight.w500)),
-                                    const SizedBox(height: 2),
-                                    Text("Kit: ${o['kit_level']} x ${o['quantity']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          o['created_at'] != null ? o['created_at'].toString().split(' ')[0] : "",
-                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                                        ),
-                                        Text(
-                                          "₹${o['total_amount']}",
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                  ? const Center(child: Text("No MLM orders found matching filter.", style: TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _filtered.length,
+                itemBuilder: (context, index) {
+                  final o = _filtered[index];
+                  final isPaid = o['payment_status'] == 'Paid';
+                  return Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 1,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Order #${o['id']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isPaid ? Colors.green.shade50 : Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  isPaid ? "Paid" : "Pending",
+                                  style: TextStyle(
+                                    color: isPaid ? Colors.green : Colors.orange,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ],
+                          ),
+                          const Divider(height: 20),
+                          Text("Agent: ${o['buyer_name']}", style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xff2563EB))),
+                          const SizedBox(height: 4),
+                          Text("School: ${o['school_name']}", style: const TextStyle(fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 2),
+                          Text("Kit: ${o['kit_level']} x ${o['quantity']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                o['created_at'] != null ? o['created_at'].toString().split(' ')[0] : "",
+                                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                              ),
+                              Text(
+                                "₹${o['total_amount']}",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -2071,104 +1882,104 @@ class _DistributorWalletTabState extends State<_DistributorWalletTab> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xff2563EB)))
             : SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Wallet details card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xff0F172A), Color(0xff1E293B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 15, offset: const Offset(0, 8)),
+                    ],
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Wallet details card
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xff0F172A), Color(0xff1E293B)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 15, offset: const Offset(0, 8)),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.account_balance_wallet, color: Colors.blue, size: 24),
-                                SizedBox(width: 10),
-                                Text("Wallet Balance", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-                            Text(
-                              "₹${_balance.toStringAsFixed(2)}",
-                              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
-                            ),
-                            const Divider(color: Colors.white10, height: 30),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text("Total Commissions:", style: TextStyle(color: Colors.white70, fontSize: 13)),
-                                Text("₹${_totalEarned.toStringAsFixed(2)}", style: const TextStyle(color: Colors.green, fontSize: 15, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ],
-                        ),
+                      const Row(
+                        children: [
+                          Icon(Icons.account_balance_wallet, color: Colors.blue, size: 24),
+                          SizedBox(width: 10),
+                          Text("Wallet Balance", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        ],
                       ),
-                      const SizedBox(height: 25),
-
-                      const Text("Transaction History Log", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E293B))),
-                      const SizedBox(height: 10),
-
-                      _txs.isEmpty
-                          ? Container(
-                              height: 150,
-                              alignment: Alignment.center,
-                              child: const Text("No transactions recorded yet.", style: TextStyle(color: Colors.grey)),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _txs.length,
-                              itemBuilder: (context, index) {
-                                final tx = _txs[index];
-                                final isCredit = tx['type'] == 'Credit';
-
-                                return Card(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  elevation: 0.5,
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: isCredit ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                                      child: Icon(
-                                        isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                                        color: isCredit ? Colors.green : Colors.red,
-                                      ),
-                                    ),
-                                    title: Text(tx['description'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                    subtitle: Text(
-                                      tx['created_at'] != null ? tx['created_at'].toString().split(' ')[0] : "",
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    trailing: Text(
-                                      "${isCredit ? '+' : '-'}₹${double.tryParse(tx['amount'].toString())?.toStringAsFixed(2) ?? tx['amount']}",
-                                      style: TextStyle(
-                                        color: isCredit ? Colors.green : Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                      const SizedBox(height: 15),
+                      Text(
+                        "₹${_balance.toStringAsFixed(2)}",
+                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                      ),
+                      const Divider(color: Colors.white10, height: 30),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Total Commissions:", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                          Text("₹${_totalEarned.toStringAsFixed(2)}", style: const TextStyle(color: Colors.green, fontSize: 15, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 25),
+
+                const Text("Transaction History Log", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1E293B))),
+                const SizedBox(height: 10),
+
+                _txs.isEmpty
+                    ? Container(
+                  height: 150,
+                  alignment: Alignment.center,
+                  child: const Text("No transactions recorded yet.", style: TextStyle(color: Colors.grey)),
+                )
+                    : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _txs.length,
+                  itemBuilder: (context, index) {
+                    final tx = _txs[index];
+                    final isCredit = tx['type'] == 'Credit';
+
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0.5,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isCredit ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                          child: Icon(
+                            isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+                            color: isCredit ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        title: Text(tx['description'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        subtitle: Text(
+                          tx['created_at'] != null ? tx['created_at'].toString().split(' ')[0] : "",
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        trailing: Text(
+                          "${isCredit ? '+' : '-'}₹${double.tryParse(tx['amount'].toString())?.toStringAsFixed(2) ?? tx['amount']}",
+                          style: TextStyle(
+                            color: isCredit ? Colors.green : Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2248,47 +2059,47 @@ class AgentPerformanceScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   orders.isEmpty
                       ? const SizedBox(
-                          height: 120,
-                          child: Center(child: Text("No sales data available for graphing", style: TextStyle(color: Colors.grey, fontSize: 12))),
-                        )
+                    height: 120,
+                    child: Center(child: Text("No sales data available for graphing", style: TextStyle(color: Colors.grey, fontSize: 12))),
+                  )
                       : SizedBox(
-                          height: 150,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: orders.reversed.take(6).map((o) {
-                              final amt = double.tryParse(o['total_amount'].toString()) ?? 0.0;
-                              final ratio = amt / maxAmt;
-                              final barHeight = (ratio * 100).clamp(10.0, 100.0);
-                              final dateStr = o['created_at'] != null && o['created_at'].toString().length >= 10
-                                  ? o['created_at'].toString().substring(5, 10)
-                                  : "Order";
-                              return Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Tooltip(
-                                    message: "₹$amt (${o['quantity']} Kits)",
-                                    triggerMode: TooltipTriggerMode.tap,
-                                    child: Container(
-                                      width: 28,
-                                      height: barHeight,
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xff2563EB), Color(0xff60A5FA)],
-                                          begin: Alignment.bottomCenter,
-                                          end: Alignment.topCenter,
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
+                    height: 150,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: orders.reversed.take(6).map((o) {
+                        final amt = double.tryParse(o['total_amount'].toString()) ?? 0.0;
+                        final ratio = amt / maxAmt;
+                        final barHeight = (ratio * 100).clamp(10.0, 100.0);
+                        final dateStr = o['created_at'] != null && o['created_at'].toString().length >= 10
+                            ? o['created_at'].toString().substring(5, 10)
+                            : "Order";
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Tooltip(
+                              message: "₹$amt (${o['quantity']} Kits)",
+                              triggerMode: TooltipTriggerMode.tap,
+                              child: Container(
+                                width: 28,
+                                height: barHeight,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xff2563EB), Color(0xff60A5FA)],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.w500)),
-                                ],
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.w500)),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2299,72 +2110,72 @@ class AgentPerformanceScreen extends StatelessWidget {
             const SizedBox(height: 10),
             orders.isEmpty
                 ? const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Center(child: Text("No kit orders placed yet.", style: TextStyle(color: Colors.grey))),
-                    ),
-                  )
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: Text("No kit orders placed yet.", style: TextStyle(color: Colors.grey))),
+              ),
+            )
                 : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) {
-                      final o = orders[index];
-                      final isPaid = o['payment_status'] == 'Paid';
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0.5,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text("Order #${o['id']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: isPaid ? Colors.green.shade50 : Colors.orange.shade50,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      isPaid ? "Paid" : "Pending",
-                                      style: TextStyle(color: isPaid ? Colors.green : Colors.orange, fontWeight: FontWeight.bold, fontSize: 11),
-                                    ),
-                                  ),
-                                ],
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: orders.length,
+              itemBuilder: (context, index) {
+                final o = orders[index];
+                final isPaid = o['payment_status'] == 'Paid';
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0.5,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Order #${o['id']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isPaid ? Colors.green.shade50 : Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              const Divider(height: 16),
-                              Text("School: ${o['school_name'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                              const SizedBox(height: 2),
-                              Text("Kit Level: ${o['kit_level'] ?? 'N/A'} x ${o['quantity']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Text("Earned Commission: ", style: TextStyle(fontSize: 12, color: Color(0xff475569))),
-                                  Text(
-                                    "₹${double.tryParse(o['commission_earned']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green),
-                                  ),
-                                ],
+                              child: Text(
+                                isPaid ? "Paid" : "Pending",
+                                style: TextStyle(color: isPaid ? Colors.green : Colors.orange, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(o['created_at']?.toString().substring(0, 10) ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                                  Text("₹${o['total_amount']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                ],
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
+                        const Divider(height: 16),
+                        Text("School: ${o['school_name'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text("Kit Level: ${o['kit_level'] ?? 'N/A'} x ${o['quantity']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Text("Earned Commission: ", style: TextStyle(fontSize: 12, color: Color(0xff475569))),
+                            Text(
+                              "₹${double.tryParse(o['commission_earned']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(o['created_at']?.toString().substring(0, 10) ?? "", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                            Text("₹${o['total_amount']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -2399,6 +2210,7 @@ class AgentPerformanceScreen extends StatelessWidget {
     );
   }
 }
+
 class DistributorProfileScreen extends StatefulWidget {
   const DistributorProfileScreen({super.key});
 

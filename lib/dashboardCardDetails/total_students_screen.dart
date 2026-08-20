@@ -35,6 +35,7 @@ class _TotalStudentsScreenState extends State<TotalStudentsScreen> {
           body: jsonEncode({"user_id": userId}),
         );
         if (response.statusCode == 200) {
+          debugPrint("RAW RESPONSE >>> ${response.body}");
           final data = jsonDecode(response.body);
           if (data['status'] == 'success' && data['network_users'] != null) {
             final List<dynamic> users = data['network_users'];

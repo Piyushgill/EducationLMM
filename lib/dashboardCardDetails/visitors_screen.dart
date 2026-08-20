@@ -13,24 +13,25 @@ class VisitorsScreen extends StatefulWidget {
 class _VisitorsScreenState extends State<VisitorsScreen> {
   String _selectedTab = 'All';
   bool _isLoading = false;
-  int _networkSize = 0;
+  List<dynamic> _visitors = [];
 
-  final List<Map<String, dynamic>> visitors = [
-    {'name': 'Mrs. Anjali Mehta', 'school': 'Sunrise Public School', 'time': '10:30 AM', 'date': 'Today', 'type': 'School Visit', 'status': 'Converted'},
-    {'name': 'Mr. Rakesh Gupta', 'school': 'Interest Inquiry', 'time': '11:00 AM', 'date': 'Today', 'type': 'New Lead', 'status': 'Pending'},
-    {'name': 'Mrs. Pooja Agarwal', 'school': 'Modern Academy', 'time': '2:00 PM', 'date': 'Yesterday', 'type': 'Demo Request', 'status': 'Converted'},
-    {'name': 'Mr. Sanjay Tiwari', 'school': 'Demo Inquiry', 'time': '3:30 PM', 'date': 'Yesterday', 'type': 'New Lead', 'status': 'Not Interested'},
-    {'name': 'Mrs. Kavita Singh', 'school': 'Green Valley School', 'time': '11:30 AM', 'date': '20 Feb', 'type': 'School Visit', 'status': 'Converted'},
-    {'name': 'Mr. Deepak Rana', 'school': 'Product Inquiry', 'time': '4:00 PM', 'date': '20 Feb', 'type': 'New Lead', 'status': 'Pending'},
-  ];
+  final List<String> _typeOptions = ['School Visit', 'New Lead', 'Demo Request'];
+  final List<String> _statusOptions = ['Pending', 'Converted', 'Not Interested'];
 
   @override
   void initState() {
     super.initState();
-    _fetchNetworkSize();
+    _fetchVisitors();
   }
 
-  Future<void> _fetchNetworkSize() async {
+  // ------------------------------------------------------------
+  //  FETCH VISITORS
+  //  NOTE: confirm this endpoint name/response shape with your
+  //  backend. Expected response:
+  //  { "status": "success", "data": [ {id, name, school, type,
+  //    status, visit_date, visit_time}, ... ] }
+  // ------------------------------------------------------------
+  Future<void> _fetchVisitors() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
@@ -38,28 +39,164 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
       if (session != null) {
         final userId = session['id'];
         final response = await http.post(
-          Uri.parse("https://apps.kofalt.in/api/get_user_network.php"),
+          Uri.parse("https://apps.kofalt.in/api/get_visitors.php"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({"user_id": userId}),
         );
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          if (data['status'] == 'success') {
+          if (data['status'] == 'success' && data['data'] != null) {
             if (mounted) {
               setState(() {
-                _networkSize = data['network_size'] ?? 0;
+                _visitors = data['data'];
               });
             }
           }
         }
       }
     } catch (e) {
-      debugPrint("Error fetching visitors stats: $e");
+      debugPrint("Error fetching visitors: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  // ------------------------------------------------------------
+  //  ADD VISIT FORM
+  //  NOTE: confirm this endpoint name/field names with backend.
+  // ------------------------------------------------------------
+  void _openAddVisitForm() {
+    final nameCtrl = TextEditingController();
+    final schoolCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    String selectedType = _typeOptions.first;
+    String selectedStatus = _statusOptions.first;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Add New Visit", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: "Visitor / Contact Name", border: OutlineInputBorder()),
+                    validator: (v) => v == null || v.isEmpty ? "Name is required" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: schoolCtrl,
+                    decoration: const InputDecoration(labelText: "School / Purpose", border: OutlineInputBorder()),
+                    validator: (v) => v == null || v.isEmpty ? "This field is required" : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedType,
+                    decoration: const InputDecoration(labelText: "Visit Type", border: OutlineInputBorder()),
+                    items: _typeOptions
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) setSheetState(() => selectedType = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    decoration: const InputDecoration(labelText: "Status", border: OutlineInputBorder()),
+                    items: _statusOptions
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) setSheetState(() => selectedStatus = val);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff5B5BF6)),
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) return;
+                        Navigator.pop(ctx);
+
+                        final session = await SessionManager.getSession();
+                        if (session == null) return;
+                        final userId = session['id'];
+                        final now = DateTime.now();
+
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xff5B5BF6))),
+                        );
+
+                        try {
+                          final res = await http.post(
+                            Uri.parse("https://apps.kofalt.in/api/add_visitor.php"),
+                            headers: {"Content-Type": "application/json"},
+                            body: jsonEncode({
+                              "user_id": userId,
+                              "name": nameCtrl.text,
+                              "school": schoolCtrl.text,
+                              "type": selectedType,
+                              "status": selectedStatus,
+                              "visit_date": "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+                              "visit_time": "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
+                            }),
+                          );
+                          if (context.mounted) Navigator.pop(context); // close loader
+                          final data = jsonDecode(res.body);
+                          if (data['status'] == 'success') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Visit added successfully!"), backgroundColor: Colors.green),
+                            );
+                            _fetchVisitors();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(data['message'] ?? "Failed to add visit"), backgroundColor: Colors.red),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                      child: const Text("Add Visit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Color _statusColor(String status) {
@@ -82,16 +219,23 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final int totalVisits = _networkSize * 12 + 15;
-    final converted = visitors.where((v) => v['status'] == 'Converted').length;
-    final pending = visitors.where((v) => v['status'] == 'Pending').length;
+    final int totalVisits = _visitors.length;
+    final converted = _visitors.where((v) => v['status'] == 'Converted').length;
+    final pending = _visitors.where((v) => v['status'] == 'Pending').length;
+    final notInterested = _visitors.where((v) => v['status'] == 'Not Interested').length;
 
-    List<Map<String, dynamic>> filtered = _selectedTab == 'All'
-        ? visitors
-        : visitors.where((v) => v['status'] == _selectedTab).toList();
+    List<dynamic> filtered = _selectedTab == 'All'
+        ? _visitors
+        : _visitors.where((v) => v['status'] == _selectedTab).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddVisitForm,
+        backgroundColor: const Color(0xff5B5BF6),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("Add Visit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
       body: Column(
         children: [
           // Header
@@ -151,7 +295,7 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                     const SizedBox(width: 5),
                     _headerChip(Icons.pending_outlined, "Pending", "$pending"),
                     const SizedBox(width: 5),
-                    _headerChip(Icons.cancel_outlined, "Not Interested", "1"),
+                    _headerChip(Icons.cancel_outlined, "Not Interested", "$notInterested"),
                   ],
                 ),
               ],
@@ -182,12 +326,22 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
           ),
 
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xff5B5BF6)))
+                : filtered.isEmpty
+                ? Center(child: Text("No visits recorded yet", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 90),
               itemCount: filtered.length,
               itemBuilder: (context, index) {
                 final v = filtered[index];
-                final initialChar = v['name'].toString().isNotEmpty ? v['name'].toString().substring(0, 1) : "?";
+                final name = (v['name'] ?? "").toString();
+                final type = (v['type'] ?? "New Lead").toString();
+                final status = (v['status'] ?? "Pending").toString();
+                final school = (v['school'] ?? "").toString();
+                final date = (v['visit_date'] ?? v['date'] ?? "").toString();
+                final time = (v['visit_time'] ?? v['time'] ?? "").toString();
+                final initialChar = name.isNotEmpty ? name.substring(0, 1) : "?";
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
@@ -200,28 +354,32 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                     children: [
                       CircleAvatar(
                         radius: 22,
-                        backgroundColor: _typeColor(v['type']).withOpacity(.1),
-                        child: Text(initialChar, style: TextStyle(color: _typeColor(v['type']), fontWeight: FontWeight.bold, fontSize: 18)),
+                        backgroundColor: _typeColor(type).withOpacity(.1),
+                        child: Text(initialChar, style: TextStyle(color: _typeColor(type), fontWeight: FontWeight.bold, fontSize: 18)),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(v['name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            if (school.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(school, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                            ],
                             const SizedBox(height: 3),
                             Row(
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: _typeColor(v['type']).withOpacity(.1),
+                                    color: _typeColor(type).withOpacity(.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Text(v['type'], style: TextStyle(color: _typeColor(v['type']), fontSize: 10, fontWeight: FontWeight.w600)),
+                                  child: Text(type, style: TextStyle(color: _typeColor(type), fontSize: 10, fontWeight: FontWeight.w600)),
                                 ),
                                 const SizedBox(width: 6),
-                                Text("${v['date']} ${v['time']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 8 )),
+                                Text("$date $time", style: TextStyle(color: Colors.grey.shade500, fontSize: 8)),
                               ],
                             ),
                           ],
@@ -230,10 +388,10 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _statusColor(v['status']).withOpacity(.1),
+                          color: _statusColor(status).withOpacity(.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(v['status'], style: TextStyle(color: _statusColor(v['status']), fontSize: 11, fontWeight: FontWeight.w600)),
+                        child: Text(status, style: TextStyle(color: _statusColor(status), fontSize: 11, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),

@@ -54,6 +54,140 @@ class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  //  ADD SCHOOL FORM
+  //  NOTE: endpoint follows the same pattern as
+  //  distributor/add_agent.php. Confirm the exact URL/field
+  //  names with your backend and adjust if they differ.
+  // ------------------------------------------------------------
+  void _openAddSchoolForm() {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Add New School", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: "School Name", border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.isEmpty ? "Name is required" : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.isEmpty ? "Email is required" : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: "Phone (10 digits)", border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.length != 10 ? "10-digit phone required" : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: passCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: "Password", border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.length < 6 ? "Password min 6 chars" : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: addressCtrl,
+                  decoration: const InputDecoration(labelText: "Address / City", border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.isEmpty ? "Address is required" : null,
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff16C74A)),
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      Navigator.pop(ctx);
+
+                      final session = await SessionManager.getSession();
+                      if (session == null) return;
+                      final distId = session['id'];
+
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xff16C74A))),
+                      );
+
+                      try {
+                        final res = await http.post(
+                          Uri.parse("https://apps.kofalt.in/api/distributor/add_school.php"),
+                          headers: {"Content-Type": "application/json"},
+                          body: jsonEncode({
+                            "distributor_id": distId,
+                            "name": nameCtrl.text,
+                            "email": emailCtrl.text,
+                            "phone": phoneCtrl.text,
+                            "password": passCtrl.text,
+                            "address": addressCtrl.text,
+                          }),
+                        );
+                        if (context.mounted) Navigator.pop(context); // close loader
+                        final data = jsonDecode(res.body);
+                        if (data['status'] == 'success') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("School created successfully!"), backgroundColor: Colors.green),
+                          );
+                          _fetchSchools();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(data['message'] ?? "Failed to create school"), backgroundColor: Colors.red),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+                        );
+                      }
+                    },
+                    child: const Text("Create School", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _selectedFilter == 'All'
@@ -62,6 +196,12 @@ class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F5F5),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddSchoolForm,
+        backgroundColor: const Color(0xff16C74A),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("Add School", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
       body: Column(
         children: [
           // Header
@@ -158,69 +298,69 @@ class _ActiveSchoolsScreenState extends State<ActiveSchoolsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xff16C74A)))
                 : filtered.isEmpty
-                    ? Center(child: Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final s = filtered[index];
-                          final isActive = s['status'] == 'Active';
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            padding: const EdgeInsets.all(18),
+                ? Center(child: Text("No schools found", style: TextStyle(color: Colors.grey.shade500, fontSize: 15)))
+                : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 90),
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final s = filtered[index];
+                final isActive = s['status'] == 'Active';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            height: 46, width: 46,
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10, offset: const Offset(0, 3))],
+                              color: const Color(0xff16C74A).withOpacity(.1),
+                              borderRadius: BorderRadius.circular(14),
                             ),
+                            child: const Icon(Icons.school_outlined, color: Color(0xff16C74A), size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      height: 46, width: 46,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xff16C74A).withOpacity(.1),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: const Icon(Icons.school_outlined, color: Color(0xff16C74A), size: 24),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(s['name'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                          Text(s['email'] ?? "", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: isActive ? const Color(0xff16C74A).withOpacity(.1) : Colors.red.withOpacity(.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(s['status'] ?? 'Active', style: TextStyle(color: isActive ? const Color(0xff16C74A) : Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 14),
-                                const Divider(height: 1),
-                                const SizedBox(height: 14),
-                                Row(
-                                  children: [
-                                    _infoItem(Icons.phone, s['phone'] ?? "No Phone", const Color(0xff2563EB)),
-                                    const SizedBox(width: 14),
-                                    _infoItem(Icons.calendar_today_outlined, "Joined Recently", const Color(0xffFF6B00)),
-                                  ],
-                                ),
+                                Text(s['name'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                Text(s['email'] ?? "", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                               ],
                             ),
-                          );
-                        },
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isActive ? const Color(0xff16C74A).withOpacity(.1) : Colors.red.withOpacity(.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(s['status'] ?? 'Active', style: TextStyle(color: isActive ? const Color(0xff16C74A) : Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 14),
+                      const Divider(height: 1),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          _infoItem(Icons.phone, s['phone'] ?? "No Phone", const Color(0xff2563EB)),
+                          const SizedBox(width: 14),
+                          _infoItem(Icons.calendar_today_outlined, "Joined Recently", const Color(0xffFF6B00)),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
