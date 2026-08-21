@@ -600,7 +600,7 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
                         'assets/image/kmain.png',
                         height: 54,
                         width: 145,
-                        fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
+                        fit: BoxFit.fill,
                       ),
 
                       const Spacer(),
@@ -939,7 +939,24 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
     Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
   ]));
   Widget _vDivider() => Container(height: 28, width: 1, color: Colors.white.withOpacity(.3));
-  Widget _sectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
+  Widget _sectionTitle(String t, {VoidCallback? onViewAll}) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+      if (onViewAll != null)
+        GestureDetector(
+          onTap: onViewAll,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text("View All", style: TextStyle(color: Color(0xff7C3AED), fontSize: 13, fontWeight: FontWeight.w600)),
+              SizedBox(width: 2),
+              Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xff7C3AED)),
+            ],
+          ),
+        ),
+    ],
+  );
 
   Widget _emptyBlock(String label) => Container(
     width: double.infinity,
@@ -986,12 +1003,26 @@ class _FranchiseHomeTabState extends State<_FranchiseHomeTab> {
 
   Widget _faqItem(String q, String a) => Container(
     margin: const EdgeInsets.only(bottom: 10),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
-    child: ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      iconColor: const Color(0xff7C3AED),
-      children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 14), child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)))],
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        iconColor: const Color(0xff2563EB),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -3013,3 +3044,127 @@ Widget infoChip(IconData icon, String text, Color color) => Row(children: [
   const SizedBox(width: 5),
   Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
 ]);
+class _AllTestimonialsScreen extends StatelessWidget {
+  final List<dynamic> testimonials;
+  const _AllTestimonialsScreen({required this.testimonials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            detailHeader(
+              title: "All Testimonials",
+              subtitle: "${testimonials.length} testimonials",
+              colors: const [Color(0xff7C3AED), Color(0xffDB2777)],
+              onBack: () => Navigator.pop(context),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: testimonials.length,
+                itemBuilder: (context, index) {
+                  final t = testimonials[index];
+                  final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildTestimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestimonialCard(String name, String text, int stars) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          CircleAvatar(
+            backgroundColor: const Color(0xff7C3AED).withOpacity(.1),
+            radius: 18,
+            child: Text(name.isNotEmpty ? name[0] : "?",
+                style: const TextStyle(color: Color(0xff7C3AED), fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 10),
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          const Spacer(),
+          Row(children: List.generate(stars, (_) => const Icon(Icons.star, color: Color(0xffFFB800), size: 14))),
+        ]),
+        const SizedBox(height: 10),
+        Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+      ],
+    ),
+  );
+}
+
+class _AllFaqsScreen extends StatelessWidget {
+  final List<dynamic> faqs;
+  const _AllFaqsScreen({required this.faqs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            detailHeader(
+              title: "All FAQs",
+              subtitle: "${faqs.length} questions",
+              colors: const [Color(0xff2563EB), Color(0xff7C3AED)],
+              onBack: () => Navigator.pop(context),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: faqs.length,
+                itemBuilder: (context, index) {
+                  final f = faqs[index];
+                  return _buildFaqItem(f['question'] ?? "", f['answer'] ?? "");
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFaqItem(String q, String a) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        iconColor: const Color(0xff2563EB),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          ),
+        ],
+      ),
+    ),
+  );
+}

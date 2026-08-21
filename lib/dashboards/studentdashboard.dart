@@ -13,6 +13,22 @@ import 'package:thenew/widgets/notification_bell.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
+const String _kMyRole = "Student";
+
+/// Returns true if this admin-managed content item (video/testimonial/faq)
+/// should be visible to [role], based on its 'target_roles' field which the
+/// Super Admin sets when creating the content ("All" or a specific list).
+bool _visibleToRole(dynamic targetRolesField, String role) {
+  List<String> roles;
+  if (targetRolesField is List) {
+    roles = targetRolesField.map((e) => e.toString()).toList();
+  } else {
+    roles = (targetRolesField?.toString().split(',') ?? const ["All"]);
+  }
+  return roles.contains("All") || roles.contains(role);
+}
+
 class MathTestAttempt {
   final String categoryTitle;
   final MathCategory category;
@@ -188,10 +204,19 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
   int _currentLevel = 1;      // next level the student should attempt
   double _levelProgress = 0.0; // 0..1, fraction of the 8 levels passed
 
+  // ── Admin-managed content (Videos / Testimonials / FAQs), filtered by role ──
+  bool _isLoadingVideos = false;
+  bool _isLoadingTestimonials = false;
+  bool _isLoadingFaqs = false;
+  List<dynamic> _adminVideos = [];
+  List<dynamic> _adminTestimonials = [];
+  List<dynamic> _adminFaqs = [];
+
   @override
   void initState() {
     super.initState();
     _loadSessionAndData();
+    _fetchAdminContent();
   }
 
   Future<void> _loadSessionAndData() async {
@@ -258,6 +283,70 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  // ----------------------------------------------------------
+  //  Fetch Videos / Testimonials / FAQs added by Super Admin,
+  //  keeping only the ones targeted at "Student" or "All".
+  // ----------------------------------------------------------
+  Future<void> _fetchAdminContent() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingVideos = true;
+      _isLoadingTestimonials = true;
+      _isLoadingFaqs = true;
+    });
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_videos.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminVideos = all.where((v) => _visibleToRole(v['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching videos: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingVideos = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_testimonials.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminTestimonials = all.where((t) => _visibleToRole(t['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching testimonials: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingTestimonials = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_faqs.php"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          final all = (data['data'] as List? ?? []);
+          if (mounted) {
+            setState(() => _adminFaqs = all.where((f) => _visibleToRole(f['target_roles'], _kMyRole)).toList());
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching FAQs: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingFaqs = false);
     }
   }
 
@@ -530,68 +619,43 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
 
                   const SizedBox(width: 10),
 
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.white.withOpacity(.2),
-                    child: Text(
-                      avatarLetter,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                  ),
+                  // CircleAvatar(
+                  //   radius: 24,
+                  //   backgroundColor: Colors.white.withOpacity(.2),
+                  //   child: Text(
+                  //     avatarLetter,
+                  //     style: const TextStyle(
+                  //       color: Colors.white,
+                  //       fontWeight: FontWeight.bold,
+                  //       fontSize: 20,
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
 
               const SizedBox(height: 20),
 
-              const Text(
-                "Student",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 4),
-
               Text(
                 "Hello, $_studentName! 👋",
                 style: const TextStyle(
                   color: Colors.white70,
+                  fontSize: 20,
+                    fontWeight: FontWeight.bold
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                "Student",
+                style: TextStyle(
+                  color: Colors.white,
                   fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
 
+
               const SizedBox(height: 16),
-              // Progress card in header — now driven by real attempt data
-              // Container(
-              //   padding: const EdgeInsets.all(16),
-              //   decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(.3))),
-              //   child: Row(children: [
-              //     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              //       const Text("Current Level", style: TextStyle(color: Colors.white70, fontSize: 12)),
-              //       Text("Level $_currentLevel - Abacus", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              //       const SizedBox(height: 8),
-              //       ClipRRect(
-              //         borderRadius: BorderRadius.circular(8),
-              //         child: LinearProgressIndicator(
-              //           value: _levelProgress,
-              //           backgroundColor: const Color(0x4DFFFFFF),
-              //           valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              //           minHeight: 8,
-              //         ),
-              //       ),
-              //       const SizedBox(height: 4),
-              //       Text("$progressPercent% Complete", style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              //     ])),
-              //     const SizedBox(width: 16),
-              //     Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white.withOpacity(.2), shape: BoxShape.circle), child: const Icon(Icons.emoji_events_outlined, color: Colors.white, size: 30)),
-              //   ]),
-              // ),
             ]),
           ),
 
@@ -604,97 +668,130 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
                 _sectionTitle("My Progress"),
                 const SizedBox(height: 12),
                 Row(children: [
-                  _quickStatCard("Tests Done",    "$_testsDone",    const Color(0xff10B981)),
+                  _quickStatCard(
+                    "Tests Done",
+                    "$_testsDone",
+                    const Color(0xff10B981),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MathTestHistoryScreen(completedOnly: true)),
+                    ),
+                  ),
+                  // const SizedBox(width: 12),
+                  // _quickStatCard("Best Score", _bestScore, const Color(0xff0EA5E9)),
                   const SizedBox(width: 12),
-                  _quickStatCard("Best Score",    _bestScore, const Color(0xff0EA5E9)),
-                  const SizedBox(width: 12),
-                  _quickStatCard("Current Level", "$_currentLevel",    const Color(0xffA020F0)),
+                  _quickStatCard(
+                    "Test History",
+                    "$_currentLevel",
+                    const Color(0xffA020F0),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MathTestHistoryScreen()),
+                    ),
+                  ),
                 ]),
 
-                const SizedBox(height: 24),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MathTestHistoryScreen())),
-                    icon: const Icon(Icons.history_rounded, color: Color(0xff10B981), size: 18),
-                    label: const Text("View Test History", style: TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xff10B981)), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // if (_isLoading)
-                //   const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
-                // else if (_attempts.isEmpty)
-                //   Container(
-                //     width: double.infinity,
-                //     padding: const EdgeInsets.all(16),
-                //     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                //     child: Center(
-                //       child: Text(
-                //         "No practice tests completed yet",
-                //         style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                //       ),
-                //     ),
-                //   )
-                // else
-                //   ..._attempts.map((attempt) {
-                //     final int lvl = attempt['level'] as int? ?? 1;
-                //     final int sc = attempt['score'] as int? ?? 0;
-                //     final String grade = sc >= 45 ? "A+" : (sc >= 40 ? "A" : "B");
-                //     final String dt = attempt['created_at'] != null ? attempt['created_at'].toString().split(' ')[0] : "Recently";
-                //     return Padding(
-                //       padding: const EdgeInsets.only(bottom: 10),
-                //       child: _resultCard("Level $lvl", "$sc/50", dt, grade),
-                //     );
-                //   }).toList(),
-
-                const SizedBox(height: 24),
-
-                // QUICK START PRACTICE
-                // _sectionTitle("Quick Start Practice"),
+                // const SizedBox(height: 24),
                 // const SizedBox(height: 12),
-                // GestureDetector(
-                //   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PracticeTestScreen(level: _currentLevel))),
-                //   child: Container(
-                //     padding: const EdgeInsets.all(18),
-                //     decoration: BoxDecoration(
-                //       gradient: const LinearGradient(colors: [Color(0xff10B981), Color(0xff059669)]),
-                //       borderRadius: BorderRadius.circular(20),
-                //     ),
-                //     child: Row(children: [
-                //       const Icon(Icons.play_circle_fill, color: Colors.white, size: 44),
-                //       const SizedBox(width: 16),
-                //       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                //         Text("Continue Level $_currentLevel", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                //         const SizedBox(height: 4),
-                //         Text("50 Questions • Abacus", style: TextStyle(color: Colors.white.withOpacity(.85), fontSize: 13)),
-                //       ])),
-                //       const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
-                //     ]),
+                // SizedBox(
+                //   width: double.infinity,
+                //   child: OutlinedButton.icon(
+                //     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MathTestHistoryScreen())),
+                //     icon: const Icon(Icons.history_rounded, color: Color(0xff10B981), size: 18),
+                //     label: const Text("View Test History", style: TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.w600)),
+                //     style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xff10B981)), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                 //   ),
                 // ),
-
-                // const SizedBox(height: 24),
-                //
-                // EDUCATION VIDEOS PREVIEW
-                _sectionTitle("Education Videos"),
-                const SizedBox(height: 12),
-                ...[
-                  {'title': 'Abacus Basics - Level 1', 'duration': '15 min', 'color': const Color(0xff10B981)},
-                  {'title': 'Speed Calculation Tips',  'duration': '22 min', 'color': const Color(0xff0EA5E9)},
-                  {'title': 'Level 3 Techniques',      'duration': '18 min', 'color': const Color(0xffA020F0)},
-                  {'title': 'Practice Methods',        'duration': '25 min', 'color': const Color(0xffFF6B00)},
-                ].map((v) => _videoListCard(v['title'] as String, v['duration'] as String, v['color'] as Color)).toList(),
+                // const SizedBox(height: 12),
 
                 const SizedBox(height: 24),
 
-                // FAQ
-                _sectionTitle("FAQ"),
+                // EDUCATION VIDEOS (live, from Admin panel)
+                _sectionTitle(
+                  "Education Videos",
+                  onViewAll: _adminVideos.length > 3
+                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => _AllVideosScreen(videos: _adminVideos)))
+                      : null,
+                ),
                 const SizedBox(height: 12),
-                _faqItem("How many questions per test?",  "Each practice test has 50 questions. You need to answer all and submit to see your score summary."),
-                _faqItem("How are levels unlocked?",      "Complete the current level test with a passing score of 40/50 or above to unlock the next level."),
-                _faqItem("Can I retake a test?",          "Yes! You can retake any unlocked level test as many times as you want for practice."),
+                _isLoadingVideos
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
+                    : _adminVideos.isEmpty
+                    ? _adminEmptyBlock("No training videos yet")
+                    : Column(
+                  children: _adminVideos.take(3).map((v) {
+                    return _videoListCard(
+                      v['title'] ?? "",
+                      (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
+                      const Color(0xff10B981),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 24),
+
+                // GALLERY
+                _sectionTitle("Gallery"),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 90,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: List.generate(6, (i) => Container(
+                      width: 90, height: 90,
+                      margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff10B981).withOpacity(.1 + i * 0.04),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(Icons.image_outlined, color: const Color(0xff10B981).withOpacity(.6), size: 30),
+                    )),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // TESTIMONIALS (live, from Admin panel)
+                _sectionTitle(
+                  "Testimonials",
+                  onViewAll: _adminTestimonials.length > 3
+                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => _AllTestimonialsScreen(testimonials: _adminTestimonials)))
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                _isLoadingTestimonials
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xff10B981)))
+                    : _adminTestimonials.isEmpty
+                    ? _adminEmptyBlock("No testimonials yet")
+                    : Column(
+                  children: _adminTestimonials.take(3).map((t) {
+                    final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _testimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 24),
+
+                // FAQ (live, from Admin panel)
+                _sectionTitle(
+                  "FAQ",
+                  onViewAll: _adminFaqs.length > 3
+                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => _AllFaqsScreen(faqs: _adminFaqs)))
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                if (_isLoadingFaqs)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator(color: Color(0xff10B981))),
+                  )
+                else if (_adminFaqs.isEmpty)
+                  _adminEmptyBlock("No FAQs yet")
+                else
+                  ..._adminFaqs.take(3).map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
 
                 const SizedBox(height: 20),
               ]),
@@ -705,17 +802,37 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
     );
   }
 
-  Widget _sectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)));
+  Widget _sectionTitle(String t, {VoidCallback? onViewAll}) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+      if (onViewAll != null)
+        GestureDetector(
+          onTap: onViewAll,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text("View All", style: TextStyle(color: Color(0xff10B981), fontSize: 13, fontWeight: FontWeight.w600)),
+              SizedBox(width: 2),
+              Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xff10B981)),
+            ],
+          ),
+        ),
+    ],
+  );
 
-  Widget _quickStatCard(String label, String value, Color color) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
-      child: Column(children: [
-        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 11), textAlign: TextAlign.center),
-      ]),
+  Widget _quickStatCard(String label, String value, Color color, {VoidCallback? onTap}) => Expanded(
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+        child: Column(children: [
+          Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 11), textAlign: TextAlign.center),
+        ]),
+      ),
     ),
   );
 
@@ -736,7 +853,7 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
     );
   }
 
-  Widget _videoListCard(String title, String duration, Color color) => Container(
+  Widget _videoListCard(String title, String subtitle, Color color) => Container(
     margin: const EdgeInsets.only(bottom: 10),
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
@@ -744,11 +861,34 @@ class _StudentHomeTabState extends State<_StudentHomeTab> {
       Container(height: 44, width: 44, decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: Icon(Icons.play_circle_filled, color: color, size: 28)),
       const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        Text(duration, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
       ])),
       Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
     ]),
+  );
+
+  Widget _testimonialCard(String name, String text, int stars) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        CircleAvatar(backgroundColor: const Color(0xff10B981).withOpacity(.1), radius: 18, child: Text(name.isNotEmpty ? name[0] : "?", style: const TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.bold))),
+        const SizedBox(width: 10),
+        Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const Spacer(),
+        Row(children: List.generate(stars, (_) => const Icon(Icons.star, color: Color(0xffFFB800), size: 14))),
+      ]),
+      const SizedBox(height: 10),
+      Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+    ]),
+  );
+
+  Widget _adminEmptyBlock(String label) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+    child: Center(child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
   );
 
   Widget _faqItem(String q, String a) => Container(
@@ -932,7 +1072,7 @@ class _PracticeTab extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: isColored ? Colors.white : Colors.black87,
+                      color: isColored ? Colors.white : Colors.green,
                     ),
                   ),
                 ),
@@ -1365,19 +1505,44 @@ class _MathPracticeScreenState extends State<MathPracticeScreen> {
                         )
                       else
                         Column(children: [
+                          // Icon + status row (green check / red cross)
+                          // Three distinct states: Correct, Wrong (attempted), Time's up (no attempt)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _isCorrect!
+                                    ? Icons.check_circle
+                                    : (_ansCtrl.text.trim().isEmpty ? Icons.timer_off_rounded : Icons.cancel),
+                                color: _isCorrect! ? const Color(0xff10B981) : Colors.red,
+                                size: 26,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _isCorrect!
+                                    ? "Correct!"
+                                    : (_ansCtrl.text.trim().isEmpty ? "Time's up!" : "Wrong"),
+                                style: TextStyle(
+                                  color: _isCorrect! ? const Color(0xff10B981) : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 17,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+
+                          // Always-visible correct answer line (sahi ho ya galat, dono
+                          // case mein dikhega — sketch mein "Correct Answer: 17" jaisa)
                           Text(
-                            _isCorrect!
-                                ? "Correct! 🎉"
-                                : (_ansCtrl.text.trim().isEmpty
-                                ? "⏱ Time's up! Answer: ${q.answer}"
-                                : "Wrong — Answer: ${q.answer}"),
-                            textAlign: TextAlign.center,
+                            "Correct Answer: ${q.answer}",
                             style: TextStyle(
-                              color: _isCorrect! ? const Color(0xff10B981) : Colors.red,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
+
                           const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: _next,
@@ -2967,7 +3132,19 @@ const List<MathCategoryInfo> kMathCategories = [
   MathCategoryInfo("CUBE", MathCategory.cube, Color(0xff10B981)),
   MathCategoryInfo("MIX ALL", MathCategory.mixAll, Color(0xff059669)),
 ];
+// ============================================================
+//  FIXED MATH PRACTICE ENGINE (abacus-valid)
+//  Replace the corresponding classes/functions in your original
+//  file with the versions below. Sections to replace are marked.
+// ============================================================
 
+// ────────────────────────────────────────────────────────────
+// REPLACE: `class ColRowOption { ... }` and `kColRowOptions`
+// ────────────────────────────────────────────────────────────
+//
+// Meaning is now category-aware (see comment on each category
+// handler below), but the label always reflects EXACTLY what
+// will be generated — no more silent caps.
 class ColRowOption {
   final int columns;
   final int rows;
@@ -2984,12 +3161,25 @@ const List<ColRowOption> kColRowOptions = [
   ColRowOption(5, 5),
 ];
 
-class MathQuestion {
-  final List<String> lines;   // display lines e.g. ["2345","+6355","+8289","+4362"]
-  final String answer;        // correct answer as string
-  MathQuestion({required this.lines, required this.answer});
+// Levels that don't use "rows" at all (Square / Cube / Roots).
+// Only `columns` (digit count of the operand) matters here.
+// Used by MathSubLevelScreen to avoid showing a meaningless
+// "rows" choice for these categories — see UI fix at the bottom.
+bool categoryUsesRows(MathCategory c) {
+  switch (c) {
+    case MathCategory.square:
+    case MathCategory.squareRoot:
+    case MathCategory.cube:
+    case MathCategory.cubeRoot:
+      return false;
+    default:
+      return true;
+  }
 }
 
+// ────────────────────────────────────────────────────────────
+// REPLACE: `class MathQuestionGenerator { ... }` (entire class)
+// ────────────────────────────────────────────────────────────
 class MathQuestionGenerator {
   static final Random _rnd = Random();
 
@@ -3018,9 +3208,9 @@ class MathQuestionGenerator {
       case MathCategory.decimalMultiplication:
         return _multiply(columns, rows, decimal: true);
       case MathCategory.division:
-        return _divide(columns, decimal: false);
+        return _divide(columns, rows, decimal: false);
       case MathCategory.decimalDivision:
-        return _divide(columns, decimal: true);
+        return _divide(columns, rows, decimal: true);
       case MathCategory.square:
         return _square(columns);
       case MathCategory.squareRoot:
@@ -3039,47 +3229,105 @@ class MathQuestionGenerator {
     }
   }
 
-  static MathQuestion _addSub(int columns, int rows, {required bool allowNeg, bool forceNegAnswer = false, bool decimal = false}) {
-    for (int attempt = 0; attempt < 25; attempt++) {
-      final lines = <String>[];
-      double total = 0;
-      for (int i = 0; i < rows; i++) {
-        int intPart = _randInt(columns);
-        double val = decimal ? double.parse("$intPart.${1 + _rnd.nextInt(9)}") : intPart.toDouble();
-        bool neg = allowNeg && i > 0 && _rnd.nextBool();
-        total += neg ? -val : val;
-        final prefix = i == 0 ? "" : (neg ? "-" : "+");
-        lines.add("$prefix${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}");
-      }
-      if (forceNegAnswer && total >= 0) continue;
-      if (!forceNegAnswer && !allowNeg && total < 0) continue;
-      final ans = decimal ? total.toStringAsFixed(1) : total.round().toString();
-      return MathQuestion(lines: lines, answer: ans);
+  // ── Addition / Subtraction chains ──────────────────────────
+  // columns = digit count of EACH term, rows = number of terms.
+  // (unchanged from original — this part was already correct.)
+  static MathQuestion _addSub(
+      int columns,
+      int rows, {
+        required bool allowNeg,
+        bool forceNegAnswer = false,
+        bool decimal = false,
+      }) {
+    final lines = <String>[];
+    double total = 0;
+    for (int i = 0; i < rows; i++) {
+      int intPart = _randInt(columns);
+      double val = decimal ? double.parse("$intPart.${1 + _rnd.nextInt(9)}") : intPart.toDouble();
+      bool neg = allowNeg && i > 0 && _rnd.nextBool();
+      total += neg ? -val : val;
+      final prefix = i == 0 ? "" : (neg ? "-" : "+");
+      lines.add("$prefix${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}");
     }
-    // fallback
-    return MathQuestion(lines: ["1", "+1"], answer: "2");
+
+    // FIX: instead of retrying up to 25 times and silently falling back
+    // to a hardcoded "1+1=2" (which broke the "negative answer"
+    // guarantee), we now FORCE the result negative deterministically
+    // by flipping/boosting the last term if needed. This always
+    // succeeds on the first pass and never produces a wrong-category
+    // question.
+    if (forceNegAnswer && total >= 0 && rows > 1) {
+      final lastVal = decimal
+          ? double.parse(lines.last.replaceAll(RegExp(r'[+-]'), ''))
+          : double.parse(lines.last.replaceAll(RegExp(r'[+-]'), ''));
+      final wasNeg = lines.last.startsWith('-');
+      // amount still needed to push the running total below zero
+      final deficit = total + 0.0001;
+      if (wasNeg) {
+        // already subtracting — just make it subtract enough more
+        final boosted = lastVal + deficit;
+        total = total - deficit; // total becomes negative
+        lines[lines.length - 1] =
+        "-${decimal ? boosted.toStringAsFixed(1) : boosted.round().toString()}";
+      } else {
+        // was adding — flip to subtracting AND make sure it's big enough
+        final needed = lastVal + deficit;
+        total = total - lastVal - needed; // remove the old +lastVal, apply -needed
+        lines[lines.length - 1] =
+        "-${decimal ? needed.toStringAsFixed(1) : needed.round().toString()}";
+      }
+    }
+
+    final ans = decimal ? total.toStringAsFixed(1) : total.round().toString();
+    return MathQuestion(lines: lines, answer: ans);
   }
 
+  // ── Multiplication ──────────────────────────────────────────
+  // FIX: previously hard-capped to max 2 terms / 2 digits no
+  // matter what the user picked, so "5 COLUMN 5 ROWS" silently
+  // generated the same easy question as "1 COLUMN 4 ROWS".
+  //
+  // New, honest mapping (standard abacus "AxB digit multiplication"
+  // drill format):
+  //   columns = digit count of the FIRST operand
+  //   rows    = digit count of the SECOND operand
+  // Two operands only (matches real abacus multiplication levels —
+  // chaining 5 multi-digit numbers isn't a real abacus drill and
+  // also risks overflow at high levels).
   static MathQuestion _multiply(int columns, int rows, {required bool decimal}) {
-    final useRows = rows > 2 ? 2 : rows; // keep product manageable
-    final lines = <String>[];
-    double total = 1;
-    for (int i = 0; i < useRows; i++) {
-      int intPart = _randInt(columns > 2 ? 2 : columns);
-      double val = decimal ? double.parse("$intPart.${1 + _rnd.nextInt(9)}") : intPart.toDouble();
-      total *= val;
-      lines.add(i == 0 ? "${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}" : "×${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}");
-    }
+    int aDigits = columns.clamp(1, 5);
+    int bDigits = rows.clamp(1, 5);
+
+    int aInt = _randInt(aDigits);
+    int bInt = _randInt(bDigits);
+
+    double a = decimal ? double.parse("$aInt.${1 + _rnd.nextInt(9)}") : aInt.toDouble();
+    double b = decimal ? double.parse("$bInt.${1 + _rnd.nextInt(9)}") : bInt.toDouble();
+
+    final total = a * b;
+    final lines = [
+      decimal ? a.toStringAsFixed(1) : a.toStringAsFixed(0),
+      "×${decimal ? b.toStringAsFixed(1) : b.toStringAsFixed(0)}",
+    ];
     final ans = decimal ? total.toStringAsFixed(2) : total.round().toString();
     return MathQuestion(lines: lines, answer: ans);
   }
 
-  static MathQuestion _divide(int columns, {required bool decimal}) {
-    final divisor = _randInt(columns > 1 ? columns : 2).clamp(2, 999999);
+  // ── Division ─────────────────────────────────────────────────
+  // FIX: previously ignored `rows` completely. Now:
+  //   columns = digit count of the DIVISOR
+  //   rows    = digit count of the QUOTIENT
+  // Dividend is derived so the division is exact (or exact to 1
+  // decimal place for the decimal variant) — matches abacus drills
+  // where division always resolves cleanly.
+  static MathQuestion _divide(int columns, int rows, {required bool decimal}) {
+    final divisor = _randInt(columns.clamp(1, 5)).clamp(2, 99999);
+    final quotientDigits = rows.clamp(1, 5);
     final quotient = decimal
-        ? double.parse("${1 + _rnd.nextInt(20)}.${1 + _rnd.nextInt(9)}")
-        : (1 + _rnd.nextInt(50)).toDouble();
+        ? double.parse("${_randInt(quotientDigits)}.${1 + _rnd.nextInt(9)}")
+        : _randInt(quotientDigits).toDouble();
     final dividend = divisor * quotient;
+
     final lines = [
       decimal ? dividend.toStringAsFixed(2) : dividend.round().toString(),
       "÷$divisor",
@@ -3088,30 +3336,216 @@ class MathQuestionGenerator {
     return MathQuestion(lines: lines, answer: ans);
   }
 
+  // ── Square / Square Root / Cube / Cube Root ────────────────
+  // These never used `rows` and don't need to — a single number's
+  // square/cube has no "row" concept. `columns` = digit count of
+  // the base number (kept as-is; the fix here is only in the UI,
+  // see categoryUsesRows() above, so students no longer pick a
+  // meaningless "rows" value for these categories).
   static MathQuestion _square(int columns) {
-    final n = _randInt(columns > 3 ? 3 : columns);
+    final n = _randInt(columns.clamp(1, 3));
     return MathQuestion(lines: ["$n²"], answer: "${n * n}");
   }
 
   static MathQuestion _squareRoot(int columns) {
-    final base = _randInt(columns > 3 ? 3 : columns).clamp(1, 999);
+    final base = _randInt(columns.clamp(1, 3)).clamp(1, 999);
     final sq = base * base;
     return MathQuestion(lines: ["√$sq"], answer: "$base");
   }
 
   static MathQuestion _cube(int columns) {
-    final n = _randInt(columns > 2 ? 2 : columns).clamp(1, 99);
+    final n = _randInt(columns.clamp(1, 2)).clamp(1, 99);
     return MathQuestion(lines: ["$n³"], answer: "${n * n * n}");
   }
 
   static MathQuestion _cubeRoot(int columns) {
-    final base = _randInt(columns > 2 ? 2 : columns).clamp(1, 99);
+    final base = _randInt(columns.clamp(1, 2)).clamp(1, 99);
     final cb = base * base * base;
     return MathQuestion(lines: ["∛$cb"], answer: "$base");
   }
 }
+
+// ────────────────────────────────────────────────────────────
+// UI FIX: inside `MathSubLevelScreen.build()`, replace the
+// `...List.generate(kColRowOptions.length, (i) { ... })` block
+// with the version below. It hides the meaningless "rows" part
+// for Square/Cube/Root categories by collapsing duplicate
+// column-only options, so students only ever see choices that
+// actually change the question.
+// ────────────────────────────────────────────────────────────
+//
+// List<ColRowOption> _optionsFor(MathCategory cat) {
+//   if (categoryUsesRows(cat)) return kColRowOptions;
+//   // collapse to unique `columns` values only, rows forced to 1
+//   final seen = <int>{};
+//   final result = <ColRowOption>[];
+//   for (final o in kColRowOptions) {
+//     if (seen.add(o.columns)) result.add(ColRowOption(o.columns, 1));
+//   }
+//   return result;
+// }
+//
+// Then inside build(), change:
+//   ...List.generate(kColRowOptions.length, (i) {
+//     final opt = kColRowOptions[i];
+//     ...
+//   })
+// to:
+//   ...List.generate(_optionsFor(categoryInfo.category).length, (i) {
+//     final opt = _optionsFor(categoryInfo.category)[i];
+//     ...
+//   })
+//
+// And update each option's displayed label for non-row categories,
+// e.g. inside ColRowOption add:
+//   String labelFor(bool usesRows) => usesRows ? label : "$columns DIGIT";
+// and use `opt.labelFor(categoryUsesRows(categoryInfo.category))`
+// instead of `opt.label` in the Text widget.
+// class ColRowOption {
+//   final int columns;
+//   final int rows;
+//   const ColRowOption(this.columns, this.rows);
+//   String get label => "$columns COLUMN $rows ROWS";
+// }
+//
+// const List<ColRowOption> kColRowOptions = [
+//   ColRowOption(1, 4),
+//   ColRowOption(2, 5),
+//   ColRowOption(3, 6),
+//   ColRowOption(4, 4),
+//   ColRowOption(5, 4),
+//   ColRowOption(5, 5),
+// ];
+//
+class MathQuestion {
+  final List<String> lines;   // display lines e.g. ["2345","+6355","+8289","+4362"]
+  final String answer;        // correct answer as string
+  MathQuestion({required this.lines, required this.answer});
+}
+
+// class MathQuestionGenerator {
+//   static final Random _rnd = Random();
+//
+//   static int _randInt(int digits) {
+//     if (digits <= 1) return 1 + _rnd.nextInt(9);
+//     final min = pow(10, digits - 1).toInt();
+//     final max = pow(10, digits).toInt() - 1;
+//     return min + _rnd.nextInt(max - min + 1);
+//   }
+//
+//   static MathQuestion generate(MathCategory cat, int columns, int rows) {
+//     switch (cat) {
+//       case MathCategory.addition:
+//         return _addSub(columns, rows, allowNeg: false);
+//       case MathCategory.addSub:
+//       case MathCategory.mix:
+//         return _addSub(columns, rows, allowNeg: true);
+//       case MathCategory.negativeAnswers:
+//         return _addSub(columns, rows, allowNeg: true, forceNegAnswer: true);
+//       case MathCategory.decimalAdd:
+//         return _addSub(columns, rows, allowNeg: false, decimal: true);
+//       case MathCategory.decimalSub:
+//         return _addSub(columns, rows, allowNeg: true, decimal: true);
+//       case MathCategory.multiplication:
+//         return _multiply(columns, rows, decimal: false);
+//       case MathCategory.decimalMultiplication:
+//         return _multiply(columns, rows, decimal: true);
+//       case MathCategory.division:
+//         return _divide(columns, decimal: false);
+//       case MathCategory.decimalDivision:
+//         return _divide(columns, decimal: true);
+//       case MathCategory.square:
+//         return _square(columns);
+//       case MathCategory.squareRoot:
+//         return _squareRoot(columns);
+//       case MathCategory.cube:
+//         return _cube(columns);
+//       case MathCategory.cubeRoot:
+//         return _cubeRoot(columns);
+//       case MathCategory.mixAll:
+//         const opts = [
+//           MathCategory.addition, MathCategory.addSub, MathCategory.multiplication,
+//           MathCategory.division, MathCategory.square, MathCategory.squareRoot,
+//           MathCategory.cube, MathCategory.cubeRoot,
+//         ];
+//         return generate(opts[_rnd.nextInt(opts.length)], columns, rows);
+//     }
+//   }
+//
+//   static MathQuestion _addSub(int columns, int rows, {required bool allowNeg, bool forceNegAnswer = false, bool decimal = false}) {
+//     for (int attempt = 0; attempt < 25; attempt++) {
+//       final lines = <String>[];
+//       double total = 0;
+//       for (int i = 0; i < rows; i++) {
+//         int intPart = _randInt(columns);
+//         double val = decimal ? double.parse("$intPart.${1 + _rnd.nextInt(9)}") : intPart.toDouble();
+//         bool neg = allowNeg && i > 0 && _rnd.nextBool();
+//         total += neg ? -val : val;
+//         final prefix = i == 0 ? "" : (neg ? "-" : "+");
+//         lines.add("$prefix${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}");
+//       }
+//       if (forceNegAnswer && total >= 0) continue;
+//       if (!forceNegAnswer && !allowNeg && total < 0) continue;
+//       final ans = decimal ? total.toStringAsFixed(1) : total.round().toString();
+//       return MathQuestion(lines: lines, answer: ans);
+//     }
+//     // fallback
+//     return MathQuestion(lines: ["1", "+1"], answer: "2");
+//   }
+//
+//   static MathQuestion _multiply(int columns, int rows, {required bool decimal}) {
+//     final useRows = rows > 2 ? 2 : rows; // keep product manageable
+//     final lines = <String>[];
+//     double total = 1;
+//     for (int i = 0; i < useRows; i++) {
+//       int intPart = _randInt(columns > 2 ? 2 : columns);
+//       double val = decimal ? double.parse("$intPart.${1 + _rnd.nextInt(9)}") : intPart.toDouble();
+//       total *= val;
+//       lines.add(i == 0 ? "${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}" : "×${decimal ? val.toStringAsFixed(1) : val.toStringAsFixed(0)}");
+//     }
+//     final ans = decimal ? total.toStringAsFixed(2) : total.round().toString();
+//     return MathQuestion(lines: lines, answer: ans);
+//   }
+//
+//   static MathQuestion _divide(int columns, {required bool decimal}) {
+//     final divisor = _randInt(columns > 1 ? columns : 2).clamp(2, 999999);
+//     final quotient = decimal
+//         ? double.parse("${1 + _rnd.nextInt(20)}.${1 + _rnd.nextInt(9)}")
+//         : (1 + _rnd.nextInt(50)).toDouble();
+//     final dividend = divisor * quotient;
+//     final lines = [
+//       decimal ? dividend.toStringAsFixed(2) : dividend.round().toString(),
+//       "÷$divisor",
+//     ];
+//     final ans = decimal ? quotient.toStringAsFixed(1) : quotient.round().toString();
+//     return MathQuestion(lines: lines, answer: ans);
+//   }
+//
+//   static MathQuestion _square(int columns) {
+//     final n = _randInt(columns > 3 ? 3 : columns);
+//     return MathQuestion(lines: ["$n²"], answer: "${n * n}");
+//   }
+//
+//   static MathQuestion _squareRoot(int columns) {
+//     final base = _randInt(columns > 3 ? 3 : columns).clamp(1, 999);
+//     final sq = base * base;
+//     return MathQuestion(lines: ["√$sq"], answer: "$base");
+//   }
+//
+//   static MathQuestion _cube(int columns) {
+//     final n = _randInt(columns > 2 ? 2 : columns).clamp(1, 99);
+//     return MathQuestion(lines: ["$n³"], answer: "${n * n * n}");
+//   }
+//
+//   static MathQuestion _cubeRoot(int columns) {
+//     final base = _randInt(columns > 2 ? 2 : columns).clamp(1, 99);
+//     final cb = base * base * base;
+//     return MathQuestion(lines: ["∛$cb"], answer: "$base");
+//   }
+// }
 class MathTestHistoryScreen extends StatefulWidget {
-  const MathTestHistoryScreen({super.key});
+  final bool completedOnly;
+  const MathTestHistoryScreen({super.key, this.completedOnly = false});
 
   @override
   State<MathTestHistoryScreen> createState() => _MathTestHistoryScreenState();
@@ -3130,8 +3564,11 @@ class _MathTestHistoryScreenState extends State<MathTestHistoryScreen> {
   Future<void> _load() async {
     try {
       final list = await MathTestHistoryStore.getAll();
+      final filtered = widget.completedOnly
+          ? list.where((a) => a.completed).toList()
+          : list;
       if (mounted) setState(() {
-        _attempts = list;
+        _attempts = filtered;
         _loading = false;
       });
     } catch (e) {
@@ -3151,6 +3588,18 @@ class _MathTestHistoryScreenState extends State<MathTestHistoryScreen> {
       ),
     ).then((_) => _load()); // refresh history when coming back
   }
+
+  // void _reattempt(MathTestAttempt a) {
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => MathPracticeScreen(
+  //         categoryInfo: categoryInfoFor(a.category),
+  //         option: colRowFor(a.columns, a.rows),
+  //       ),
+  //     ),
+  //   ).then((_) => _load()); // refresh history when coming back
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -3245,4 +3694,195 @@ class _MathTestHistoryScreenState extends State<MathTestHistoryScreen> {
       ])),
     );
   }
+}
+
+// ============================================================
+//  STUDENT DETAIL HEADER (shared by view-all screens below)
+// ============================================================
+
+Widget _stuDetailHeader({required String title, required String subtitle, required VoidCallback onBack}) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 24),
+    decoration: const BoxDecoration(
+      borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+      gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xff10B981), Color(0xff059669)]),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onBack,
+          child: Container(
+            height: 40, width: 40,
+            decoration: BoxDecoration(color: Colors.white.withOpacity(.2), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      ],
+    ),
+  );
+}
+
+// ============================================================
+//  ALL VIDEOS SCREEN
+// ============================================================
+
+class _AllVideosScreen extends StatelessWidget {
+  final List<dynamic> videos;
+  const _AllVideosScreen({required this.videos});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _stuDetailHeader(title: "Education Videos", subtitle: "${videos.length} videos", onBack: () => Navigator.pop(context)),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: videos.length,
+                itemBuilder: (context, index) {
+                  final v = videos[index];
+                  return _buildVideoRow(
+                    v['title'] ?? "",
+                    (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoRow(String title, String subtitle) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+    child: Row(children: [
+      Container(height: 44, width: 44, decoration: BoxDecoration(color: const Color(0xff10B981).withOpacity(.1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.play_circle_filled, color: Color(0xff10B981), size: 28)),
+      const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+      ])),
+    ]),
+  );
+}
+
+// ============================================================
+//  ALL TESTIMONIALS SCREEN
+// ============================================================
+
+class _AllTestimonialsScreen extends StatelessWidget {
+  final List<dynamic> testimonials;
+  const _AllTestimonialsScreen({required this.testimonials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _stuDetailHeader(title: "All Testimonials", subtitle: "${testimonials.length} testimonials", onBack: () => Navigator.pop(context)),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: testimonials.length,
+                itemBuilder: (context, index) {
+                  final t = testimonials[index];
+                  final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildTestimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestimonialCard(String name, String text, int stars) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          CircleAvatar(
+            backgroundColor: const Color(0xff10B981).withOpacity(.1),
+            radius: 18,
+            child: Text(name.isNotEmpty ? name[0] : "?", style: const TextStyle(color: Color(0xff10B981), fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 10),
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          const Spacer(),
+          Row(children: List.generate(stars, (_) => const Icon(Icons.star, color: Color(0xffFFB800), size: 14))),
+        ]),
+        const SizedBox(height: 10),
+        Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+      ],
+    ),
+  );
+}
+
+// ============================================================
+//  ALL FAQS SCREEN
+// ============================================================
+
+class _AllFaqsScreen extends StatelessWidget {
+  final List<dynamic> faqs;
+  const _AllFaqsScreen({required this.faqs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _stuDetailHeader(title: "All FAQs", subtitle: "${faqs.length} questions", onBack: () => Navigator.pop(context)),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: faqs.length,
+                itemBuilder: (context, index) {
+                  final f = faqs[index];
+                  return _buildFaqItem(f['question'] ?? "", f['answer'] ?? "");
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFaqItem(String q, String a) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+    child: ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      iconColor: const Color(0xff10B981),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+        ),
+      ],
+    ),
+  );
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:thenew/services/session_manager.dart';
 
-const List<String> _kCentres = ['Centre Alpha', 'Centre Beta', 'Centre Gamma'];
 const List<String> _kPrograms = ['Abacus', 'Vedic Maths', 'Phonics', 'English'];
 
 // ============================================================
@@ -26,6 +28,10 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
   late List<Map<String, dynamic>> _batches;
   int _nextId = 0;
 
+  // ── Dynamic centres, fetched from add_center.php registered list ──
+  bool _isLoadingCentres = false;
+  List<String> _centreNames = [];
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +40,40 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
       copy['id'] = _nextId++;
       return copy;
     }).toList();
+    _fetchCentres();
+  }
+
+  Future<void> _fetchCentres() async {
+    if (!mounted) return;
+    setState(() => _isLoadingCentres = true);
+    try {
+      final session = await SessionManager.getSession();
+      if (session != null) {
+        final franchiseId = session['id'];
+        final response = await http.post(
+          Uri.parse("https://apps.kofalt.in/api/franchise/get_centers.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"franchise_id": franchiseId}),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['status'] == 'success') {
+            final List<dynamic> list = data['data'] ?? [];
+            final names = list
+                .map((c) => (c['name'] ?? "").toString())
+                .where((n) => n.isNotEmpty)
+                .toList();
+            if (mounted) {
+              setState(() => _centreNames = names);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching centres for batch form: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingCentres = false);
+    }
   }
 
   int get _centreCount => _batches.map((b) => b['centre']).toSet().length;
@@ -42,12 +82,20 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
   //  ADD / EDIT
   // ----------------------------------------------------------
   void _openBatchForm({Map<String, dynamic>? batch}) {
+    if (_centreNames.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No registered centres found. Please register a centre first.")),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _BatchFormSheet(
         batch: batch,
+        centres: _centreNames,
         onSubmit: (data) {
           setState(() {
             if (batch != null) {
@@ -385,8 +433,9 @@ class _BatchManagementScreenState extends State<BatchManagementScreen> {
 
 class _BatchFormSheet extends StatefulWidget {
   final Map<String, dynamic>? batch;
+  final List<String> centres;
   final void Function(Map<String, dynamic> data) onSubmit;
-  const _BatchFormSheet({this.batch, required this.onSubmit});
+  const _BatchFormSheet({this.batch, required this.centres, required this.onSubmit});
 
   @override
   State<_BatchFormSheet> createState() => _BatchFormSheetState();
@@ -408,7 +457,11 @@ class _BatchFormSheetState extends State<_BatchFormSheet> {
     _batchNameCtrl = TextEditingController(text: b?['batch'] ?? '');
     _studentsCtrl = TextEditingController(text: b != null ? "${b['students']}" : '');
     _timeCtrl = TextEditingController(text: b?['time'] ?? '');
-    _centre = b?['centre'] ?? _kCentres.first;
+    // Use the batch's saved centre if it still exists in the dynamic list,
+    // otherwise fall back to the first available registered centre.
+    _centre = (b?['centre'] != null && widget.centres.contains(b!['centre']))
+        ? b['centre']
+        : widget.centres.first;
     _program = b?['program'] ?? _kPrograms.first;
     _isRunning = (b?['status'] ?? 'Running') == 'Running';
   }
@@ -467,7 +520,7 @@ class _BatchFormSheetState extends State<_BatchFormSheet> {
                 DropdownButtonFormField<String>(
                   value: _centre,
                   decoration: _inputDecoration(null, Icons.location_on_outlined),
-                  items: _kCentres.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  items: widget.centres.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                   onChanged: (v) => setState(() => _centre = v!),
                 ),
                 const SizedBox(height: 16),

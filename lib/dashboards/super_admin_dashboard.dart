@@ -3251,7 +3251,6 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
   List<dynamic> _ordersList = [];
   Timer? _timer;
 
-
   String _roleFilter = "All";
   String _statusFilter = "All";
   String _timeFilter = "All";
@@ -3392,9 +3391,31 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
     return "${dt.day} ${months[dt.month - 1]} ${dt.year} • $hour12:$min $ampm";
   }
 
+  // ---- NEW: KPI calculations ----
+  double get _totalSaleAmount {
+    double sum = 0;
+    for (final o in _ordersList) {
+      sum += double.tryParse(o['total_amount'].toString()) ?? 0;
+    }
+    return sum;
+  }
+
+  double get _totalPendingAmount {
+    double sum = 0;
+    for (final o in _ordersList) {
+      if ((o['payment_status'] ?? "Unpaid") != "Paid") {
+        sum += double.tryParse(o['total_amount'].toString()) ?? 0;
+      }
+    }
+    return sum;
+  }
+
+  int get _pendingOrdersCount {
+    return _ordersList.where((o) => (o['payment_status'] ?? "Unpaid") != "Paid").length;
+  }
+
   List<dynamic> get _filteredSortedOrders {
     var list = List<dynamic>.from(_ordersList);
-
 
     if (_roleFilter != "All") {
       list = list.where((o) => (o['buyer_role'] ?? "").toString() == _roleFilter).toList();
@@ -3499,9 +3520,9 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                 ElevatedButton(
                   onPressed: canDelete
                       ? () {
-                          Navigator.pop(ctx);
-                          _deleteKit(kit['id']);
-                        }
+                    Navigator.pop(ctx);
+                    _deleteKit(kit['id']);
+                  }
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
@@ -3574,6 +3595,59 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
     );
   }
 
+  // ---- NEW: KPI card widget ----
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6)),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xff1E293B)),
+          ),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3600,6 +3674,31 @@ class _KitsOrdersScreenState extends State<KitsOrdersScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ---- NEW: Total Sale & Pending Payment KPI cards ----
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildKpiCard(
+                            title: "Total Sale",
+                            value: "₹${_totalSaleAmount.toStringAsFixed(0)}",
+                            subtitle: "${_ordersList.length} Orders",
+                            color: const Color(0xff10B981),
+                            icon: Icons.point_of_sale_rounded,
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: _buildKpiCard(
+                            title: "Total Pending Payment",
+                            value: "₹${_totalPendingAmount.toStringAsFixed(0)}",
+                            subtitle: "$_pendingOrdersCount Orders",
+                            color: Colors.orange,
+                            icon: Icons.hourglass_bottom_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -4927,32 +5026,58 @@ class _MlmCommissionsScreenState extends State<MlmCommissionsScreen> with Single
     bool isWide = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 8, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6)),
+        ],
         border: Border.all(color: Colors.grey.shade100),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: color, size: 24),
+          // Icon (left) + Title (beside icon)
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1E293B))),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-              ],
+          const SizedBox(height: 16),
+          // Value
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xff1E293B),
             ),
+          ),
+          const SizedBox(height: 4),
+          // Subtitle
+          Text(
+            subtitle,
+            style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
           ),
         ],
       ),

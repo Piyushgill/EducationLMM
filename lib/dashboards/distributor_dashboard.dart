@@ -654,8 +654,8 @@ class _HomeTabState extends State<_HomeTab> {
                       Image.asset(
                         'assets/image/kmain.png',
                         height: 54,
-                        width: 145,        // 👈 jitna bada chahiye utna badha do
-                        fit: BoxFit.fill,  // 👈 yahi "stretch" effect deta hai
+                        width: 145,
+                        fit: BoxFit.fill,
                       ),
 
                       const Spacer(),
@@ -1026,9 +1026,23 @@ class _HomeTabState extends State<_HomeTab> {
 
   // ── HELPER WIDGETS ─────────────────────────────────────────
 
-  Widget _sectionTitle(String title) => Text(
-    title,
-    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E)),
+  Widget _sectionTitle(String title, {VoidCallback? onViewAll}) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xff1E1E1E))),
+      if (onViewAll != null)
+        GestureDetector(
+          onTap: onViewAll,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text("View All", style: TextStyle(color: Color(0xff2563EB), fontSize: 13, fontWeight: FontWeight.w600)),
+              SizedBox(width: 2),
+              Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xff2563EB)),
+            ],
+          ),
+        ),
+    ],
   );
 
   Widget _videoCard(String title, String duration, String videoUrl, Color color) => GestureDetector(
@@ -1097,16 +1111,21 @@ class _HomeTabState extends State<_HomeTab> {
       borderRadius: BorderRadius.circular(16),
       boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
     ),
-    child: ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      iconColor: const Color(0xff2563EB),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-        ),
-      ],
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        iconColor: const Color(0xff2563EB),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -3338,4 +3357,198 @@ class _DistributorProfileScreenState
       ),
     );
   }
+}
+// ============================================================
+//  ALL TESTIMONIALS SCREEN
+// ============================================================
+
+class _AllTestimonialsScreen extends StatelessWidget {
+  final List<dynamic> testimonials;
+  const _AllTestimonialsScreen({required this.testimonials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 24),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xff2563EB), Color(0xffA020F0)],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("All Testimonials", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text("${testimonials.length} testimonials", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: testimonials.length,
+                itemBuilder: (context, index) {
+                  final t = testimonials[index];
+                  final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildTestimonialCard(t['name'] ?? "", t['message'] ?? "", rating),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestimonialCard(String name, String text, int stars) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 8)],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: const Color(0xff2563EB).withOpacity(.1),
+              radius: 18,
+              child: Text(name.isNotEmpty ? name[0] : "?",
+                  style: const TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 10),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            Row(children: List.generate(stars, (_) => const Icon(Icons.star, color: Color(0xffFFB800), size: 14))),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+      ],
+    ),
+  );
+}
+
+// ============================================================
+//  ALL FAQS SCREEN
+// ============================================================
+
+class _AllFaqsScreen extends StatelessWidget {
+  final List<dynamic> faqs;
+  const _AllFaqsScreen({required this.faqs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xffF5F5F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 24),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xff2563EB), Color(0xffA020F0)],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("All FAQs", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text("${faqs.length} questions", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(18),
+                itemCount: faqs.length,
+                itemBuilder: (context, index) {
+                  final f = faqs[index];
+                  return _buildFaqItem(f['question'] ?? "", f['answer'] ?? "");
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFaqItem(String q, String a) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        iconColor: const Color(0xff2563EB),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Text(a, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          ),
+        ],
+      ),
+    ),
+  );
 }

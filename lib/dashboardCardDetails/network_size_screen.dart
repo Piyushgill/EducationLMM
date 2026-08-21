@@ -16,9 +16,6 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
   String _searchQuery = "";
   final TextEditingController _searchCtrl = TextEditingController();
 
-  // 'Franchise' or 'School'
-  String _selectedTab = 'Franchise';
-
   @override
   void initState() {
     super.initState();
@@ -64,13 +61,12 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
   }
 
   // ------------------------------------------------------------
-  //  ADD FRANCHISE / SCHOOL FORM
-  //  NOTE: endpoints below follow the same pattern as
+  //  ADD SCHOOL FORM
+  //  NOTE: endpoint below follows the same pattern as
   //  distributor/add_agent.php. Confirm the exact URL/field
   //  names with your backend and adjust if they differ.
   // ------------------------------------------------------------
   void _openAddForm() {
-    final isFranchise = _selectedTab == 'Franchise';
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
@@ -98,9 +94,9 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isFranchise ? "Add New Franchise" : "Add New School",
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    const Text(
+                      "Add New School",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                   ],
@@ -108,9 +104,9 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                 const SizedBox(height: 15),
                 TextFormField(
                   controller: nameCtrl,
-                  decoration: InputDecoration(
-                    labelText: isFranchise ? "Franchise / Partner Name" : "School Name",
-                    border: const OutlineInputBorder(),
+                  decoration: const InputDecoration(
+                    labelText: "School Name",
+                    border: OutlineInputBorder(),
                   ),
                   validator: (v) => v == null || v.isEmpty ? "Name is required" : null,
                 ),
@@ -162,9 +158,7 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                       );
 
                       // TODO: confirm this endpoint name with your backend.
-                      final endpoint = isFranchise
-                          ? "https://apps.kofalt.in/api/distributor/add_franchise.php"
-                          : "https://apps.kofalt.in/api/distributor/add_school.php";
+                      const endpoint = "https://apps.kofalt.in/api/distributor/add_school.php";
 
                       try {
                         final res = await http.post(
@@ -183,10 +177,8 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                         final data = jsonDecode(res.body);
                         if (data['status'] == 'success') {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isFranchise
-                                  ? "Franchise created successfully!"
-                                  : "School created successfully!"),
+                            const SnackBar(
+                              content: Text("School created successfully!"),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -203,9 +195,9 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                         );
                       }
                     },
-                    child: Text(
-                      isFranchise ? "Create Franchise" : "Create School",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    child: const Text(
+                      "Create School",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -219,12 +211,9 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final franchises = _members.where((u) => u['role'] == 'Franchise Partner').toList();
     final schools = _members.where((u) => u['role'] == 'School').toList();
 
-    final activeList = _selectedTab == 'Franchise' ? franchises : schools;
-
-    final filtered = activeList.where((m) {
+    final filtered = schools.where((m) {
       final name = (m['name'] ?? "").toString().toLowerCase();
       final phone = (m['phone'] ?? "").toString().toLowerCase();
       final query = _searchQuery.toLowerCase();
@@ -237,9 +226,9 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
         onPressed: _openAddForm,
         backgroundColor: const Color(0xff2563EB),
         icon: const Icon(Icons.add, color: Colors.white),
-        label: Text(
-          _selectedTab == 'Franchise' ? "Add Franchise" : "Add School",
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        label: const Text(
+          "Add School",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
       body: Column(
@@ -284,14 +273,14 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                         color: Colors.white.withOpacity(.18),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.groups_2_outlined, color: Colors.white, size: 25),
+                      child: const Icon(Icons.school_outlined, color: Colors.white, size: 25),
                     ),
                     const SizedBox(width: 16),
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Network Size", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                        Text("Total Members", style: TextStyle(color: Colors.white70, fontSize: 15)),
+                        Text("Schools", style: TextStyle(color: Colors.white70, fontSize: 15)),
                       ],
                     ),
                     const Spacer(),
@@ -301,7 +290,7 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text("${_members.length}", style: const TextStyle(color: Color(0xff2563EB), fontSize: 15, fontWeight: FontWeight.bold)),
+                      child: Text("${schools.length}", style: const TextStyle(color: Color(0xff2563EB), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -309,33 +298,7 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
             ),
           ),
 
-          // Tappable Franchise / School section switcher
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _tabChip(
-                    "Franchise",
-                    "${franchises.length}",
-                    const Color(0xff2563EB),
-                    _selectedTab == 'Franchise',
-                        () => setState(() => _selectedTab = 'Franchise'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _tabChip(
-                    "Schools",
-                    "${schools.length}",
-                    const Color(0xff16C74A),
-                    _selectedTab == 'School',
-                        () => setState(() => _selectedTab = 'School'),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 18),
 
           // Search Bar
           Padding(
@@ -344,7 +307,7 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
               controller: _searchCtrl,
               onChanged: (val) => setState(() => _searchQuery = val),
               decoration: InputDecoration(
-                hintText: _selectedTab == 'Franchise' ? "Search franchise..." : "Search schools...",
+                hintText: "Search schools...",
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 filled: true,
                 fillColor: Colors.white,
@@ -366,7 +329,7 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
                 : filtered.isEmpty
                 ? Center(
               child: Text(
-                _selectedTab == 'Franchise' ? "No franchise found" : "No schools found",
+                "No schools found",
                 style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
               ),
             )
@@ -426,38 +389,6 @@ class _NetworkSizeScreenState extends State<NetworkSizeScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _tabChip(String label, String value, Color color, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(.08) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? color : Colors.transparent, width: 1.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: color.withOpacity(.1),
-              child: Icon(Icons.people_outline, color: color, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

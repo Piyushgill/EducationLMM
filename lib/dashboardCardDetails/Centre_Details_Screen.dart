@@ -55,14 +55,13 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  //  ADD CENTER — password no longer managed from this screen.
+  // ------------------------------------------------------------
   Future<void> _addcenter({
     required String name,
     required String email,
     required String phone,
-    required String password,
-    required String principal,
-    required String board,
-    required String regNum,
     required String city,
   }) async {
     showDialog(
@@ -84,10 +83,6 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
           "name": name,
           "email": email,
           "phone": phone,
-          "password": password,
-          "principal_name": principal,
-          "board_type": board,
-          "reg_number": regNum,
           "center_city": city,
         }),
       );
@@ -121,10 +116,6 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-    final principalCtrl = TextEditingController();
-    final boardCtrl = TextEditingController();
-    final regCtrl = TextEditingController();
     final cityCtrl = TextEditingController();
 
     showDialog(
@@ -139,10 +130,6 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
               TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "center Name")),
               TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email Address")),
               TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Phone Number")),
-              TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Login Password")),
-              // TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: "Principal Name")),
-              // TextField(controller: boardCtrl, decoration: const InputDecoration(labelText: "Board Type (e.g. CBSE)")),
-              // TextField(controller: regCtrl, decoration: const InputDecoration(labelText: "Registration Number")),
               TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: "center City")),
             ],
           ),
@@ -154,8 +141,7 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
               final name = nameCtrl.text.trim();
               final email = emailCtrl.text.trim();
               final phone = phoneCtrl.text.trim();
-              final password = passCtrl.text.trim();
-              if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+              if (name.isEmpty || email.isEmpty || phone.isEmpty) {
                 _showSnack("Please fill out all required fields", isError: true);
                 return;
               }
@@ -164,15 +150,150 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
                 name: name,
                 email: email,
                 phone: phone,
-                password: password,
-                principal: principalCtrl.text.trim(),
-                board: boardCtrl.text.trim(),
-                regNum: regCtrl.text.trim(),
                 city: cityCtrl.text.trim(),
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff7C3AED)),
             child: const Text("Add center", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  //  CENTER DETAILS POPUP — shown on tapping a center card.
+  // ------------------------------------------------------------
+  void _showCentreDetailsPopup(dynamic centre) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  height: 52,
+                  width: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xff7C3AED).withOpacity(.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.store_mall_directory_outlined, color: Color(0xff7C3AED), size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        centre['name'] ?? "",
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        centre['center_city'] ?? "No City Specified",
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff16C74A).withOpacity(.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    centre['status'] ?? "Active",
+                    style: const TextStyle(color: Color(0xff16C74A), fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            _detailRow(Icons.email_outlined, "Email", centre['email'] ?? "Not available"),
+            _detailRow(Icons.phone_outlined, "Phone", centre['phone'] ?? "Not available"),
+            _detailRow(Icons.person_outline, "Principal", centre['principal_name'] ?? "Not available"),
+            _detailRow(Icons.menu_book_outlined, "Board Type", centre['board_type'] ?? "Not available"),
+            _detailRow(Icons.badge_outlined, "Reg. Number", centre['reg_number'] ?? "Not available"),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _infoChip(
+                    Icons.groups_outlined,
+                    "${centre['students'] ?? 0} Students",
+                    const Color(0xff2563EB),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _infoChip(
+                    Icons.calendar_view_week_outlined,
+                    "${centre['batches'] ?? 0} Batches",
+                    const Color(0xff7C3AED),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff7C3AED),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text("Close", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade500),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                const SizedBox(height: 2),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
           ),
         ],
       ),
@@ -216,116 +337,119 @@ class _CentreDetailsScreenState extends State<CentreDetailsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xff7C3AED)))
                 : _centers.isEmpty
-                    ? const Center(child: Text("No centers registered yet under your profile.", style: TextStyle(color: Colors.grey)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(18),
-                        itemCount: _centers.length,
-                        itemBuilder: (context, index) {
-                          final centre = _centers[index];
+                ? const Center(child: Text("No centers registered yet under your profile.", style: TextStyle(color: Colors.grey)))
+                : ListView.builder(
+              padding: const EdgeInsets.all(18),
+              itemCount: _centers.length,
+              itemBuilder: (context, index) {
+                final centre = _centers[index];
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(.05),
-                                  blurRadius: 10,
-                                ),
-                              ],
+                return GestureDetector(
+                  onTap: () => _showCentreDetailsPopup(centre),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(.05),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 46,
+                              width: 46,
+                              decoration: BoxDecoration(
+                                color: const Color(0xff7C3AED).withOpacity(.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.store_mall_directory_outlined,
+                                color: Color(0xff7C3AED),
+                                size: 24,
+                              ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      height: 46,
-                                      width: 46,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xff7C3AED).withOpacity(.1),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: const Icon(
-                                        Icons.store_mall_directory_outlined,
-                                        color: Color(0xff7C3AED),
-                                        size: 24,
-                                      ),
+
+                            const SizedBox(width: 14),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    centre['name'] ?? "",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
                                     ),
-
-                                    const SizedBox(width: 14),
-
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            centre['name'] ?? "",
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                          Text(
-                                            centre['center_city'] ?? "No City Specified",
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                  ),
+                                  Text(
+                                    centre['center_city'] ?? "No City Specified",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12,
                                     ),
-
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xff16C74A).withOpacity(.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        centre['status'] ?? "Active",
-                                        style: const TextStyle(
-                                          color: Color(0xff16C74A),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 14),
-                                const Divider(height: 1),
-                                const SizedBox(height: 14),
-
-                                Row(
-                                  children: [
-                                    _infoChip(
-                                      Icons.groups_outlined,
-                                      "${centre['students']} Students",
-                                      const Color(0xff2563EB),
-                                    ),
-
-                                    const SizedBox(width: 16),
-
-                                    _infoChip(
-                                      Icons.calendar_view_week_outlined,
-                                      "${centre['batches']} Batches",
-                                      const Color(0xff7C3AED),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          );
-                        },
-                      ),
+
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xff16C74A).withOpacity(.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                centre['status'] ?? "Active",
+                                style: const TextStyle(
+                                  color: Color(0xff16C74A),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 14),
+                        const Divider(height: 1),
+                        const SizedBox(height: 14),
+
+                        Row(
+                          children: [
+                            _infoChip(
+                              Icons.groups_outlined,
+                              "${centre['students']} Students",
+                              const Color(0xff2563EB),
+                            ),
+
+                            const SizedBox(width: 16),
+
+                            _infoChip(
+                              Icons.calendar_view_week_outlined,
+                              "${centre['batches']} Batches",
+                              const Color(0xff7C3AED),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
