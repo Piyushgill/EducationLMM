@@ -90,6 +90,10 @@ try {
     // Distribute commission immediately (no admin approval needed)
     distributeCommission($conn, $orderId);
 
+    // Activate buyer's MLM status
+    $stmtAct = $conn->prepare("UPDATE users SET mlm_active = 1 WHERE id = ?");
+    $stmtAct->execute([$buyerId]);
+
     $conn->commit();
 
     echo json_encode([

@@ -37,6 +37,12 @@ try {
         $conn->exec("ALTER TABLE `users` ADD COLUMN `status` ENUM('Active', 'Suspended') NOT NULL DEFAULT 'Active'");
     }
 
+    // Check if 'mlm_active' column exists in 'users' table
+    $mlmColCheck = $conn->query("SHOW COLUMNS FROM `users` LIKE 'mlm_active'")->fetch();
+    if (!$mlmColCheck) {
+        $conn->exec("ALTER TABLE `users` ADD COLUMN `mlm_active` TINYINT(1) NOT NULL DEFAULT 0");
+    }
+
     // Ensure 'kyc_details' table exists with all columns
     $conn->exec("CREATE TABLE IF NOT EXISTS `kyc_details` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -189,6 +195,38 @@ try {
         `target_roles` VARCHAR(255) NOT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'gallery_photos' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `gallery_photos` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `title` VARCHAR(255) NOT NULL,
+        `image_url` TEXT NOT NULL,
+        `target_roles` VARCHAR(255) NOT NULL DEFAULT 'All',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Create 'programs_catalog' table
+    $conn->exec("CREATE TABLE IF NOT EXISTS `programs_catalog` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `title` VARCHAR(255) NOT NULL,
+        `description` TEXT DEFAULT NULL,
+        `thumbnail_url` VARCHAR(255) DEFAULT NULL,
+        `demo_video_url` VARCHAR(255) DEFAULT NULL,
+        `full_demo_video_url` VARCHAR(255) DEFAULT NULL,
+        `target_roles` VARCHAR(255) NOT NULL DEFAULT 'All',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Seed default programs if empty
+    $chkProg = $conn->query("SELECT COUNT(*) FROM `programs_catalog`")->fetchColumn();
+    if ($chkProg == 0) {
+        $conn->exec("INSERT INTO `programs_catalog` (`title`, `description`, `demo_video_url`, `full_demo_video_url`, `target_roles`) VALUES
+            ('Abacus Mastery', 'Mental arithmetic and brain development for students aged 5-14.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'All'),
+            ('Vedic Mathematics', 'High-speed calculation techniques and shortcuts.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', 'All'),
+            ('Phonics & Early Reading', 'Foundational reading skills, pronunciation and vocabulary.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4', 'All'),
+            ('English Communication', 'Grammar, speaking, and expressive language skills.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4', 'All')
+        ");
+    }
 
     // Create 'student_fees' table
     $conn->exec("CREATE TABLE IF NOT EXISTS `student_fees` (

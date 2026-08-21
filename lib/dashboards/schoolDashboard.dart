@@ -6,6 +6,7 @@ import 'package:thenew/services/login_screen.dart';
 import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/widgets/notification_bell.dart';
 import 'package:thenew/widgets/dynamic_video_player.dart';
+import 'package:thenew/widgets/view_all_content_screens.dart';
 
 const String _kMyRole = "School";
 
@@ -352,13 +353,17 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
   double _totalCommission = 0.0;
   String _userName = "School";
 
-  // ── Admin-managed content (Videos / Testimonials / FAQs), filtered by role ──
+  // ── Admin-managed content (Videos / Testimonials / FAQs / Gallery / Programs), filtered by role ──
   bool _isLoadingVideos = false;
   bool _isLoadingTestimonials = false;
   bool _isLoadingFaqs = false;
+  bool _isLoadingGallery = false;
+  bool _isLoadingPrograms = false;
   List<dynamic> _adminVideos = [];
   List<dynamic> _adminTestimonials = [];
   List<dynamic> _adminFaqs = [];
+  List<dynamic> _adminGallery = [];
+  List<dynamic> _adminPrograms = [];
 
   Future<void> _loadStats() async {
     if (!mounted) return;
@@ -494,8 +499,7 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
   }
 
   // ----------------------------------------------------------
-  //  Fetch Videos / Testimonials / FAQs added by Super Admin,
-  //  keeping only the ones targeted at "School" or "All".
+  //  Fetch Content from Admin panel targeted at "School" or "All".
   // ----------------------------------------------------------
   Future<void> _fetchAdminContent() async {
     if (!mounted) return;
@@ -503,6 +507,8 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
       _isLoadingVideos = true;
       _isLoadingTestimonials = true;
       _isLoadingFaqs = true;
+      _isLoadingGallery = true;
+      _isLoadingPrograms = true;
     });
 
     try {
@@ -520,6 +526,34 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
       debugPrint("Error fetching videos: $e");
     } finally {
       if (mounted) setState(() => _isLoadingVideos = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/get_programs.php?role=School"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success' && mounted) {
+          setState(() => _adminPrograms = data['data'] ?? []);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching programs: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingPrograms = false);
+    }
+
+    try {
+      final res = await http.get(Uri.parse("https://apps.kofalt.in/api/get_gallery.php?role=School"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success' && mounted) {
+          setState(() => _adminGallery = data['data'] ?? []);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching gallery: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingGallery = false);
     }
 
     try {
@@ -671,8 +705,114 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
 
                   const SizedBox(height: 24),
 
+                  // OUR PROGRAMS & DEMOS (live from admin)
+                  if (_adminPrograms.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _sectionTitle("Our Programs & Demos"),
+                        if (_adminPrograms.length > 3)
+                          TextButton(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllProgramsScreen(programs: _adminPrograms, themeColor: const Color(0xff0EA5E9)))),
+                            child: const Text("View All", style: TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      children: (_adminPrograms.length > 3 ? _adminPrograms.sublist(0, 3) : _adminPrograms).map((p) {
+                        final title = p['title'] ?? "";
+                        final desc = p['description'] ?? "";
+                        final demoUrl = p['demo_video_url'] ?? "";
+                        final fullDemoUrl = p['full_demo_video_url'] ?? "";
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    height: 38,
+                                    width: 38,
+                                    decoration: BoxDecoration(color: const Color(0xff0EA5E9).withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                                    child: const Icon(Icons.school_rounded, color: Color(0xff0EA5E9), size: 20),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  ),
+                                ],
+                              ),
+                              if (desc.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(desc, style: TextStyle(color: Colors.grey.shade600, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                              ],
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  if (demoUrl.isNotEmpty)
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(color: Color(0xff0EA5E9)),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                        ),
+                                        onPressed: () {
+                                          DynamicVideoPlayerModal.show(context, title: "$title - Demo", description: desc, videoUrl: demoUrl, themeColor: const Color(0xff0EA5E9));
+                                        },
+                                        icon: const Icon(Icons.play_arrow_rounded, color: Color(0xff0EA5E9), size: 16),
+                                        label: const Text("Watch Demo", style: TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold, fontSize: 11)),
+                                      ),
+                                    ),
+                                  if (demoUrl.isNotEmpty && fullDemoUrl.isNotEmpty)
+                                    const SizedBox(width: 8),
+                                  if (fullDemoUrl.isNotEmpty)
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xff0EA5E9),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                          elevation: 0,
+                                        ),
+                                        onPressed: () {
+                                          DynamicVideoPlayerModal.show(context, title: "$title - Full Demo", description: desc, videoUrl: fullDemoUrl, themeColor: const Color(0xff0EA5E9));
+                                        },
+                                        icon: const Icon(Icons.play_circle_filled_rounded, color: Colors.white, size: 16),
+                                        label: const Text("Full Demo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
                   // TRAINING VIDEOS (live, from Admin panel)
-                  _sectionTitle("Training Videos"),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle("Training Videos"),
+                      if (_adminVideos.length > 3)
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllVideosScreen(videos: _adminVideos, themeColor: const Color(0xff0EA5E9)))),
+                          child: const Text("View All", style: TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   _isLoadingVideos
                       ? SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: const Color(0xff0EA5E9))))
@@ -682,7 +822,7 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                     height: 120,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      children: _adminVideos.map((v) {
+                      children: (_adminVideos.length > 3 ? _adminVideos.sublist(0, 3) : _adminVideos).map((v) {
                         return _videoCard(
                           v['title'] ?? "",
                           (v['description'] ?? "").toString().isNotEmpty ? v['description'] : "Tap to watch",
@@ -695,29 +835,63 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
 
                   const SizedBox(height: 24),
 
-                  // GALLERY
-                  _sectionTitle("Gallery"),
+                  // GALLERY (live from admin)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle("Photo Gallery"),
+                      if (_adminGallery.length > 3)
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllGalleryScreen(photos: _adminGallery, themeColor: const Color(0xff0EA5E9)))),
+                          child: const Text("View All", style: TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 90,
-                    child: ListView(scrollDirection: Axis.horizontal, children: List.generate(6, (i) => Container(
-                      width: 90, height: 90, margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(color: const Color(0xff0EA5E9).withOpacity(.1 + i * 0.04), borderRadius: BorderRadius.circular(14)),
-                      child: Icon(Icons.image_outlined, color: const Color(0xff0EA5E9).withOpacity(.6), size: 30),
-                    ))),
+                  _isLoadingGallery
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xff0EA5E9)))
+                      : _adminGallery.isEmpty
+                      ? _emptyBlock("No gallery photos uploaded yet")
+                      : SizedBox(
+                    height: 96,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _adminGallery.length > 3 ? 3 : _adminGallery.length,
+                      itemBuilder: (ctx, i) {
+                        final photo = _adminGallery[i];
+                        return Container(
+                          width: 96,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.network(
+                              photo['image_url'] ?? "",
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.image_outlined, color: Colors.grey)),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
 
                   const SizedBox(height: 24),
 
                   // TESTIMONIALS (live, from Admin panel)
-                  _sectionTitle(
-                    "Testimonials",
-                    onViewAll: _adminTestimonials.length > 3
-                        ? () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => _AllTestimonialsScreen(testimonials: _adminTestimonials)),
-                    )
-                        : null,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle("Testimonials"),
+                      if (_adminTestimonials.length > 3)
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllTestimonialsScreen(testimonials: _adminTestimonials, themeColor: const Color(0xff0EA5E9)))),
+                          child: const Text("View All", style: TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   _isLoadingTestimonials
@@ -725,7 +899,7 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                       : _adminTestimonials.isEmpty
                       ? _emptyBlock("No testimonials yet")
                       : Column(
-                    children: _adminTestimonials.take(3).map((t) {
+                    children: (_adminTestimonials.length > 3 ? _adminTestimonials.sublist(0, 3) : _adminTestimonials).map((t) {
                       final rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
@@ -737,14 +911,16 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                   const SizedBox(height: 24),
 
                   // FAQ (live, from Admin panel)
-                  _sectionTitle(
-                    "FAQ",
-                    onViewAll: _adminFaqs.length > 3
-                        ? () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => _AllFaqsScreen(faqs: _adminFaqs)),
-                    )
-                        : null,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle("FAQ"),
+                      if (_adminFaqs.length > 3)
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllFaqsScreen(faqs: _adminFaqs, themeColor: const Color(0xff0EA5E9)))),
+                          child: const Text("View All", style: TextStyle(color: Color(0xff0EA5E9), fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (_isLoadingFaqs)
@@ -755,7 +931,8 @@ class _SchoolHomeTabState extends State<_SchoolHomeTab> {
                   else if (_adminFaqs.isEmpty)
                     _emptyBlock("No FAQs yet")
                   else
-                    ..._adminFaqs.take(3).map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
+                    ...(_adminFaqs.length > 3 ? _adminFaqs.sublist(0, 3) : _adminFaqs).map((f) => _faqItem(f['question'] ?? "", f['answer'] ?? "")),
+
                   const SizedBox(height: 20),
                 ]),
               ),

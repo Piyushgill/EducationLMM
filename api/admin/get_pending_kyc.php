@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    // Fetch users with kyc_status 'Pending' and their corresponding details
+    // Fetch users with kyc_status 'Pending', their KYC details, and their creator
     $stmt = $conn->prepare("
         SELECT 
             u.id, u.name, u.email, u.phone, u.role, u.kyc_status, u.created_at,
@@ -22,9 +22,14 @@ try {
             kd.business_name, kd.gst_number, kd.city, kd.experience, kd.area,
             kd.aadhaar_number, kd.pan_number, kd.gst_number_doc, kd.school_reg_number,
             kd.aadhaar_front, kd.aadhaar_back, kd.pan_image, kd.gst_cert, kd.school_reg_cert, 
-            kd.selfie, kd.signature, kd.bank_account, kd.bank_ifsc, kd.bank_name, kd.rejection_reason
+            kd.selfie, kd.signature, kd.bank_account, kd.bank_ifsc, kd.bank_name, kd.rejection_reason,
+            creator.name AS created_by_name,
+            creator.role AS created_by_role,
+            creator.phone AS created_by_phone
         FROM users u
         LEFT JOIN kyc_details kd ON u.id = kd.user_id
+        LEFT JOIN user_relations ur ON ur.child_id = u.id
+        LEFT JOIN users creator ON creator.id = ur.parent_id
         WHERE u.kyc_status = 'Pending' AND u.role != 'Super Admin'
         ORDER BY u.created_at ASC
     ");

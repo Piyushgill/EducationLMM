@@ -9,6 +9,8 @@ import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
 import 'package:thenew/dashboards/agent_dashboard.dart';
+import 'package:thenew/widgets/dynamic_video_player.dart';
+import 'package:thenew/widgets/view_all_content_screens.dart';
 
 
 class _AdminTheme {
@@ -991,7 +993,20 @@ class _KycQueueScreenState extends State<KycQueueScreen> {
                                       child: Text(user['role'] ?? "", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700)),
                                     ),
                                     const SizedBox(width: 6),
-                                    Text("• ${user['phone']}", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                                    Expanded(
+                                      child: Text(
+                                        user['created_by_name'] != null && user['created_by_name'].toString().isNotEmpty
+                                            ? "Created by: ${user['created_by_name']}"
+                                            : "• ${user['phone']}",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: user['created_by_name'] != null && user['created_by_name'].toString().isNotEmpty ? const Color(0xff2563EB) : Colors.grey.shade500,
+                                          fontSize: 11,
+                                          fontWeight: user['created_by_name'] != null ? FontWeight.w600 : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -1334,6 +1349,30 @@ class _RoleUsersListScreenState extends State<RoleUsersListScreen> {
     }
   }
 
+  Future<void> _toggleUserStatus(int userId, String newStatus) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => Center(child: CircularProgressIndicator(color: widget.color)));
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/toggle_user_status.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"user_id": userId, "status": newStatus}),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "User status updated to $newStatus!", false);
+        _fetchUsers();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Action failed", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
   Future<void> _actionKyc(int userId, String action, {String? reason}) async {
     showDialog(context: context, barrierDismissible: false, builder: (_) => Center(child: CircularProgressIndicator(color: widget.color)));
     try {
@@ -1536,29 +1575,51 @@ class _RoleUsersListScreenState extends State<RoleUsersListScreen> {
                             const SizedBox(height: 2),
                             Text(user['phone'] ?? "", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                             const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                              child: Text("KYC: $status", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                  child: Text("KYC: $status", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: (user['status'] == 'Suspended' ? Colors.red : Colors.green).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    user['status'] == 'Suspended' ? "Inactive" : "Active",
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: user['status'] == 'Suspended' ? Colors.red.shade700 : Colors.green.shade700),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                       IconButton(tooltip: "Login As User", onPressed: () => _loginAsUser(user), icon: Icon(Icons.login_rounded, color: widget.color, size: 22), visualDensity: VisualDensity.compact),
                       PopupMenuButton<String>(
-                        tooltip: "Update KYC Status",
-                        icon: Icon(Icons.fact_check_outlined, color: statusColor, size: 20),
+                        tooltip: "Toggle Active/Inactive",
+                        icon: Icon(
+                          user['status'] == 'Suspended' ? Icons.toggle_off_rounded : Icons.toggle_on_rounded,
+                          color: user['status'] == 'Suspended' ? Colors.red.shade400 : Colors.green.shade600,
+                          size: 28,
+                        ),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         onSelected: (value) {
-                          if (value == 'Rejected') {
-                            adminShowRejectionDialog(context, user['id'], _actionKyc);
-                          } else {
-                            _actionKyc(user['id'], value);
-                          }
+                          _toggleUserStatus(user['id'], value);
                         },
                         itemBuilder: (ctx) => [
-                          PopupMenuItem(value: 'Approved', child: Row(children: [Icon(Icons.check_circle, color: Colors.green.shade600, size: 18), const SizedBox(width: 10), const Text("Approve")])),
-                          PopupMenuItem(value: 'Rejected', child: Row(children: [Icon(Icons.cancel, color: Colors.red.shade600, size: 18), const SizedBox(width: 10), const Text("Reject")])),
+                          PopupMenuItem(
+                            value: 'Active',
+                            child: Row(children: [Icon(Icons.check_circle, color: Colors.green.shade600, size: 18), const SizedBox(width: 10), const Text("Set Active")]),
+                          ),
+                          PopupMenuItem(
+                            value: 'Suspended',
+                            child: Row(children: [Icon(Icons.block, color: Colors.red.shade600, size: 18), const SizedBox(width: 10), const Text("Set Inactive (Suspend)")]),
+                          ),
                         ],
                       ),
                     ],
@@ -1616,16 +1677,22 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
   bool _isLoadingVideos = false;
   bool _isLoadingTestimonials = false;
   bool _isLoadingFaqs = false;
+  bool _isLoadingGallery = false;
+  bool _isLoadingPrograms = false;
   List<dynamic> _coursesList = [];
   List<dynamic> _videosList = [];
   List<dynamic> _testimonialsList = [];
   List<dynamic> _faqsList = [];
+  List<dynamic> _galleryList = [];
+  List<dynamic> _programsList = [];
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _fetchCourses();
+    _fetchPrograms();
+    _fetchGallery();
     _fetchVideos();
     _fetchTestimonials();
     _fetchFaqs();
@@ -1641,6 +1708,8 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
   Future<void> _refreshAll({bool silent = false}) async {
     await Future.wait([
       _fetchCourses(silent: silent),
+      _fetchPrograms(silent: silent),
+      _fetchGallery(silent: silent),
       _fetchVideos(silent: silent),
       _fetchTestimonials(silent: silent),
       _fetchFaqs(silent: silent),
@@ -2314,6 +2383,292 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
     );
   }
 
+  Future<void> _fetchGallery({bool silent = false}) async {
+    if (!silent) setState(() => _isLoadingGallery = true);
+    try {
+      final response = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_gallery.php"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && mounted) setState(() => _galleryList = data['data']);
+      }
+    } catch (e) {
+      debugPrint("Error fetching gallery: $e");
+    } finally {
+      if (!silent && mounted) setState(() => _isLoadingGallery = false);
+    }
+  }
+
+  Future<void> _addGallery(String title, String imageUrl, List<String> targetRoles) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/add_gallery.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"title": title, "image_url": imageUrl, "target_roles": targetRoles}),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Gallery photo added successfully!", false);
+        _fetchGallery();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Failed to add photo", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
+  Future<void> _deleteGallery(int photoId) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/delete_gallery.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"id": photoId}),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Photo removed from gallery!", false);
+        _fetchGallery();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Failed to delete photo", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
+  void _showGalleryDialog() {
+    final titleCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+    final Map<String, bool> targetRoles = {"All": true, "Distributor": false, "Franchise Partner": false, "School": false, "Student": false};
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text("Add Gallery Photo", style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: "Photo Title / Caption")),
+                  TextField(controller: urlCtrl, decoration: const InputDecoration(labelText: "Image URL (Direct link)")),
+                  const SizedBox(height: 16),
+                  const Text("Visible To", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xff1E293B))),
+                  const Divider(height: 12),
+                  ...targetRoles.keys.map((role) {
+                    return CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: _AdminTheme.primary,
+                      title: Text(role, style: const TextStyle(fontSize: 14)),
+                      value: targetRoles[role],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          if (role == "All") {
+                            targetRoles.updateAll((key, value) => key == "All" ? (val ?? false) : false);
+                          } else {
+                            targetRoles[role] = val ?? false;
+                            if (targetRoles[role] == true) targetRoles["All"] = false;
+                          }
+                        });
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: _AdminTheme.primary, foregroundColor: Colors.white),
+                onPressed: () {
+                  final title = titleCtrl.text.trim();
+                  final url = urlCtrl.text.trim();
+                  if (title.isEmpty || url.isEmpty) {
+                    adminShowSnack(ctx, "Please fill out title and image URL", true);
+                    return;
+                  }
+                  final selectedRoles = targetRoles.entries.where((e) => e.value).map((e) => e.key).toList();
+                  if (selectedRoles.isEmpty) {
+                    adminShowSnack(ctx, "Please select at least one role", true);
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  _addGallery(title, url, selectedRoles);
+                },
+                child: const Text("Add Photo"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _fetchPrograms({bool silent = false}) async {
+    if (!silent) setState(() => _isLoadingPrograms = true);
+    try {
+      final response = await http.get(Uri.parse("https://apps.kofalt.in/api/admin/get_programs.php"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && mounted) setState(() => _programsList = data['data']);
+      }
+    } catch (e) {
+      debugPrint("Error fetching programs: $e");
+    } finally {
+      if (!silent && mounted) setState(() => _isLoadingPrograms = false);
+    }
+  }
+
+  Future<void> _addProgram(String title, String description, String demoUrl, String fullDemoUrl, String thumbUrl, List<String> targetRoles) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/add_program.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "title": title,
+          "description": description,
+          "demo_video_url": demoUrl,
+          "full_demo_video_url": fullDemoUrl,
+          "thumbnail_url": thumbUrl,
+          "target_roles": targetRoles,
+        }),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Program added successfully!", false);
+        _fetchPrograms();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Failed to add program", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
+  Future<void> _deleteProgram(int programId) async {
+    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator(color: _AdminTheme.primary)));
+    try {
+      final response = await http.post(
+        Uri.parse("https://apps.kofalt.in/api/admin/delete_program.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"id": programId}),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        adminShowSnack(context, "Program removed!", false);
+        _fetchPrograms();
+      } else {
+        adminShowSnack(context, data['message'] ?? "Failed to delete program", true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      adminShowSnack(context, "Network error: $e", true);
+    }
+  }
+
+  void _showProgramDialog() {
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final demoCtrl = TextEditingController();
+    final fullDemoCtrl = TextEditingController();
+    final thumbCtrl = TextEditingController();
+    final Map<String, bool> targetRoles = {"All": true, "Distributor": false, "Franchise Partner": false, "School": false, "Student": false};
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text("Add Program & Demos", style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: "Program Title (e.g. Abacus)")) ,
+                  TextField(controller: descCtrl, decoration: const InputDecoration(labelText: "Description")),
+                  TextField(controller: demoCtrl, decoration: const InputDecoration(labelText: "Watch Demo Video URL (MP4/Stream)")),
+                  TextField(controller: fullDemoCtrl, decoration: const InputDecoration(labelText: "Watch Full Demo Video URL (MP4/Stream)")),
+                  TextField(controller: thumbCtrl, decoration: const InputDecoration(labelText: "Thumbnail Image URL (Optional)")),
+                  const SizedBox(height: 16),
+                  const Text("Visible To", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xff1E293B))),
+                  const Divider(height: 12),
+                  ...targetRoles.keys.map((role) {
+                    return CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: _AdminTheme.primary,
+                      title: Text(role, style: const TextStyle(fontSize: 14)),
+                      value: targetRoles[role],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          if (role == "All") {
+                            targetRoles.updateAll((key, value) => key == "All" ? (val ?? false) : false);
+                          } else {
+                            targetRoles[role] = val ?? false;
+                            if (targetRoles[role] == true) targetRoles["All"] = false;
+                          }
+                        });
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: _AdminTheme.primary, foregroundColor: Colors.white),
+                onPressed: () {
+                  final title = titleCtrl.text.trim();
+                  final desc = descCtrl.text.trim();
+                  final demo = demoCtrl.text.trim();
+                  final full = fullDemoCtrl.text.trim();
+                  final thumb = thumbCtrl.text.trim();
+                  if (title.isEmpty) {
+                    adminShowSnack(ctx, "Please enter a program title", true);
+                    return;
+                  }
+                  final selectedRoles = targetRoles.entries.where((e) => e.value).map((e) => e.key).toList();
+                  if (selectedRoles.isEmpty) {
+                    adminShowSnack(ctx, "Please select at least one role", true);
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  _addProgram(title, desc, demo, full, thumb, selectedRoles);
+                },
+                child: const Text("Add Program"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2365,17 +2720,227 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                       ),
                     ),
                     adminSectionDivider(),
+                    adminContentSectionHeader(
+                      title: "Our Programs & Demos",
+                      icon: Icons.school_rounded,
+                      iconColor: const Color(0xff2563EB),
+                      subtitle: "Manage programs with Demo & Full Demo video streaming.",
+                      buttonLabel: "New Program",
+                      onPressed: _showProgramDialog,
+                    ),
+                    const SizedBox(height: 12),
+                    if (_isLoadingPrograms)
+                      const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                    else if (_programsList.isEmpty)
+                      adminEmptyState(Icons.school_outlined, "No programs added yet.", subMessage: "Add a subject program with demo videos.")
+                    else ...[
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _programsList.length > 3 ? 3 : _programsList.length,
+                        itemBuilder: (context, index) {
+                          final prog = _programsList[index];
+                          final demoUrl = prog['demo_video_url'] ?? "";
+                          final fullUrl = prog['full_demo_video_url'] ?? "";
+                          final List<dynamic> pRoles = prog['target_roles'] is List ? prog['target_roles'] : (prog['target_roles']?.toString().split(',') ?? ["All"]);
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 1,
+                            color: Colors.white,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(color: const Color(0xff2563EB).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                        child: const Icon(Icons.school_rounded, color: Color(0xff2563EB), size: 24),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(prog['title'] ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            if ((prog['description'] ?? "").toString().isNotEmpty)
+                                              Text(prog['description'], style: TextStyle(color: Colors.grey.shade600, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(tooltip: "Remove Program", onPressed: () => _deleteProgram(prog['id']), icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 22), visualDensity: VisualDensity.compact),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      if (demoUrl.isNotEmpty)
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              side: const BorderSide(color: Color(0xff2563EB)),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                            ),
+                                            onPressed: () {
+                                              DynamicVideoPlayerModal.show(
+                                                context,
+                                                title: "${prog['title']} - Demo",
+                                                description: prog['description'] ?? "",
+                                                videoUrl: demoUrl,
+                                                themeColor: const Color(0xff2563EB),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.play_arrow_rounded, color: Color(0xff2563EB), size: 18),
+                                            label: const Text("Watch Demo", style: TextStyle(color: Color(0xff2563EB), fontWeight: FontWeight.bold, fontSize: 12)),
+                                          ),
+                                        ),
+                                      if (demoUrl.isNotEmpty && fullUrl.isNotEmpty)
+                                        const SizedBox(width: 10),
+                                      if (fullUrl.isNotEmpty)
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xff2563EB),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                              elevation: 0,
+                                            ),
+                                            onPressed: () {
+                                              DynamicVideoPlayerModal.show(
+                                                context,
+                                                title: "${prog['title']} - Full Demo",
+                                                description: prog['description'] ?? "",
+                                                videoUrl: fullUrl,
+                                                themeColor: const Color(0xff2563EB),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 18),
+                                            label: const Text("Full Demo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: pRoles.map<Widget>((role) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: const Color(0xff2563EB).withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                                        child: Text(role.toString(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xff2563EB))),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      if (_programsList.length > 3)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllProgramsScreen(programs: _programsList, themeColor: const Color(0xff2563EB))));
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            label: Text("View All Programs (${_programsList.length})", style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                    ],
+                    adminSectionDivider(),
+                    adminContentSectionHeader(
+                      title: "Photo Gallery",
+                      icon: Icons.photo_library_rounded,
+                      iconColor: const Color(0xffEC4899),
+                      subtitle: "Upload photo gallery items for roles.",
+                      buttonLabel: "New Photo",
+                      onPressed: _showGalleryDialog,
+                    ),
+                    const SizedBox(height: 12),
+                    if (_isLoadingGallery)
+                      const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                    else if (_galleryList.isEmpty)
+                      adminEmptyState(Icons.add_photo_alternate_outlined, "No gallery photos yet.", subMessage: "Add images visible to user dashboards.")
+                    else ...[
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 0.9,
+                        ),
+                        itemCount: _galleryList.length > 3 ? 3 : _galleryList.length,
+                        itemBuilder: (context, index) {
+                          final photo = _galleryList[index];
+                          return Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Colors.grey.shade100,
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    photo['image_url'] ?? "",
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => _deleteGallery(photo['id']),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                    child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      if (_galleryList.length > 3)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllGalleryScreen(photos: _galleryList, themeColor: const Color(0xffEC4899))));
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            label: Text("View All Photos (${_galleryList.length})", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xffEC4899))),
+                          ),
+                        ),
+                    ],
+                    adminSectionDivider(),
                     adminContentSectionHeader(title: "Course Catalogs", icon: Icons.menu_book_rounded, iconColor: _AdminTheme.primary, buttonLabel: "New Course", onPressed: _showCourseDialog),
                     const SizedBox(height: 12),
                     if (_isLoadingCourses)
                       const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
                     else if (_coursesList.isEmpty)
                       adminEmptyState(Icons.menu_book_outlined, "No courses registered yet.", subMessage: "Add a course using the button above.")
-                    else
+                    else ...[
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _coursesList.length,
+                        itemCount: _coursesList.length > 3 ? 3 : _coursesList.length,
                         itemBuilder: (context, index) {
                           final course = _coursesList[index];
                           final List<dynamic> chapters = course['chapters'] ?? [];
@@ -2428,6 +2993,7 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                           );
                         },
                       ),
+                    ],
                     adminSectionDivider(),
                     adminContentSectionHeader(
                       title: "Video Library",
@@ -2442,11 +3008,11 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                       const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
                     else if (_videosList.isEmpty)
                       adminEmptyState(Icons.smart_display_outlined, "No videos in the library yet.", subMessage: "Add one using the button above.")
-                    else
+                    else ...[
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _videosList.length,
+                        itemCount: _videosList.length > 3 ? 3 : _videosList.length,
                         itemBuilder: (context, index) {
                           final video = _videosList[index];
                           final List<dynamic> roles = video['target_roles'] is List ? video['target_roles'] : (video['target_roles']?.toString().split(',') ?? ["All"]);
@@ -2497,6 +3063,18 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                           );
                         },
                       ),
+                      if (_videosList.length > 3)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllVideosScreen(videos: _videosList, themeColor: _AdminTheme.primary)));
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            label: Text("View All Videos (${_videosList.length})", style: const TextStyle(fontWeight: FontWeight.bold, color: _AdminTheme.primary)),
+                          ),
+                        ),
+                    ],
                     adminSectionDivider(),
                     adminContentSectionHeader(
                       title: "Testimonials",
@@ -2511,11 +3089,11 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                       const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
                     else if (_testimonialsList.isEmpty)
                       adminEmptyState(Icons.reviews_outlined, "No testimonials added yet.", subMessage: "Add one using the button above.")
-                    else
+                    else ...[
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _testimonialsList.length,
+                        itemCount: _testimonialsList.length > 3 ? 3 : _testimonialsList.length,
                         itemBuilder: (context, index) {
                           final t = _testimonialsList[index];
                           final int rating = int.tryParse(t['rating']?.toString() ?? '5') ?? 5;
@@ -2564,6 +3142,18 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                           );
                         },
                       ),
+                      if (_testimonialsList.length > 3)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllTestimonialsScreen(testimonials: _testimonialsList, themeColor: const Color(0xffF59E0B))));
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            label: Text("View All Testimonials (${_testimonialsList.length})", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xffF59E0B))),
+                          ),
+                        ),
+                    ],
                     adminSectionDivider(),
                     adminContentSectionHeader(
                       title: "FAQs",
@@ -2578,11 +3168,11 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                       const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
                     else if (_faqsList.isEmpty)
                       adminEmptyState(Icons.quiz_outlined, "No FAQs added yet.", subMessage: "Add one using the button above.")
-                    else
+                    else ...[
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _faqsList.length,
+                        itemCount: _faqsList.length > 3 ? 3 : _faqsList.length,
                         itemBuilder: (context, index) {
                           final faq = _faqsList[index];
                           final List<dynamic> fRoles = faq['target_roles'] is List ? faq['target_roles'] : (faq['target_roles']?.toString().split(',') ?? ["All"]);
@@ -2622,6 +3212,18 @@ class _ContentManagerScreenState extends State<ContentManagerScreen> {
                           );
                         },
                       ),
+                      if (_faqsList.length > 3)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ViewAllFaqsScreen(faqs: _faqsList, themeColor: const Color(0xff10B981))));
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                            label: Text("View All FAQs (${_faqsList.length})", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xff10B981))),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),

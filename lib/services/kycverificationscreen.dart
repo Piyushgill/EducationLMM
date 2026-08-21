@@ -123,7 +123,7 @@ class KycVerificationScreen extends StatefulWidget {
   const KycVerificationScreen({
     super.key,
     required this.role,
-    required this.formData,
+    this.formData = const {},
     this.inialKycData,
     this.isPostSignupKyc = false,
     this.userId = 0,
