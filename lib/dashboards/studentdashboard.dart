@@ -2809,7 +2809,6 @@ class _StudentProfileTab extends StatelessWidget {
   );
 }
 
-// ============================================================
 //  PRACTICE TEST SCREEN — 50 Questions, randomized per attempt
 // ============================================================
 

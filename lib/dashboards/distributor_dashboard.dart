@@ -16,7 +16,7 @@ import 'package:thenew/dashboardCardDetails/total_students_screen.dart';
 import 'package:thenew/dashboardCardDetails/visitors_screen.dart';
 import 'package:thenew/widgets/notification_bell.dart';
 
-// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
+
 const String _kMyRole = "Distributor";
 
 /// Returns true if this admin-managed content item (video/testimonial/faq)

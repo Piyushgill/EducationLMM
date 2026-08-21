@@ -7,7 +7,6 @@ import 'package:thenew/dashboards/super_admin_dashboard.dart';
 import 'package:thenew/widgets/notification_bell.dart';
 import 'package:thenew/widgets/dynamic_video_player.dart';
 
-// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
 const String _kMyRole = "School";
 
 /// Returns true if this admin-managed content item (video/testimonial/faq)

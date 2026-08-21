@@ -12,7 +12,6 @@ import 'package:thenew/dashboardCardDetails/FranchiseKitOrderScreen.dart';
 import 'package:thenew/dashboardCardDetails/Student_Enrollment_Screen.dart';
 import 'package:thenew/widgets/notification_bell.dart';
 
-// ── Role constant used to filter admin-managed content (Videos/Testimonials/FAQs) ──
 const String _kMyRole = "Franchise Partner";
 
 /// Returns true if this admin-managed content item (video/testimonial/faq)
