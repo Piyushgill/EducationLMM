@@ -38,11 +38,11 @@ try {
 
     $conn->beginTransaction();
 
-    // Insert user
+    // Insert user with Pending KYC so student submits KYC on first login
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     $stmtUser = $conn->prepare("
         INSERT INTO users (name, email, phone, password, role, kyc_status, status) 
-        VALUES (?, ?, ?, ?, 'Student', 'Approved', 'Active')
+        VALUES (?, ?, ?, ?, 'Student', 'Pending', 'Active')
     ");
     $stmtUser->execute([$name, $email, $phone, $hashedPassword]);
     $studentId = $conn->lastInsertId();

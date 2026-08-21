@@ -74,6 +74,10 @@ try {
     // 4. Use shared per-kit commission distributor from db.php
     distributeCommission($conn, $orderId);
 
+    // 5. Activate buyer's MLM status
+    $stmtAct = $conn->prepare("UPDATE users SET mlm_active = 1 WHERE id = ?");
+    $stmtAct->execute([$buyerId]);
+
     log_debug("Order #$orderId placed by buyer $buyerId — program: $program, qty: $quantity");
     $conn->commit();
 

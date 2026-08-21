@@ -7,6 +7,7 @@ import 'package:thenew/dashboards/franchisedashboard.dart';
 import 'package:thenew/dashboards/schoolDashboard.dart';
 import 'package:thenew/dashboards/studentdashboard.dart';
 import 'package:thenew/services/session_manager.dart';
+import 'package:thenew/services/kycverificationscreen.dart';
 
 class KycStatusScreen extends StatefulWidget {
   final Map<String, dynamic> userSession;
@@ -213,12 +214,61 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
               
               const Spacer(),
               
+              // ── UPLOAD / UPDATE KYC DOCUMENTS BUTTON ──
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => KycVerificationScreen(
+                        role: _userRole,
+                        isPostSignupKyc: true,
+                        userId: _userId,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  height: 56,
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    color: const Color(0xff16A34A),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xff16A34A).withOpacity(.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.upload_file_rounded, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          "Submit / Update KYC Documents",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
               // ── REFRESH STATUS BUTTON ──
               if (isPending)
                 GestureDetector(
                   onTap: _checkKycStatus,
                   child: Container(
-                    height: 60,
+                    height: 56,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
@@ -244,7 +294,7 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                               "Refresh Status",
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
